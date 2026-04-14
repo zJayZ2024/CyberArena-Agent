@@ -1,0 +1,102 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "World State",
+  "description": "Global state after a single round of attack/defense exercise in CyberArena Agent.",
+  "type": "object",
+  "properties": {
+    "turn": {
+      "type": "integer",
+      "description": "Current turn number."
+    },
+    "system_health": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "System health score (0-100)."
+    },
+    "exposure_level": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Exposure level score (0-100)."
+    },
+    "network_nodes": {
+      "type": "object",
+      "description": "Current state of network topology nodes (e.g., Internet, WAF, Web_Server, Database).",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "General status of the node (e.g., 'Normal', 'Compromised', 'Down', 'Defended')."
+          },
+          "exposed_ports": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "List of currently exposed ports on this node."
+          },
+          "vulnerabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of discovered or exploitable vulnerabilities."
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    },
+    "action_logs": {
+      "type": "array",
+      "description": "Logs of actions taken by Red and Blue agents in this turn.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "agent_type": {
+            "type": "string",
+            "enum": [
+              "Red",
+              "Blue",
+              "Referee"
+            ],
+            "description": "Type of agent that performed the action."
+          },
+          "thought": {
+            "type": "string",
+            "description": "Agent's reasoning or thought process before acting."
+          },
+          "action_type": {
+            "type": "string",
+            "description": "Type of action performed (e.g., 'Scan', 'Exploit', 'Patch_Vulnerability', 'Block_IP')."
+          },
+          "payload": {
+            "type": "string",
+            "description": "Specific payload, command, or data used in the action."
+          },
+          "referee_result": {
+            "type": "string",
+            "description": "Result or consequence of the action as judged and settled by the Referee Agent."
+          }
+        },
+        "required": [
+          "agent_type",
+          "thought",
+          "action_type",
+          "payload",
+          "referee_result"
+        ]
+      }
+    }
+  },
+  "required": [
+    "turn",
+    "system_health",
+    "exposure_level",
+    "network_nodes",
+    "action_logs"
+  ]
+}
