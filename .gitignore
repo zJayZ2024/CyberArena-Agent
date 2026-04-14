@@ -2,3 +2,4 @@
 __pycache__/
 node_modules/
 backend_engine/results/simulation_*.json
+.venv/
