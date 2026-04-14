@@ -1,0 +1,32 @@
+{
+  "turn": 1,
+  "system_health": 100,
+  "exposure_level": 10,
+  "network_nodes": {
+    "Web_Server": {
+      "status": "Normal",
+      "exposed_ports": [
+        80
+      ],
+      "vulnerabilities": [
+        "SQL_Injection"
+      ]
+    }
+  },
+  "action_logs": [
+    {
+      "agent_type": "Red",
+      "thought": "我需要先弄清楚靶机开放了哪些服务",
+      "action_type": "Port_Scan",
+      "payload": "nmap -sV -p- target.local",
+      "referee_result": "发现 80 端口，暴露度增加 10"
+    },
+    {
+      "agent_type": "Blue",
+      "thought": "发现明显的 Nmap 扫描特征，先记录源 IP，观察其后续动作",
+      "action_type": "Enable_Traffic_Audit",
+      "payload": "{\"target\": \"source_ip\", \"action\": \"audit_log\"}",
+      "referee_result": "状态更新，回合结束"
+    }
+  ]
+}
