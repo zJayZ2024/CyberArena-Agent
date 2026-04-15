@@ -1,17 +1,54 @@
-﻿import React, { useEffect, useRef, useState } from "react";
-
-const PAGE_STYLES = `
-  .topology-page { max-width: 920px; margin: 0 auto; }
-  .page-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 2px; color: #4b5563; margin-bottom: 12px; text-transform: uppercase; }
-  .controls { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-  .ctrl-btn { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 5px 12px; border-radius: 4px; cursor: pointer; background: #111827; border: 1px solid #1f2937; color: #9ca3af; transition: all 0.15s; }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CyberArena — TopologyGraph Preview</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #07090f; color: #e5e7eb; font-family: 'Inter', sans-serif; height: 100%; }
+  body { padding: 20px; }
+  #root { max-width: 920px; margin: 0 auto; }
+  .page-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 2px; color: #4b5563;
+    margin-bottom: 12px; text-transform: uppercase;
+  }
+  .controls {
+    display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;
+  }
+  .ctrl-btn {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    padding: 5px 12px; border-radius: 4px; cursor: pointer;
+    background: #111827; border: 1px solid #1f2937; color: #9ca3af;
+    transition: all 0.15s;
+  }
   .ctrl-btn:hover { border-color: #3b82f6; color: #3b82f6; }
   .ctrl-btn.active { background: #0d1f3c; border-color: #3b82f6; color: #3b82f6; }
-  .info-row { display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
-  .info-chip { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 4px 10px; border-radius: 20px; background: #111827; border: 0.5px solid #1f2937; color: #6b7280; }
-`;
+  .ctrl-btn.red { }
+  .ctrl-btn.red:hover { border-color: #ef4444; color: #ef4444; }
+  .info-row {
+    display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap;
+  }
+  .info-chip {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    padding: 4px 10px; border-radius: 20px;
+    background: #111827; border: 0.5px solid #1f2937; color: #6b7280;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
 
-// 鈹€鈹€鈹€ DESIGN TOKENS 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// ─── DESIGN TOKENS ────────────────────────────────────────────────
 const T = {
   bg: "#07090f", bgPanel: "#0d1117", bgNode: "#111827", border: "#1f2937",
   red: "#ef4444", redDim: "#7f1d1d", redBg: "#1a0a0a", redGlow: "rgba(239,68,68,0.55)",
@@ -60,10 +97,10 @@ const MULTI_HOP = {
   firewall:   ["firewall"],
 };
 
-// 鈹€鈹€鈹€ SIMULATION ROUNDS 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// ─── SIMULATION ROUNDS ────────────────────────────────────────────
 const SIM_ROUNDS = [
   {
-    round:1, red_action:{technique:"Port Scan",target_node:"firewall",technique_id:"T1046",reasoning:"Initial recon -map open ports on internet-facing gateway before selecting attack vector."},
+    round:1, red_action:{technique:"Port Scan",target_node:"firewall",technique_id:"T1046",reasoning:"Initial recon — map open ports on internet-facing gateway before selecting attack vector."},
     judge_result:{success:true,damage:5,logs:["[WARN] Port scan detected: 254 probes/3s","[INFO] Open: 80, 443, 22, 53"],node_status_change:"scanning",success_prob:0.9},
     blue_action:{type:"ids_update",target:"firewall",rule_or_code:"alert tcp any -> $HOME_NET any (msg:\"PortScan\"; detection_filter:track by_src,count 100,seconds 3;)",action_cost:2,effectiveness:0.6,reasoning:"IDS signature update to track scan pattern."},
     world_state:{round:1,nodes:[
@@ -73,7 +110,7 @@ const SIM_ROUNDS = [
     ],score:{red:5,blue:8},red_phase:"Recon",availability:1.0,blue_action_points:1,special_event:null},
   },
   {
-    round:2, red_action:{technique:"SQL Injection",target_node:"web_server",technique_id:"T1190",reasoning:"Port 80 is open. Attempt SQLi on login endpoint -highest yield given patch_level 0.5."},
+    round:2, red_action:{technique:"SQL Injection",target_node:"web_server",technique_id:"T1190",reasoning:"Port 80 is open. Attempt SQLi on login endpoint — highest yield given patch_level 0.5."},
     judge_result:{success:true,damage:20,logs:["[CRIT] SQLi on /api/login","[WARN] Unusual DB queries from WEB_SERVER"],node_status_change:"compromised",success_prob:0.72},
     blue_action:{type:"firewall_rule",target:"web_server",rule_or_code:"iptables -A INPUT -p tcp --dport 80 -m limit --limit 30/min -j ACCEPT\n# Rate-limit HTTP",action_cost:1,effectiveness:0.55,reasoning:"Deploy HTTP rate-limit to slow injection attempts."},
     world_state:{round:2,nodes:[
@@ -84,7 +121,7 @@ const SIM_ROUNDS = [
   },
   {
     round:3, red_action:{technique:"Lateral Movement",target_node:"app_server",technique_id:"T1021",reasoning:"Web server compromised. Pivot to app_server using stored credentials found in /var/www/config."},
-    judge_result:{success:false,damage:0,logs:["[INFO] Lateral move attempt blocked","[OK] WAF rule matched -connection dropped"],node_status_change:null,success_prob:0.38},
+    judge_result:{success:false,damage:0,logs:["[INFO] Lateral move attempt blocked","[OK] WAF rule matched — connection dropped"],node_status_change:null,success_prob:0.38},
     blue_action:{type:"patch",target:"app_server",rule_or_code:"# Emergency patch applied\napt-get install --only-upgrade tomcat10\n# CVE-2023-1234 remediated",action_cost:3,effectiveness:0.9,reasoning:"App_server is likely next pivot target. Apply emergency patch while attack is still on web_server."},
     world_state:{round:3,nodes:[
       {id:"web_server",status:"compromised",attack_count:1,defense_count:1},{id:"dns_server",status:"normal",attack_count:0,defense_count:0},
@@ -95,7 +132,7 @@ const SIM_ROUNDS = [
   {
     round:4, red_action:{technique:"Credential Dump",target_node:"admin_host",technique_id:"T1003",reasoning:"App_server patched. Try admin_host via SSH using credentials cached in web_server memory."},
     judge_result:{success:true,damage:15,logs:["[CRIT] Unauthorized SSH login to ADMIN_HOST","[WARN] sudo commands executed","[INFO] /etc/shadow accessed"],node_status_change:"compromised",success_prob:0.61},
-    blue_action:{type:"ids_update",target:"database",rule_or_code:"alert tcp $INTERNAL_NET any -> $DB_SERVERS 3306 (msg:\"Suspicious DB Access\"; threshold:type both,track by_src,count 5,seconds 60;)",action_cost:2,effectiveness:0.75,reasoning:"Admin_host compromised -DB is now reachable. Pre-emptive IDS rule on DB port 3306."},
+    blue_action:{type:"ids_update",target:"database",rule_or_code:"alert tcp $INTERNAL_NET any -> $DB_SERVERS 3306 (msg:\"Suspicious DB Access\"; threshold:type both,track by_src,count 5,seconds 60;)",action_cost:2,effectiveness:0.75,reasoning:"Admin_host compromised — DB is now reachable. Pre-emptive IDS rule on DB port 3306."},
     world_state:{round:4,nodes:[
       {id:"web_server",status:"compromised",attack_count:1,defense_count:1},{id:"dns_server",status:"normal",attack_count:0,defense_count:0},
       {id:"app_server",status:"defended",attack_count:1,defense_count:1},{id:"admin_host",status:"compromised",attack_count:1,defense_count:0},
@@ -103,8 +140,8 @@ const SIM_ROUNDS = [
     ],score:{red:40,blue:52},red_phase:"LateralMove",availability:0.88,blue_action_points:1,special_event:null},
   },
   {
-    round:5, red_action:{technique:"Data Exfiltration",target_node:"database",technique_id:"T1041",reasoning:"Full path: web鈫抋dmin鈫抎b. Using admin credentials to access MySQL 3306. Target: customer PII table."},
-    judge_result:{success:true,damage:35,logs:["[CRIT] Bulk SELECT on users table -50k rows","[CRIT] Data exfil detected: 12MB outbound","[ERR] Rate limit exceeded"],node_status_change:"compromised",success_prob:0.68},
+    round:5, red_action:{technique:"Data Exfiltration",target_node:"database",technique_id:"T1041",reasoning:"Full path: web→admin→db. Using admin credentials to access MySQL 3306. Target: customer PII table."},
+    judge_result:{success:true,damage:35,logs:["[CRIT] Bulk SELECT on users table — 50k rows","[CRIT] Data exfil detected: 12MB outbound","[ERR] Rate limit exceeded"],node_status_change:"compromised",success_prob:0.68},
     blue_action:{type:"firewall_rule",target:"database",rule_or_code:"iptables -I OUTPUT -p tcp --dport 443 -m owner --uid-owner mysql -j DROP\n# Block DB outbound",action_cost:2,effectiveness:0.8,reasoning:"Database actively exfiltrating. Emergency outbound block on mysql process traffic."},
     world_state:{round:5,nodes:[
       {id:"web_server",status:"compromised",attack_count:1,defense_count:1},{id:"dns_server",status:"normal",attack_count:0,defense_count:0},
@@ -114,7 +151,7 @@ const SIM_ROUNDS = [
   },
 ];
 
-// 鈹€鈹€鈹€ SVG ICON COMPONENTS (Lucide-style, no external dep) 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// ─── SVG ICON COMPONENTS (Lucide-style, no external dep) ──────────
 const IconShield  = ({size=16,color="#fff"}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
 const IconServer  = ({size=16,color="#fff"}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>;
 const IconDB      = ({size=16,color="#fff"}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg>;
@@ -126,7 +163,7 @@ const IconAlert   = ({size=12,color="#fff"}) => <svg width={size} height={size} 
 
 const ICONS = { web_server: IconGlobe, dns_server: IconWifi, app_server: IconServer, admin_host: IconMonitor, database: IconDB, firewall: IconShield };
 
-// 鈹€鈹€鈹€ ANIMATED EDGE 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// ─── ANIMATED EDGE ────────────────────────────────────────────────
 function AnimatedEdge({ x1,y1,x2,y2,color,dasharray="6 3",speed=0.4,markerId,opacity=0.9 }) {
   return (
     <line x1={x1} y1={y1} x2={x2} y2={y2}
@@ -136,7 +173,7 @@ function AnimatedEdge({ x1,y1,x2,y2,color,dasharray="6 3",speed=0.4,markerId,opa
   );
 }
 
-// 鈹€鈹€鈹€ EDGE LABEL 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// ─── EDGE LABEL ───────────────────────────────────────────────────
 function EdgeLabel({x,y,text,color,bg}) {
   const w = Math.max(text.length * 5.5 + 16, 52);
   return (
@@ -147,7 +184,7 @@ function EdgeLabel({x,y,text,color,bg}) {
   );
 }
 
-// 鈹€鈹€鈹€ NODE 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// ─── NODE ─────────────────────────────────────────────────────────
 function Node({ cfg, status, atkCnt=0, defCnt=0, isTarget, isDefended, hovered, onHover, onClick }) {
   const st = STATUS_STYLES[status] || STATUS_STYLES.normal;
   const Icon = ICONS[cfg.id] || IconServer;
@@ -192,7 +229,7 @@ function Node({ cfg, status, atkCnt=0, defCnt=0, isTarget, isDefended, hovered, 
   );
 }
 
-// 鈹€鈹€鈹€ BASE NODE 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// ─── BASE NODE ────────────────────────────────────────────────────
 function Base({x,y,label,sublabel,score,color,bg,glowColor,Icon}) {
   return (
     <g transform={`translate(${x},${y})`}>
@@ -213,7 +250,7 @@ function Base({x,y,label,sublabel,score,color,bg,glowColor,Icon}) {
   );
 }
 
-// 鈹€鈹€鈹€ TOOLTIP 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// ─── TOOLTIP ──────────────────────────────────────────────────────
 function Tooltip({cfg,status,atkCnt,defCnt}) {
   const st = STATUS_STYLES[status] || STATUS_STYLES.normal;
   const lines = [
@@ -232,7 +269,7 @@ function Tooltip({cfg,status,atkCnt,defCnt}) {
       <rect width={w} height={h} rx={6} fill={T.bgPanel} stroke={st.border} strokeWidth="1" opacity="0.97"/>
       <rect width={w} height={20} rx={6} fill={`${st.border}20`}/>
       <rect width={w} height={4} y={16} fill={T.bgPanel}/>
-      <text x={pad} y={14} fontFamily={T.fontMono} fontSize={9} fill={st.border} fontWeight="700">{cfg.label} -{cfg.id.replace("_"," ")}</text>
+      <text x={pad} y={14} fontFamily={T.fontMono} fontSize={9} fill={st.border} fontWeight="700">{cfg.label} — {cfg.id.replace("_"," ")}</text>
       {lines.map((ln,i)=>(
         <text key={i} x={pad} y={pad+24+i*lh} fontFamily={T.fontMono} fontSize={8}
           fill={ln.startsWith("Vuln") ? T.amber : T.grayText}>{ln}</text>
@@ -241,7 +278,7 @@ function Tooltip({cfg,status,atkCnt,defCnt}) {
   );
 }
 
-// 鈹€鈹€鈹€ THOUGHT PANEL 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// ─── THOUGHT PANEL ────────────────────────────────────────────────
 function ThoughtPanel({round,onClose}) {
   if (!round) return null;
   const {red_action: ra, blue_action: ba, judge_result: jr} = round;
@@ -254,17 +291,17 @@ function ThoughtPanel({round,onClose}) {
     }}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <span style={{color:T.grayText,fontSize:10,letterSpacing:1}}>AGENT REASONING</span>
-        <button type="button" onClick={onClose} style={{background:"none",border:"none",color:T.grayDim,cursor:"pointer",fontSize:14}}>x</button>
+        <button onClick={onClose} style={{background:"none",border:"none",color:T.grayDim,cursor:"pointer",fontSize:14}}>×</button>
       </div>
       {[
-        {label:"RED ACTION",color:T.red,icon:"RED",text:ra?.reasoning, extra:`${ra?.technique_id} · ${ra?.technique}`},
-        {label:"JUDGE",color:T.amber,icon:"JDG",text:jr?.narrative, extra:`Success: ${jr?.success ? "YES" : "NO"} · dmg ${jr?.damage ?? 0}`},
-        {label:"BLUE ACTION",color:T.blue,icon:"DEF",text:ba?.reasoning, extra:`Type: ${ba?.type} · cost ${ba?.action_cost}pt`},
+        {label:"RED ACTION",color:T.red,icon:"⚔",text:ra?.reasoning, extra:`${ra?.technique_id} · ${ra?.technique}`},
+        {label:"JUDGE",color:T.amber,icon:"⚖",text:jr?.narrative, extra:`Success: ${jr?.success ? "YES" : "NO"} · dmg ${jr?.damage ?? 0}`},
+        {label:"BLUE ACTION",color:T.blue,icon:"🛡",text:ba?.reasoning, extra:`Type: ${ba?.type} · cost ${ba?.action_cost}pt`},
       ].map(({label,color,icon,text,extra})=>(
         <div key={label} style={{marginBottom:14,padding:10,background:`${color}0d`,borderRadius:6,border:`0.5px solid ${color}44`}}>
           <div style={{color,fontSize:9,letterSpacing:1,marginBottom:4}}>{icon} {label}</div>
           <div style={{color:T.grayDim,fontSize:9,marginBottom:6,borderBottom:`0.5px solid ${color}33`,paddingBottom:4}}>{extra}</div>
-          <div style={{color:T.grayText,fontSize:10,lineHeight:1.6}}>{text ?? "-"}</div>
+          <div style={{color:T.grayText,fontSize:10,lineHeight:1.6}}>{text ?? "—"}</div>
         </div>
       ))}
       {jr?.logs?.length > 0 && (
@@ -282,7 +319,7 @@ function ThoughtPanel({round,onClose}) {
   );
 }
 
-// 鈹€鈹€鈹€ KILL CHAIN BAR 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// ─── KILL CHAIN BAR ───────────────────────────────────────────────
 function KillChainBar({phase}) {
   const phases = ["Recon","Weaponize","Exploit","LateralMove","Exfiltrate"];
   const cur = phases.indexOf(phase ?? "Recon");
@@ -294,15 +331,15 @@ function KillChainBar({phase}) {
             <div style={{height:3,width:"100%",borderRadius:2,background:i<cur?T.red:i===cur?T.amber:T.border,boxShadow:i===cur?`0 0 6px ${T.amber}`:"none",transition:"background .5s"}}/>
             <span style={{fontFamily:T.fontMono,fontSize:8,color:i<cur?T.red:i===cur?T.amber:T.grayDim,fontWeight:i===cur?700:400}}>{p}</span>
           </div>
-          {i<4 && <span style={{color:T.border,fontSize:10,marginBottom:10}}>-</span>}
+          {i<4 && <span style={{color:T.border,fontSize:10,marginBottom:10}}>›</span>}
         </React.Fragment>
       ))}
     </div>
   );
 }
 
-// 鈹€鈹€鈹€ MAIN APP 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
-export default function TopologyGraph() {
+// ─── MAIN APP ─────────────────────────────────────────────────────
+function App() {
   const [idx,setIdx]           = useState(0);
   const [playing,setPlaying]   = useState(false);
   const [speed,setSpeed]       = useState(1);
@@ -332,11 +369,7 @@ export default function TopologyGraph() {
     const ra = round?.red_action; const jr = round?.judge_result;
     if (!ra) return;
     const ok = jr?.success;
-    setToast({
-      visible: true,
-      text: `R${round.round}: ${ra.technique_id} ${ra.technique} -> ${ra.target_node} ${ok ? "OK" : "BLOCKED"}`,
-      color: ok ? T.red : T.grayDim,
-    });
+    setToast({visible:true, text:`R${round.round}: ${ra.technique_id} ${ra.technique} → ${ra.target_node} ${ok?"✓":"✗"}`, color: ok ? T.red : T.grayDim});
     const t = setTimeout(()=>setToast(s=>({...s,visible:false})), 3000);
     return ()=>clearTimeout(t);
   },[idx]);
@@ -371,9 +404,8 @@ export default function TopologyGraph() {
   const specialEvent = ws.special_event;
 
   return (
-    <div className="topology-page">
-      <style>{PAGE_STYLES}</style>
-      <div className="page-title">// CyberArena · TopologyGraph · Preview</div>
+    <div>
+      <div className="page-title">// CyberArena · TopologyGraph · PREVIEW</div>
 
       <div style={{position:"relative",background:T.bg,borderRadius:10,border:`1px solid ${T.border}`,overflow:"hidden"}}>
         <style>{`
@@ -391,9 +423,9 @@ export default function TopologyGraph() {
             padding:"5px 12px",display:"flex",alignItems:"center",gap:8,zIndex:15,fontFamily:T.fontMono,fontSize:11}}>
             <IconAlert size={12} color={T.amber}/>
             <span style={{color:T.amber,fontWeight:600,animation:"cyberBlink 1s ease infinite"}}>
-              {specialEvent==="zero_day" ? "ALERT ZERO-DAY EXPLOIT DETECTED -UNPATCHED VECTOR ACTIVE"
-              : specialEvent==="ddos"   ? "ALERT DDoS SATURATION -BLUE AGENT ACTION POINTS HALVED"
-              :                           "ALERT INTEL LEAK -RED AGENT HAS CURRENT DEFENSE BLUEPRINT"}
+              {specialEvent==="zero_day" ? "⚡ ZERO-DAY EXPLOIT DETECTED — UNPATCHED VECTOR ACTIVE"
+              : specialEvent==="ddos"   ? "⚡ DDoS SATURATION — BLUE AGENT ACTION POINTS HALVED"
+              :                           "⚡ INTEL LEAK — RED AGENT HAS CURRENT DEFENSE BLUEPRINT"}
             </span>
           </div>
         )}
@@ -522,17 +554,17 @@ export default function TopologyGraph() {
 
       {/* Controls */}
       <div className="controls">
-        <button type="button" className={`ctrl-btn${playing?" active":""}`} onClick={()=>setPlaying(p=>!p)}>
-          {playing ? "PAUSE" : "PLAY"}
+        <button className={`ctrl-btn${playing?" active":""}`} onClick={()=>setPlaying(p=>!p)}>
+          {playing ? "⏸ PAUSE" : "▶ PLAY"}
         </button>
-        <button type="button" className="ctrl-btn" onClick={()=>{setPlaying(false);setIdx(0);}}>RESET</button>
-        <button type="button" className="ctrl-btn" onClick={()=>setIdx(i=>Math.max(0,i-1))} disabled={idx===0}>PREV</button>
-        <button type="button" className="ctrl-btn" onClick={()=>setIdx(i=>Math.min(SIM_ROUNDS.length-1,i+1))} disabled={idx===SIM_ROUNDS.length-1}>NEXT</button>
+        <button className="ctrl-btn" onClick={()=>{setPlaying(false);setIdx(0);}}>⏮ RESET</button>
+        <button className="ctrl-btn" onClick={()=>setIdx(i=>Math.max(0,i-1))} disabled={idx===0}>‹ PREV</button>
+        <button className="ctrl-btn" onClick={()=>setIdx(i=>Math.min(SIM_ROUNDS.length-1,i+1))} disabled={idx===SIM_ROUNDS.length-1}>NEXT ›</button>
         {[0.5,1,2].map(s=>(
-          <button type="button" key={s} className={`ctrl-btn${speed===s?" active":""}`} onClick={()=>setSpeed(s)}>{s}x</button>
+          <button key={s} className={`ctrl-btn${speed===s?" active":""}`} onClick={()=>setSpeed(s)}>{s}×</button>
         ))}
-        <button type="button" className="ctrl-btn" onClick={()=>setShowThought(t=>!t)}>
-          {showThought ? "CLOSE THOUGHTS" : "AGENT THOUGHTS"}
+        <button className="ctrl-btn" onClick={()=>setShowThought(t=>!t)}>
+          {showThought ? "✕ CLOSE THOUGHTS" : "💭 AGENT THOUGHTS"}
         </button>
       </div>
 
@@ -542,7 +574,7 @@ export default function TopologyGraph() {
             cursor:"pointer", borderColor: i===idx ? T.blue : undefined,
             color: i===idx ? T.blue : undefined,
           }} onClick={()=>{setPlaying(false);setIdx(i);}}>
-            R{r.round} {r.judge_result.success ? "OK" : "NO"} {r.red_action.technique_id}
+            R{r.round} {r.judge_result.success ? "✓" : "✗"} {r.red_action.technique_id}
           </div>
         ))}
       </div>
@@ -550,4 +582,7 @@ export default function TopologyGraph() {
   );
 }
 
-
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
