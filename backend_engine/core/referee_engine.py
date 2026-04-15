@@ -1,6 +1,7 @@
 from backend_engine.agents.referee_agent import RefereeAgent
 from backend_engine.core.models import ActionLog, AgentDecision, WorldState
 from backend_engine.core.scoring import recalculate_scores
+from backend_engine.engine.actions import ACTION_REGISTRY
 
 
 class RefereeEngine:
@@ -12,8 +13,18 @@ class RefereeEngine:
         next_state.turn += 1
         next_state.action_logs = []
 
-        red_result = self._apply_red(next_state, red)
-        blue_result = self._apply_blue(next_state, blue)
+        red_result = ACTION_REGISTRY.resolve(
+            next_state,
+            red,
+            locale="en",
+            opposing_decision=blue,
+        )
+        blue_result = ACTION_REGISTRY.resolve(
+            next_state,
+            blue,
+            locale="en",
+            opposing_decision=red,
+        )
 
         next_state.action_logs.append(
             ActionLog(
@@ -21,7 +32,7 @@ class RefereeEngine:
                 thought=red.thought,
                 action_type=red.action_type,
                 payload=red.payload,
-                referee_result=red_result,
+                referee_result=red_result.message,
             )
         )
         next_state.action_logs.append(
@@ -30,11 +41,15 @@ class RefereeEngine:
                 thought=blue.thought,
                 action_type=blue.action_type,
                 payload=blue.payload,
-                referee_result=blue_result,
+                referee_result=blue_result.message,
             )
         )
         next_state.action_logs.append(
-            self.referee.log_resolution(red, blue, f"Red: {red_result}; Blue: {blue_result}")
+            self.referee.log_resolution(
+                red,
+                blue,
+                f"Red: {red_result.message}; Blue: {blue_result.message}",
+            )
         )
 
         return recalculate_scores(next_state)
