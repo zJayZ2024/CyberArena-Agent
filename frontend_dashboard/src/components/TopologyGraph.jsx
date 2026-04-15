@@ -1,12 +1,14 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
 
 const PAGE_STYLES = `
-  .topology-page { max-width: 920px; margin: 0 auto; }
+  @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap");
+  .topology-page { max-width: 920px; margin: 0 auto; min-height: 100vh; padding: 20px; }
   .page-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 2px; color: #4b5563; margin-bottom: 12px; text-transform: uppercase; }
   .controls { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
   .ctrl-btn { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 5px 12px; border-radius: 4px; cursor: pointer; background: #111827; border: 1px solid #1f2937; color: #9ca3af; transition: all 0.15s; }
-  .ctrl-btn:hover { border-color: #3b82f6; color: #3b82f6; }
+  .ctrl-btn:hover:not(:disabled) { border-color: #3b82f6; color: #3b82f6; }
   .ctrl-btn.active { background: #0d1f3c; border-color: #3b82f6; color: #3b82f6; }
+  .ctrl-btn:disabled { opacity: 0.45; cursor: not-allowed; }
   .info-row { display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
   .info-chip { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 4px 10px; border-radius: 20px; background: #111827; border: 0.5px solid #1f2937; color: #6b7280; }
 `;
@@ -113,6 +115,70 @@ const SIM_ROUNDS = [
     ],score:{red:75,blue:62},red_phase:"Exfiltrate",availability:0.82,blue_action_points:1,special_event:"zero_day"},
   },
 ];
+
+function normalizeNodes(nodes = []) {
+  return Object.keys(NODE_CONFIGS).map((id) => {
+    const next = nodes.find((node) => node.id === id) ?? {};
+    return {
+      id,
+      status: next.status ?? "normal",
+      attack_count: next.attack_count ?? next.attackCount ?? 0,
+      defense_count: next.defense_count ?? next.defenseCount ?? 0,
+      ...next,
+    };
+  });
+}
+
+function normalizeRound(round, fallbackIndex, totalRounds) {
+  const base = SIM_ROUNDS[Math.min(fallbackIndex, SIM_ROUNDS.length - 1)] ?? SIM_ROUNDS[0];
+  const worldStateInput = round?.world_state ?? round?.worldState ?? {};
+  const roundNumber = round?.round ?? worldStateInput.round ?? fallbackIndex + 1;
+  const redAction = { ...base.red_action, ...(round?.red_action ?? round?.redAction ?? {}) };
+  const blueAction = { ...base.blue_action, ...(round?.blue_action ?? round?.blueAction ?? {}) };
+
+  if (!redAction.target_node && redAction.target) {
+    redAction.target_node = redAction.target;
+  }
+
+  return {
+    ...base,
+    ...round,
+    round: roundNumber,
+    total_rounds: round?.total_rounds ?? round?.totalRounds ?? totalRounds,
+    red_action: redAction,
+    blue_action: blueAction,
+    judge_result: {
+      ...base.judge_result,
+      ...(round?.judge_result ?? round?.judgeResult ?? {}),
+    },
+    world_state: {
+      ...base.world_state,
+      ...worldStateInput,
+      round: roundNumber,
+      nodes: normalizeNodes(worldStateInput.nodes ?? round?.nodes ?? base.world_state.nodes),
+      score: {
+        red: worldStateInput.score?.red ?? round?.redScore ?? base.world_state.score.red,
+        blue: worldStateInput.score?.blue ?? round?.blueScore ?? base.world_state.score.blue,
+      },
+      red_phase: worldStateInput.red_phase ?? worldStateInput.redPhase ?? base.world_state.red_phase,
+      availability: worldStateInput.availability ?? base.world_state.availability,
+      blue_action_points: worldStateInput.blue_action_points ?? worldStateInput.blueActionPoints ?? base.world_state.blue_action_points,
+      special_event: worldStateInput.special_event ?? worldStateInput.specialEvent ?? null,
+    },
+  };
+}
+
+export function normalizeRoundsPayload(payload) {
+  const maybeRounds = Array.isArray(payload)
+    ? payload
+    : payload?.rounds ?? payload?.frames ?? (payload ? [payload] : []);
+
+  if (!maybeRounds.length) {
+    return SIM_ROUNDS;
+  }
+
+  return maybeRounds.map((round, index) => normalizeRound(round, index, maybeRounds.length));
+}
 
 // 鈹€鈹€鈹€ SVG ICON COMPONENTS (Lucide-style, no external dep) 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 const IconShield  = ({size=16,color="#fff"}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
@@ -302,7 +368,8 @@ function KillChainBar({phase}) {
 }
 
 // 鈹€鈹€鈹€ MAIN APP 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
-export default function TopologyGraph() {
+export default function TopologyGraph({ initialRounds = SIM_ROUNDS }) {
+  const [rounds, setRounds]    = useState(() => normalizeRoundsPayload(initialRounds));
   const [idx,setIdx]           = useState(0);
   const [playing,setPlaying]   = useState(false);
   const [speed,setSpeed]       = useState(1);
@@ -311,21 +378,48 @@ export default function TopologyGraph() {
   const [toast,setToast]       = useState({visible:false,text:"",color:T.red});
   const intervalRef = useRef(null);
 
-  const round = SIM_ROUNDS[idx];
-  const ws    = round?.world_state ?? SIM_ROUNDS[0].world_state;
+  const round = rounds[idx] ?? rounds[0];
+  const ws    = round?.world_state ?? rounds[0]?.world_state ?? SIM_ROUNDS[0].world_state;
+
+  useEffect(() => {
+    setRounds(normalizeRoundsPayload(initialRounds));
+    setIdx(0);
+    setPlaying(false);
+  }, [initialRounds]);
+
+  useEffect(() => {
+    const loadReplay = (payload) => {
+      const nextRounds = normalizeRoundsPayload(payload);
+      setRounds(nextRounds);
+      setIdx(0);
+      setPlaying(false);
+      setShowThought(false);
+      setHoveredNode(null);
+    };
+
+    window.loadFrame = loadReplay;
+    window.loadReplay = loadReplay;
+    window.setTopologyRounds = loadReplay;
+
+    return () => {
+      delete window.loadFrame;
+      delete window.loadReplay;
+      delete window.setTopologyRounds;
+    };
+  }, []);
 
   // Auto-play
   useEffect(()=>{
     if (playing) {
       intervalRef.current = setInterval(()=>{
         setIdx(i => {
-          if (i >= SIM_ROUNDS.length - 1) { setPlaying(false); return i; }
+          if (i >= rounds.length - 1) { setPlaying(false); return i; }
           return i + 1;
         });
       }, 2200 / speed);
     }
     return () => clearInterval(intervalRef.current);
-  },[playing,speed]);
+  },[playing, rounds.length, speed]);
 
   // Toast on round change
   useEffect(()=>{
@@ -339,7 +433,7 @@ export default function TopologyGraph() {
     });
     const t = setTimeout(()=>setToast(s=>({...s,visible:false})), 3000);
     return ()=>clearTimeout(t);
-  },[idx]);
+  },[round]);
 
   const nodeStatus = id => ws.nodes?.find(n=>n.id===id)?.status ?? "normal";
   const nodeData   = id => ws.nodes?.find(n=>n.id===id) ?? {};
@@ -358,7 +452,7 @@ export default function TopologyGraph() {
 
   // Ghost paths (historical successful attacks)
   const ghostPaths = [];
-  SIM_ROUNDS.slice(0,idx).forEach(r=>{
+  rounds.slice(0,idx).forEach(r=>{
     if (!r?.judge_result?.success) return;
     const hp = MULTI_HOP[r.red_action?.target_node] ?? [];
     hp.slice(0,-1).forEach((_,i)=>{
@@ -493,7 +587,7 @@ export default function TopologyGraph() {
           <g transform="translate(400,8)">
             <rect x={-60} y={0} width={120} height={18} rx={4} fill={T.bgPanel} stroke={T.border} strokeWidth="0.5"/>
             <text x={0} y={13} textAnchor="middle" fontFamily={T.fontMono} fontSize={8} fill={T.grayText} letterSpacing="1">
-              ROUND {ws.round ?? 1} / {SIM_ROUNDS.length} · {ws.red_phase?.toUpperCase()}
+              ROUND {ws.round ?? 1} / {rounds.length} · {ws.red_phase?.toUpperCase()}
             </text>
           </g>
 
@@ -527,7 +621,7 @@ export default function TopologyGraph() {
         </button>
         <button type="button" className="ctrl-btn" onClick={()=>{setPlaying(false);setIdx(0);}}>RESET</button>
         <button type="button" className="ctrl-btn" onClick={()=>setIdx(i=>Math.max(0,i-1))} disabled={idx===0}>PREV</button>
-        <button type="button" className="ctrl-btn" onClick={()=>setIdx(i=>Math.min(SIM_ROUNDS.length-1,i+1))} disabled={idx===SIM_ROUNDS.length-1}>NEXT</button>
+        <button type="button" className="ctrl-btn" onClick={()=>setIdx(i=>Math.min(rounds.length-1,i+1))} disabled={idx===rounds.length-1}>NEXT</button>
         {[0.5,1,2].map(s=>(
           <button type="button" key={s} className={`ctrl-btn${speed===s?" active":""}`} onClick={()=>setSpeed(s)}>{s}x</button>
         ))}
@@ -537,7 +631,7 @@ export default function TopologyGraph() {
       </div>
 
       <div className="info-row">
-        {SIM_ROUNDS.map((r,i)=>(
+        {rounds.map((r,i)=>(
           <div key={i} className="info-chip" style={{
             cursor:"pointer", borderColor: i===idx ? T.blue : undefined,
             color: i===idx ? T.blue : undefined,
@@ -545,6 +639,10 @@ export default function TopologyGraph() {
             R{r.round} {r.judge_result.success ? "OK" : "NO"} {r.red_action.technique_id}
           </div>
         ))}
+      </div>
+
+      <div style={{ paddingTop: 10, color: "#4b5563", fontFamily: T.fontMono, fontSize: 10 }}>
+        DEV: call <code style={{ color: "#6b7280" }}>window.loadFrame(json)</code> to replace preview rounds with backend replay data.
       </div>
     </div>
   );
