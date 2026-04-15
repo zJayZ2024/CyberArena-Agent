@@ -1,71 +1,29 @@
-import { STATUS_STYLE } from "./constants";
+import { T } from "./constants";
 
-function NodeDetailPanel({ node, onClose }) {
-  if (!node) {
+function NodeDetailPanel({ round, onClose }) {
+  if (!round) {
     return null;
   }
 
-  const statusStyle = STATUS_STYLE[node.status] || STATUS_STYLE.normal;
+  const { red_action: ra, blue_action: ba, judge_result: jr } = round;
 
   return (
-    <div
-      style={{
-        margin: "0 18px 14px",
-        padding: "10px 14px",
-        background: "#0f172a",
-        borderRadius: 8,
-        border: `1px solid ${statusStyle.ring}`,
-        display: "flex",
-        alignItems: "flex-start",
-        gap: 20,
-      }}
-    >
-      <div>
-        <div style={{ color: "#e2e8f0", fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
-          {node.label}
-          <span
-            style={{
-              marginLeft: 8,
-              fontSize: 10,
-              fontWeight: 600,
-              color: statusStyle.ring,
-              background: "#1e293b",
-              padding: "2px 7px",
-              borderRadius: 4,
-            }}
-          >
-            {statusStyle.label.toUpperCase()}
-          </span>
-        </div>
-        <div style={{ color: "#64748b", fontSize: 10, marginBottom: 2 }}>
-          TYPE: {node.type.replaceAll("_", " ").toUpperCase()}
-        </div>
-        <div style={{ color: "#64748b", fontSize: 10, marginBottom: 2 }}>
-          ZONE: {node.zone.toUpperCase()}
-        </div>
-        {node.port && (
-          <div style={{ color: "#64748b", fontSize: 10 }}>
-            PORT: <span style={{ color: "#94a3b8" }}>{node.port}</span>
-          </div>
-        )}
+    <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 280, background: `${T.bgPanel}f8`, borderLeft: `1px solid ${T.border}`, padding: 16, overflowY: "auto", zIndex: 30, fontFamily: T.fontMono, fontSize: 11 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <span style={{ color: T.grayText, fontSize: 10, letterSpacing: 1 }}>AGENT REASONING</span>
+        <button type="button" onClick={onClose} style={{ background: "none", border: "none", color: T.grayDim, cursor: "pointer", fontSize: 14 }}>x</button>
       </div>
-
-      <div style={{ marginLeft: "auto" }}>
-        <button
-          onClick={onClose}
-          style={{
-            background: "none",
-            border: "1px solid #334155",
-            borderRadius: 4,
-            color: "#94a3b8",
-            cursor: "pointer",
-            padding: "3px 10px",
-            fontSize: 10,
-          }}
-        >
-          Close
-        </button>
-      </div>
+      {[{ label: "RED ACTION", color: T.red, icon: "RED", text: ra?.reasoning, extra: `${ra?.technique_id} · ${ra?.technique}` }, { label: "JUDGE", color: T.amber, icon: "JDG", text: jr?.narrative, extra: `Success: ${jr?.success ? "YES" : "NO"} · dmg ${jr?.damage ?? 0}` }, { label: "BLUE ACTION", color: T.blue, icon: "DEF", text: ba?.reasoning, extra: `Type: ${ba?.type} · cost ${ba?.action_cost ?? 0}pt` }].map(({ label, color, icon, text, extra }) => (
+        <div key={label} style={{ marginBottom: 14, padding: 10, background: `${color}0d`, borderRadius: 6, border: `0.5px solid ${color}44` }}>
+          <div style={{ color, fontSize: 9, letterSpacing: 1, marginBottom: 4 }}>{icon} {label}</div>
+          <div style={{ color: T.grayDim, fontSize: 9, marginBottom: 6, borderBottom: `0.5px solid ${color}33`, paddingBottom: 4 }}>{extra}</div>
+          <div style={{ color: T.grayText, fontSize: 10, lineHeight: 1.6 }}>{text ?? "-"}</div>
+        </div>
+      ))}
+      {jr?.logs?.length > 0 && <div style={{ marginTop: 8 }}>
+        <div style={{ color: T.grayDim, fontSize: 9, letterSpacing: 1, marginBottom: 6 }}>SYSTEM LOGS</div>
+        {jr.logs.map((lg, index) => <div key={`${lg}-${index}`} style={{ fontFamily: T.fontMono, fontSize: 9, marginBottom: 3, color: lg.startsWith("[CRIT]") ? T.red : lg.startsWith("[OK]") ? T.green : lg.startsWith("[WARN]") ? T.amber : T.grayDim }}>{lg}</div>)}
+      </div>}
     </div>
   );
 }

@@ -1,40 +1,21 @@
-import { EDGE_LEGEND_ITEMS, LEGEND_ITEMS } from "./constants";
+import React from "react";
 
-function LegendBar() {
+import { T } from "./constants";
+
+function LegendBar({ phase }) {
+  const phases = ["Recon", "Weaponize", "Exploit", "LateralMove", "Exfiltrate"];
+  const current = phases.indexOf(phase ?? "Recon");
+
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        flexWrap: "wrap",
-        gap: "14px 20px",
-        padding: "8px 18px",
-        borderTop: "1px solid #1e293b",
-        background: "#060b18",
-      }}
-    >
-      {LEGEND_ITEMS.map((item) => (
-        <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <div style={{ width: 8, height: 8, borderRadius: "50%", background: item.color }} />
-          <span style={{ color: "#94a3b8", fontSize: 10 }}>{item.label}</span>
-        </div>
-      ))}
-
-      {EDGE_LEGEND_ITEMS.map((item) => (
-        <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <svg width="30" height="10">
-            <line
-              x1="0"
-              y1="5"
-              x2="30"
-              y2="5"
-              stroke={item.color}
-              strokeWidth={item.strokeWidth}
-              strokeDasharray={item.strokeDasharray}
-            />
-          </svg>
-          <span style={{ color: "#94a3b8", fontSize: 10 }}>{item.label}</span>
-        </div>
+    <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderTop: `1px solid ${T.border}`, background: T.bgPanel }}>
+      {phases.map((item, index) => (
+        <React.Fragment key={item}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+            <div style={{ height: 3, width: "100%", borderRadius: 2, background: index < current ? T.red : index === current ? T.amber : T.border, boxShadow: index === current ? `0 0 6px ${T.amber}` : "none", transition: "background .5s" }} />
+            <span style={{ fontFamily: T.fontMono, fontSize: 8, color: index < current ? T.red : index === current ? T.amber : T.grayDim, fontWeight: index === current ? 700 : 400 }}>{item}</span>
+          </div>
+          {index < phases.length - 1 && <span style={{ color: T.border, fontSize: 10, marginBottom: 10 }}>-</span>}
+        </React.Fragment>
       ))}
     </div>
   );
