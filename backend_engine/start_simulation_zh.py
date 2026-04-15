@@ -8,10 +8,10 @@ from pathlib import Path
 if __package__ is None or __package__ == "":
     sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from backend_engine.agents.blue_agent import BlueAgent
-from backend_engine.agents.red_agent import RedAgent
+from backend_engine.agents.blue_agent_zh import BlueAgent
+from backend_engine.agents.red_agent_zh import RedAgent
 from backend_engine.core.network_topology import load_scenario
-from backend_engine.core.referee_engine import RefereeEngine
+from backend_engine.core.referee_engine_zh import RefereeEngine
 
 
 def run_simulation(rounds: int, scenario_path: Path, output_path: Path) -> dict:
@@ -40,10 +40,10 @@ def run_simulation(rounds: int, scenario_path: Path, output_path: Path) -> dict:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="运行一个最小可用的 CyberArena 对抗模拟。")
+    parser = argparse.ArgumentParser(description="\u8fd0\u884c\u4e00\u4e2a\u6700\u5c0f\u53ef\u7528\u7684 CyberArena \u5bf9\u6297\u6a21\u62df\u3002")
     parser.add_argument("--scenario", default="backend_engine/scenarios/level_1_basic_web.json")
     parser.add_argument("--rounds", type=int, default=3)
-    parser.add_argument("--output", default="backend_engine/results/mock_simulation.json")
+    parser.add_argument("--output", default="backend_engine/results/mock_simulation_zh.json")
     args = parser.parse_args()
 
     replay = run_simulation(
@@ -53,9 +53,9 @@ def main() -> None:
     )
 
     final_frame = replay["frames"][-1]
-    print(f"模拟完成：共写入 {len(replay['frames'])} 帧")
+    print(f"\u6a21\u62df\u5b8c\u6210\uff1a\u5171\u5199\u5165 {len(replay['frames'])} \u5e27")
     print(
-        f"最终状态：turn={final_frame['turn']} "
+        f"\u6700\u7ec8\u72b6\u6001\uff1aturn={final_frame['turn']} "
         f"health={final_frame['system_health']} "
         f"exposure={final_frame['exposure_level']}"
     )

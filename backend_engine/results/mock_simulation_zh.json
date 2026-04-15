@@ -122,7 +122,7 @@
           "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 PatchNode。",
           "action_type": "ResolveRound",
           "payload": "web|web",
-          "referee_result": "Red: web 已被成功攻破; Blue: web 已完成补丁修复并得到加固"
+          "referee_result": "红方：web 已被成功攻破；蓝方：web 已完成补丁修复并得到加固"
         }
       ]
     },
@@ -190,7 +190,7 @@
           "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 PatchNode。",
           "action_type": "ResolveRound",
           "payload": "web|web",
-          "referee_result": "Red: 针对 web 的攻击被现有防御成功拦截; Blue: web 已完成补丁修复并得到加固"
+          "referee_result": "红方：针对 web 的攻击被现有防御成功拦截；蓝方：web 已完成补丁修复并得到加固"
         }
       ]
     }

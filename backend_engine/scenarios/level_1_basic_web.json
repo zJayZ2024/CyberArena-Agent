@@ -1,0 +1,33 @@
+{
+  "turn": 0,
+  "system_health": 100,
+  "exposure_level": 40,
+  "network_nodes": {
+    "internet": {
+      "status": "Normal",
+      "exposed_ports": [80, 443],
+      "vulnerabilities": []
+    },
+    "fw": {
+      "status": "Defended",
+      "exposed_ports": [443],
+      "vulnerabilities": []
+    },
+    "web": {
+      "status": "Normal",
+      "exposed_ports": [80, 443],
+      "vulnerabilities": ["CVE-WEB-2026-0001", "WeakFileUpload"]
+    },
+    "app": {
+      "status": "Normal",
+      "exposed_ports": [8080],
+      "vulnerabilities": ["DefaultAdminPassword"]
+    },
+    "db": {
+      "status": "Normal",
+      "exposed_ports": [3306],
+      "vulnerabilities": ["OpenReplicaAccess"]
+    }
+  },
+  "action_logs": []
+}
