@@ -10,22 +10,54 @@ if __package__ is None or __package__ == "":
 
 from backend_engine.agents.blue_agent_zh import BlueAgent
 from backend_engine.agents.red_agent_zh import RedAgent
+from backend_engine.agents.llm_agent import LLMDecisionError
 from backend_engine.core.network_topology import load_scenario
 from backend_engine.core.referee_engine_zh import RefereeEngine
+from backend_engine.engine.context_builder import build_blue_context, build_red_context
 
 
-def run_simulation(rounds: int, scenario_path: Path, output_path: Path) -> dict:
+def run_simulation(
+    rounds: int,
+    scenario_path: Path,
+    output_path: Path,
+    *,
+    strict_llm: bool = True,
+) -> dict:
     state = load_scenario(scenario_path)
-    red_agent = RedAgent()
-    blue_agent = BlueAgent()
+    red_agent = RedAgent(strict_llm=strict_llm)
+    blue_agent = BlueAgent(strict_llm=strict_llm)
     referee = RefereeEngine()
+    state = referee.prepare_state(state)
 
     frames = [state.model_dump(mode="json")]
 
     for _ in range(rounds):
-        red_action = red_agent.decide(state)
-        blue_action = blue_agent.decide(state, red_action)
-        state = referee.resolve_round(state, red_action, blue_action)
+        red_context = build_red_context(state)
+        try:
+            red_action = red_agent.decide(state, context_markdown=red_context)
+        except Exception as exc:
+            if strict_llm:
+                raise LLMDecisionError(f"中文入口严格 LLM 模式下红方决策失败：{exc}") from exc
+            print(f"[Simulation-ZH] RedAgent 决策异常，回退规则策略：{exc}")
+            red_action = red_agent._fallback_decide(state)
+
+        interim_state, red_result, recent_logs = referee.resolve_red_phase(state, red_action)
+        blue_perceived_state = referee.get_blue_perceived_state()
+
+        blue_context = build_blue_context(blue_perceived_state, recent_logs)
+        try:
+            blue_action = blue_agent.decide(
+                blue_perceived_state,
+                recent_logs=recent_logs,
+                context_markdown=blue_context,
+            )
+        except Exception as exc:
+            if strict_llm:
+                raise LLMDecisionError(f"中文入口严格 LLM 模式下蓝方决策失败：{exc}") from exc
+            print(f"[Simulation-ZH] BlueAgent 决策异常，回退规则策略：{exc}")
+            blue_action = blue_agent._fallback_decide(blue_perceived_state, recent_logs=recent_logs)
+
+        state = referee.finalize_round(interim_state, red_action, red_result, blue_action)
         frames.append(state.model_dump(mode="json"))
 
     replay = {
@@ -40,22 +72,28 @@ def run_simulation(rounds: int, scenario_path: Path, output_path: Path) -> dict:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="\u8fd0\u884c\u4e00\u4e2a\u6700\u5c0f\u53ef\u7528\u7684 CyberArena \u5bf9\u6297\u6a21\u62df\u3002")
+    parser = argparse.ArgumentParser(description="运行一个中文入口的 CyberArena 对抗模拟（红蓝决策默认强制 LLM）。")
     parser.add_argument("--scenario", default="backend_engine/scenarios/level_1_basic_web.json")
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--output", default="backend_engine/results/mock_simulation_zh.json")
+    parser.add_argument(
+        "--allow_fallback",
+        action="store_true",
+        help="允许红蓝在 LLM 决策失败时回退规则策略（默认关闭，严格走 LLM）。",
+    )
     args = parser.parse_args()
 
     replay = run_simulation(
         rounds=args.rounds,
         scenario_path=Path(args.scenario),
         output_path=Path(args.output),
+        strict_llm=not args.allow_fallback,
     )
 
     final_frame = replay["frames"][-1]
-    print(f"\u6a21\u62df\u5b8c\u6210\uff1a\u5171\u5199\u5165 {len(replay['frames'])} \u5e27")
+    print(f"模拟完成：共写入 {len(replay['frames'])} 帧")
     print(
-        f"\u6700\u7ec8\u72b6\u6001\uff1aturn={final_frame['turn']} "
+        f"最终状态：turn={final_frame['turn']} "
         f"health={final_frame['system_health']} "
         f"exposure={final_frame['exposure_level']}"
     )

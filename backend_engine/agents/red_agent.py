@@ -23,7 +23,7 @@ def _pick_best_vuln_id(vulnerabilities: Mapping[str, VulnerabilityInfo | dict[st
 
 
 class RedAgent(BaseLLMAgent):
-    def __init__(self) -> None:
+    def __init__(self, *, strict_llm: bool = False) -> None:
         prompt_path = Path(__file__).resolve().parent.parent / "prompts" / "red_attacker.md"
         super().__init__(
             agent_name="Red",
@@ -31,6 +31,7 @@ class RedAgent(BaseLLMAgent):
             prompt_path=prompt_path,
             max_retries=3,
         )
+        self.strict_llm = strict_llm
 
     def decide(self, state: WorldState, context_markdown: str | None = None) -> AgentDecision:
         visible_nodes = set(state.red_visible_nodes)
@@ -47,6 +48,8 @@ class RedAgent(BaseLLMAgent):
                 allowed_targets=visible_nodes,
             )
         except Exception as exc:
+            if self.strict_llm:
+                raise LLMDecisionError(f"RedAgent 严格 LLM 模式下决策失败：{exc}") from exc
             print(f"[RedAgent] LLM 决策失败，回退到规则策略：{exc}")
             return self._fallback_decide(state)
 
