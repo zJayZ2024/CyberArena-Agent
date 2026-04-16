@@ -2,14 +2,14 @@ import { T } from "./constants";
 
 function ScoreCurve({ rounds, idx }) {
   const width = 800;
-  const height = 110;
-  const padding = { top: 10, right: 20, bottom: 18, left: 28 };
+  const height = 140;
+  const padding = { top: 12, right: 20, bottom: 20, left: 32 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 
   const redScores = rounds.map((r) => r.world_state?.score?.red ?? 0);
   const blueScores = rounds.map((r) => r.world_state?.score?.blue ?? 0);
-  const maxScore = Math.max(10, ...redScores, ...blueScores);
+  const maxScore = 100;
 
   const round = rounds[idx] ?? rounds[rounds.length - 1];
   const currentRed = round?.world_state?.score?.red ?? 0;
@@ -63,7 +63,7 @@ function ScoreCurve({ rounds, idx }) {
             textTransform: "uppercase",
           }}
         >
-          Hazard Curve
+          Reward Curve
         </div>
         <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -91,8 +91,8 @@ function ScoreCurve({ rounds, idx }) {
         </defs>
 
         {/* Grid lines */}
-        {[0, 0.5, 1].map((t, i) => {
-          const y = padding.top + chartHeight * t;
+        {[0, 25, 50, 75, 100].map((v, i) => {
+          const y = getY(v);
           return (
             <line
               key={i}
@@ -109,8 +109,8 @@ function ScoreCurve({ rounds, idx }) {
         })}
 
         {/* Y-axis labels */}
-        {[0, Math.round(maxScore / 2), maxScore].map((v, i) => {
-          const y = padding.top + chartHeight - (i / 2) * chartHeight;
+        {[0, 25, 50, 75, 100].map((v, i) => {
+          const y = getY(v);
           return (
             <text key={i} x={padding.left - 8} y={y + 3} textAnchor="end" fill={T.grayDim} fontFamily={T.fontMono} fontSize={9}>
               {v}
