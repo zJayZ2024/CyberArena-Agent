@@ -50,7 +50,6 @@
           "enum": [
             "Normal",
             "Compromised",
-            "Defended",
             "Down"
           ],
           "title": "Status",
@@ -64,11 +63,11 @@
           "type": "array"
         },
         "vulnerabilities": {
-          "items": {
-            "type": "string"
+          "additionalProperties": {
+            "$ref": "#/$defs/VulnerabilityInfo"
           },
           "title": "Vulnerabilities",
-          "type": "array"
+          "type": "object"
         }
       },
       "required": [
@@ -140,6 +139,49 @@
         "target"
       ],
       "title": "TopologyEdge",
+      "type": "object"
+    },
+    "VulnerabilityInfo": {
+      "properties": {
+        "vuln_id": {
+          "description": "Unique vulnerability identifier.",
+          "title": "Vuln Id",
+          "type": "string"
+        },
+        "severity": {
+          "description": "Severity label such as High/Medium/Low.",
+          "title": "Severity",
+          "type": "string"
+        },
+        "score": {
+          "description": "Score awarded when this vulnerability is successfully used or fixed.",
+          "minimum": 0,
+          "title": "Score",
+          "type": "integer"
+        },
+        "exploit_prob": {
+          "description": "Probability of successful exploitation.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Exploit Prob",
+          "type": "number"
+        },
+        "patch_prob": {
+          "description": "Probability of successful patching.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Patch Prob",
+          "type": "number"
+        }
+      },
+      "required": [
+        "vuln_id",
+        "severity",
+        "score",
+        "exploit_prob",
+        "patch_prob"
+      ],
+      "title": "VulnerabilityInfo",
       "type": "object"
     },
     "WorldState": {
@@ -226,10 +268,10 @@
         },
         "red_known_vulnerabilities": {
           "additionalProperties": {
-            "items": {
-              "type": "string"
+            "additionalProperties": {
+              "$ref": "#/$defs/VulnerabilityInfo"
             },
-            "type": "array"
+            "type": "object"
           },
           "title": "Red Known Vulnerabilities",
           "type": "object"

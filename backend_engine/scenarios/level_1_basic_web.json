@@ -6,27 +6,58 @@
     "internet": {
       "status": "Normal",
       "exposed_ports": [80, 443],
-      "vulnerabilities": []
+      "vulnerabilities": {}
     },
     "fw": {
-      "status": "Defended",
+      "status": "Normal",
       "exposed_ports": [443],
-      "vulnerabilities": []
+      "vulnerabilities": {}
     },
     "web": {
       "status": "Normal",
       "exposed_ports": [80, 443],
-      "vulnerabilities": ["CVE-WEB-2026-0001", "WeakFileUpload"]
+      "vulnerabilities": {
+        "CVE-WEB-2026-0001": {
+          "vuln_id": "CVE-WEB-2026-0001",
+          "severity": "High",
+          "score": 22,
+          "exploit_prob": 0.78,
+          "patch_prob": 0.72
+        },
+        "WeakFileUpload": {
+          "vuln_id": "WeakFileUpload",
+          "severity": "Medium",
+          "score": 12,
+          "exploit_prob": 0.62,
+          "patch_prob": 0.86
+        }
+      }
     },
     "app": {
       "status": "Normal",
       "exposed_ports": [8080],
-      "vulnerabilities": ["DefaultAdminPassword"]
+      "vulnerabilities": {
+        "DefaultAdminPassword": {
+          "vuln_id": "DefaultAdminPassword",
+          "severity": "High",
+          "score": 18,
+          "exploit_prob": 0.71,
+          "patch_prob": 0.76
+        }
+      }
     },
     "db": {
       "status": "Normal",
       "exposed_ports": [3306],
-      "vulnerabilities": ["OpenReplicaAccess"]
+      "vulnerabilities": {
+        "OpenReplicaAccess": {
+          "vuln_id": "OpenReplicaAccess",
+          "severity": "High",
+          "score": 26,
+          "exploit_prob": 0.66,
+          "patch_prob": 0.63
+        }
+      }
     }
   },
   "edges": [

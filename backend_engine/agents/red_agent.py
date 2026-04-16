@@ -1,7 +1,25 @@
 from pathlib import Path
+from typing import Any, Mapping
 
 from backend_engine.agents.llm_agent import BaseLLMAgent, LLMDecisionError
-from backend_engine.core.models import AgentDecision, WorldState
+from backend_engine.core.models import AgentDecision, VulnerabilityInfo, WorldState
+
+
+def _vulnerability_score(value: VulnerabilityInfo | dict[str, Any]) -> int:
+    if isinstance(value, VulnerabilityInfo):
+        return value.score
+    if isinstance(value, dict):
+        raw_score = value.get("score", 0)
+        if isinstance(raw_score, (int, float)):
+            return int(raw_score)
+    return 0
+
+
+def _pick_best_vuln_id(vulnerabilities: Mapping[str, VulnerabilityInfo | dict[str, Any]] | None) -> str | None:
+    if not vulnerabilities:
+        return None
+    vuln_id, _ = max(vulnerabilities.items(), key=lambda item: (_vulnerability_score(item[1]), item[0]))
+    return vuln_id
 
 
 class RedAgent(BaseLLMAgent):
@@ -44,28 +62,30 @@ class RedAgent(BaseLLMAgent):
         if "web" in visible_nodes and "web" not in recon_nodes and nodes["web"].status != "Compromised":
             return AgentDecision(
                 agent_type="Red",
-                thought="当前只掌握边界资产轮廓，先对 Web 做侦察以确认服务与漏洞面。",
+                thought="情报仍然不足，先对 web 做 Recon，确认端口与漏洞详情。",
                 action_type="Recon",
                 target="web",
-                payload="对 Web 入口执行低噪声扫描",
+                payload="对 web 执行低噪声侦察，收集端口与漏洞情报",
             )
 
         if "web" in visible_nodes and nodes["web"].status != "Compromised" and known_vulnerabilities.get("web"):
+            vuln_id = _pick_best_vuln_id(known_vulnerabilities["web"])
             return AgentDecision(
                 agent_type="Red",
-                thought="Recon 已确认 Web 存在可利用面，优先从公网入口建立首个据点。",
+                thought="web 已经完成侦察，存在可用漏洞，优先从公网入口建立首个据点。",
                 action_type="ExploitService",
                 target="web",
-                payload="通过公网 HTTP 服务利用 CVE-WEB-2026-0001",
+                vuln_id=vuln_id,
+                payload=f"利用 vuln_id={vuln_id} 通过公网服务攻破 web",
             )
 
         if nodes["web"].status == "Compromised" and "app" in visible_nodes and "app" not in recon_nodes:
             return AgentDecision(
                 agent_type="Red",
-                thought="Web 已失陷，先侦察与其相邻的内网应用节点，确认下一跳情报。",
+                thought="已控制 web，据此继续侦察 app，确认下一跳漏洞。",
                 action_type="Recon",
                 target="app",
-                payload="通过 Web 据点对 App 节点执行低噪声横向侦察",
+                payload="通过 web 据点对 app 执行低噪声横向侦察",
             )
 
         if (
@@ -74,21 +94,23 @@ class RedAgent(BaseLLMAgent):
             and nodes["app"].status != "Compromised"
             and known_vulnerabilities.get("app")
         ):
+            vuln_id = _pick_best_vuln_id(known_vulnerabilities["app"])
             return AgentDecision(
                 agent_type="Red",
-                thought="App 节点已被观察到存在薄弱点，可以基于 Web 据点实施横向移动。",
+                thought="app 已被识别出可利用漏洞，可利用既有 web 据点进行横向移动。",
                 action_type="LateralMove",
                 target="app",
-                payload="复用从 Web 节点窃取的凭据横向进入 App",
+                vuln_id=vuln_id,
+                payload=f"利用 vuln_id={vuln_id} 从 web 横向进入 app",
             )
 
         if nodes["app"].status == "Compromised" and "db" in visible_nodes and "db" not in recon_nodes:
             return AgentDecision(
                 agent_type="Red",
-                thought="应用层已被控制，先侦察数据库节点的端口与弱点，再决定是否下探。",
+                thought="应用层已经失陷，先侦察 db，确认数据库漏洞与导出路径。",
                 action_type="Recon",
                 target="db",
-                payload="通过 App 到 DB 的信任路径执行静默侦察",
+                payload="通过 app 到 db 的信任路径执行静默侦察",
             )
 
         if (
@@ -97,19 +119,21 @@ class RedAgent(BaseLLMAgent):
             and nodes["db"].status != "Compromised"
             and known_vulnerabilities.get("db")
         ):
+            vuln_id = _pick_best_vuln_id(known_vulnerabilities["db"])
             return AgentDecision(
                 agent_type="Red",
-                thought="数据库目标已经完成识别，且仍存在可利用面，可以尝试导出高价值数据。",
+                thought="数据库目标已识别且存在可用漏洞，尝试直接导出高价值数据。",
                 action_type="ExfiltrateDatabase",
                 target="db",
-                payload="利用 App 到 DB 的信任链路并尝试导出记录",
+                vuln_id=vuln_id,
+                payload=f"利用 vuln_id={vuln_id} 对 db 执行数据导出",
             )
 
         for node_name in sorted(visible_nodes):
             if node_name in nodes and node_name not in recon_nodes and nodes[node_name].status != "Compromised":
                 return AgentDecision(
                     agent_type="Red",
-                    thought=f"当前对 {node_name} 仍缺乏足够情报，先补一轮侦察再决定攻击动作。",
+                    thought=f"当前对 {node_name} 的情报还不够，先补一轮 Recon。",
                     action_type="Recon",
                     target=node_name,
                     payload=f"对 {node_name} 执行补充侦察",
@@ -117,7 +141,7 @@ class RedAgent(BaseLLMAgent):
 
         return AgentDecision(
             agent_type="Red",
-            thought="当前未形成新的可利用路径，继续维持低噪声侦察节奏。",
+            thought="尚未形成新的稳定利用路径，继续维持低噪声侦察。",
             action_type="Recon",
             target=next(iter(sorted(visible_nodes))) if visible_nodes else "internet",
             payload="对当前可见边界执行低噪声扫描",

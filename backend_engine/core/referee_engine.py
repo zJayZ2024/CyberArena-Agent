@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 from backend_engine.agents.referee_agent import RefereeAgent
-from backend_engine.core.models import ActionLog, AgentDecision, SecurityAlert, WorldState
+from backend_engine.core.models import ActionLog, AgentDecision, SecurityAlert, VulnerabilityInfo, WorldState
 from backend_engine.core.scoring import apply_round_scores, recalculate_scores
-from backend_engine.engine.actions import ACTION_REGISTRY, ActionResult, PERIMETER_KEYWORDS
+from backend_engine.engine.actions import (
+    ACTION_REGISTRY,
+    ActionResult,
+    PERIMETER_KEYWORDS,
+)
+
+
+INTERCEPTION_BONUS = 10
 
 
 def _is_perimeter_node(node_name: str) -> bool:
@@ -30,6 +37,16 @@ def _build_adjacency_map(state: WorldState) -> dict[str, list[str]]:
     return adjacency
 
 
+def _coerce_vulnerability_snapshot(payload: dict[str, object]) -> dict[str, VulnerabilityInfo]:
+    snapshot: dict[str, VulnerabilityInfo] = {}
+    for vuln_id, value in payload.items():
+        if isinstance(value, VulnerabilityInfo):
+            snapshot[vuln_id] = value
+        else:
+            snapshot[vuln_id] = VulnerabilityInfo.model_validate(value)
+    return snapshot
+
+
 class RefereeEngine:
     def __init__(self) -> None:
         self.referee = RefereeAgent()
@@ -53,6 +70,7 @@ class RefereeEngine:
             opposing_decision=None,
         )
 
+        self._purge_invalid_red_intel(next_state, red, red_result)
         self._update_red_perception(next_state, red, red_result)
         recent_alerts = self._build_security_alerts(next_state, red, red_result)
         next_state.security_alerts = recent_alerts
@@ -75,7 +93,23 @@ class RefereeEngine:
             locale="zh",
             opposing_decision=red,
         )
-        score_summary = apply_round_scores(next_state, red_result, blue_result)
+
+        red_final_result = red_result
+        interception_bonus = 0
+        if self._should_intercept(red, red_result, blue, blue_result):
+            self._apply_interception(next_state, red, red_result, blue, blue_result)
+            red_final_result = self._build_intercepted_red_result(red, red_result, blue)
+            self._rewrite_alerts_for_interception(next_state, red, blue)
+            interception_bonus = INTERCEPTION_BONUS
+            blue_result.metadata["interception_bonus"] = INTERCEPTION_BONUS
+            blue_result.metadata["intercepted_red_action"] = red.action_type
+
+        score_summary = apply_round_scores(
+            next_state,
+            red_final_result,
+            blue_result,
+            interception_bonus=interception_bonus,
+        )
         recalculate_scores(next_state)
 
         next_state.action_logs = [
@@ -84,8 +118,8 @@ class RefereeEngine:
                 thought=red.thought,
                 action_type=red.action_type,
                 payload=red.payload,
-                referee_result=red_result.message,
-                metadata=red_result.metadata,
+                referee_result=red_final_result.message,
+                metadata=red_final_result.metadata,
             ),
             ActionLog(
                 agent_type="Blue",
@@ -98,9 +132,9 @@ class RefereeEngine:
             self.referee.log_resolution(
                 red,
                 blue,
-                f"红方：{red_result.message}；蓝方：{blue_result.message}",
+                f"Red: {red_final_result.message}; Blue: {blue_result.message}",
                 metadata={
-                    "red_result": red_result.metadata,
+                    "red_result": red_final_result.metadata,
                     "blue_result": blue_result.metadata,
                     "recent_alerts": [alert.model_dump(mode="json") for alert in next_state.security_alerts],
                     "score_summary": score_summary,
@@ -140,21 +174,147 @@ class RefereeEngine:
             if observed_ports:
                 state.red_known_services[target] = list(observed_ports)
 
-            suspected_vulnerabilities = red_result.metadata.get("suspected_vulnerabilities", [])
+            suspected_vulnerabilities = red_result.metadata.get("suspected_vulnerabilities", {})
             if suspected_vulnerabilities:
-                state.red_known_vulnerabilities[target] = list(suspected_vulnerabilities)
+                state.red_known_vulnerabilities[target] = _coerce_vulnerability_snapshot(suspected_vulnerabilities)
 
         target_node = state.network_nodes[target]
         if target_node.status == "Compromised":
             _append_unique(state.red_visible_nodes, target)
             state.red_known_services[target] = list(target_node.exposed_ports)
-            state.red_known_vulnerabilities[target] = list(target_node.vulnerabilities)
+            state.red_known_vulnerabilities[target] = dict(target_node.vulnerabilities)
             self._expand_visibility_from_compromise(state, target)
 
     def _expand_visibility_from_compromise(self, state: WorldState, compromised_node: str) -> None:
         adjacency = _build_adjacency_map(state)
         for neighbor in adjacency.get(compromised_node, []):
             _append_unique(state.red_visible_nodes, neighbor)
+
+    def _extract_vuln_id(self, decision: AgentDecision, result: ActionResult | None = None) -> str | None:
+        if decision.vuln_id:
+            return decision.vuln_id
+        if result is not None:
+            vuln_id = result.metadata.get("vuln_id")
+            if isinstance(vuln_id, str) and vuln_id:
+                return vuln_id
+        return None
+
+    def _purge_invalid_red_intel(
+        self,
+        state: WorldState,
+        red: AgentDecision,
+        red_result: ActionResult,
+    ) -> None:
+        if red.action_type != "ExploitService":
+            return
+
+        target = red.target
+        if not target:
+            return
+
+        vuln_id = self._extract_vuln_id(red, red_result)
+        if not vuln_id:
+            return
+
+        failed_or_rejected = red_result.effect in {"failed", "rejected"}
+        missing_vulnerability_feedback = "不存在于目标节点" in red_result.message
+        if not failed_or_rejected and not missing_vulnerability_feedback:
+            return
+
+        known_vulnerabilities = state.red_known_vulnerabilities.get(target)
+        if not known_vulnerabilities or vuln_id not in known_vulnerabilities:
+            return
+
+        known_vulnerabilities.pop(vuln_id, None)
+        if not known_vulnerabilities:
+            state.red_known_vulnerabilities.pop(target, None)
+
+    def _should_intercept(
+        self,
+        red: AgentDecision,
+        red_result: ActionResult,
+        blue: AgentDecision,
+        blue_result: ActionResult,
+    ) -> bool:
+        if not blue_result.success:
+            return False
+        if blue.action_type not in {"PatchNode", "Isolate"}:
+            return False
+        if not red.target or red.target != blue.target:
+            return False
+        red_vuln_id = self._extract_vuln_id(red, red_result)
+        blue_vuln_id = self._extract_vuln_id(blue, blue_result)
+        if not red_vuln_id or not blue_vuln_id:
+            return False
+        return red_vuln_id == blue_vuln_id
+
+    def _apply_interception(
+        self,
+        state: WorldState,
+        red: AgentDecision,
+        red_result: ActionResult,
+        blue: AgentDecision,
+        blue_result: ActionResult,
+    ) -> None:
+        target = red.target
+        if not target or target not in state.network_nodes:
+            return
+
+        node = state.network_nodes[target]
+        if blue.action_type == "Isolate":
+            node.status = "Down"
+            return
+
+        previous_status = red_result.metadata.get("previous_status", "Normal")
+        if previous_status in {"Normal", "Compromised", "Down"}:
+            node.status = previous_status
+        else:
+            node.status = "Normal"
+
+    def _build_intercepted_red_result(
+        self,
+        red: AgentDecision,
+        red_result: ActionResult,
+        blue: AgentDecision,
+    ) -> ActionResult:
+        metadata = dict(red_result.metadata)
+        metadata.update(
+            {
+                "intercepted": True,
+                "intercepted_by": blue.action_type,
+                "score_value": 0,
+            }
+        )
+        vuln_id = self._extract_vuln_id(red, red_result) or "unknown"
+        return ActionResult(
+            success=False,
+            effect="blocked",
+            message=(
+                f"{red.target or 'unknown target'} attack on vuln_id={vuln_id} was intercepted by "
+                f"blue {blue.action_type}"
+            ),
+            metadata=metadata,
+        )
+
+    def _rewrite_alerts_for_interception(
+        self,
+        state: WorldState,
+        red: AgentDecision,
+        blue: AgentDecision,
+    ) -> None:
+        red_vuln_id = self._extract_vuln_id(red)
+        for alert in state.security_alerts:
+            if alert.target != red.target or alert.source_action != red.action_type:
+                continue
+            alert.severity = "INFO"
+            alert.message = (
+                f"[INFO] {red.target} 上针对 vuln_id={red_vuln_id or 'unknown'} 的 {red.action_type} "
+                f"已被蓝方 {blue.action_type} 成功拦截。"
+            )
+            alert.metadata["intercepted"] = True
+            alert.metadata["intercepted_by"] = blue.action_type
+            if red_vuln_id:
+                alert.metadata["vuln_id"] = red_vuln_id
 
     def _build_security_alerts(
         self,
@@ -172,7 +332,7 @@ class RefereeEngine:
             return [
                 SecurityAlert(
                     severity="WARN",
-                    message=f"[告警] {target or '未知目标'} 节点出现侦察扫描痕迹。",
+                    message=f"[WARN] {target or 'unknown'} 节点出现侦察痕迹。",
                     target=target,
                     source_action=red.action_type,
                     metadata=red_result.metadata,
@@ -180,10 +340,14 @@ class RefereeEngine:
             ]
 
         severity = "CRIT" if red_result.effect in {"compromise", "exfiltration"} else "WARN"
+        vuln_id = self._extract_vuln_id(red, red_result)
         return [
             SecurityAlert(
                 severity=severity,
-                message=f"[{severity}] {target or '未知目标'} 节点遭到 {red.action_type} 攻击，当前状态为 {target_status}。",
+                message=(
+                    f"[{severity}] {target or 'unknown'} 节点遭到 {red.action_type} 攻击，"
+                    f"vuln_id={vuln_id or 'unknown'}，当前状态为 {target_status}。"
+                ),
                 target=target,
                 source_action=red.action_type,
                 metadata=red_result.metadata,

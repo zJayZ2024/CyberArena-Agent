@@ -1,15 +1,75 @@
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+class VulnerabilityInfo(BaseModel):
+    vuln_id: str = Field(..., description="Unique vulnerability identifier.")
+    severity: str = Field(..., description="Severity label such as High/Medium/Low.")
+    score: int = Field(..., ge=0, description="Score awarded when this vulnerability is successfully used or fixed.")
+    exploit_prob: float = Field(..., ge=0.0, le=1.0, description="Probability of successful exploitation.")
+    patch_prob: float = Field(..., ge=0.0, le=1.0, description="Probability of successful patching.")
+
+
+def _default_vulnerability_info(vuln_id: str) -> VulnerabilityInfo:
+    return VulnerabilityInfo(
+        vuln_id=vuln_id,
+        severity="Medium",
+        score=10,
+        exploit_prob=0.7,
+        patch_prob=0.8,
+    )
+
+
+def _coerce_vulnerability_map(value: Any) -> Dict[str, VulnerabilityInfo]:
+    if value is None:
+        return {}
+
+    if isinstance(value, list):
+        return {vuln_id: _default_vulnerability_info(vuln_id) for vuln_id in value}
+
+    if isinstance(value, dict):
+        result: Dict[str, VulnerabilityInfo] = {}
+        for key, raw in value.items():
+            if isinstance(raw, VulnerabilityInfo):
+                result[key] = raw
+                continue
+
+            if isinstance(raw, str):
+                result[key] = _default_vulnerability_info(raw)
+                continue
+
+            if isinstance(raw, dict):
+                payload = dict(raw)
+                payload.setdefault("vuln_id", key)
+                result[key] = VulnerabilityInfo.model_validate(payload)
+                continue
+
+            raise TypeError(f"Unsupported vulnerability payload for {key}: {type(raw)!r}")
+        return result
+
+    raise TypeError(f"Unsupported vulnerabilities value: {type(value)!r}")
 
 
 class NetworkNode(BaseModel):
-    status: Literal["Normal", "Compromised", "Defended", "Down"] = Field(
+    status: Literal["Normal", "Compromised", "Down"] = Field(
         ...,
         description="Current node status.",
     )
     exposed_ports: List[int] = Field(default_factory=list)
-    vulnerabilities: List[str] = Field(default_factory=list)
+    vulnerabilities: Dict[str, VulnerabilityInfo] = Field(default_factory=dict)
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def _coerce_legacy_status(cls, value: Any) -> Any:
+        if value == "Defended":
+            return "Normal"
+        return value
+
+    @field_validator("vulnerabilities", mode="before")
+    @classmethod
+    def _coerce_vulnerabilities(cls, value: Any) -> Dict[str, VulnerabilityInfo]:
+        return _coerce_vulnerability_map(value)
 
 
 class TopologyEdge(BaseModel):
@@ -31,6 +91,7 @@ class AgentDecision(BaseModel):
     thought: str = Field(...)
     action_type: str = Field(...)
     target: Optional[str] = Field(default=None)
+    vuln_id: Optional[str] = Field(default=None)
     payload: str = Field(default="")
 
 
@@ -55,7 +116,19 @@ class WorldState(BaseModel):
     red_visible_nodes: List[str] = Field(default_factory=list)
     red_recon_nodes: List[str] = Field(default_factory=list)
     red_known_services: Dict[str, List[int]] = Field(default_factory=dict)
-    red_known_vulnerabilities: Dict[str, List[str]] = Field(default_factory=dict)
+    red_known_vulnerabilities: Dict[str, Dict[str, VulnerabilityInfo]] = Field(default_factory=dict)
+
+    @field_validator("red_known_vulnerabilities", mode="before")
+    @classmethod
+    def _coerce_known_vulnerabilities(cls, value: Any) -> Dict[str, Dict[str, VulnerabilityInfo]]:
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise TypeError("red_known_vulnerabilities must be a dictionary")
+        return {
+            node_name: _coerce_vulnerability_map(vulnerabilities)
+            for node_name, vulnerabilities in value.items()
+        }
 
 
 class SimulationReplay(BaseModel):

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Iterable
+from typing import Any
 
-from backend_engine.core.models import ActionLog, SecurityAlert, WorldState
+from backend_engine.core.models import ActionLog, SecurityAlert, VulnerabilityInfo, WorldState
 from backend_engine.engine.actions import PERIMETER_KEYWORDS, list_legal_actions
 
 
@@ -12,10 +12,38 @@ def _format_ports(ports: list[int]) -> str:
     return ", ".join(str(port) for port in ports)
 
 
-def _format_vulnerabilities(vulnerabilities: list[str]) -> str:
+def _format_single_vulnerability(vuln_id: str, vulnerability: VulnerabilityInfo | dict[str, Any] | str) -> str:
+    if isinstance(vulnerability, str):
+        return vuln_id
+
+    if isinstance(vulnerability, VulnerabilityInfo):
+        return (
+            f"{vuln_id}"
+            f"(severity={vulnerability.severity}, score={vulnerability.score}, "
+            f"exploit={vulnerability.exploit_prob:.2f}, patch={vulnerability.patch_prob:.2f})"
+        )
+
+    severity = vulnerability.get("severity", "Unknown")
+    score = vulnerability.get("score", "?")
+    exploit_prob = vulnerability.get("exploit_prob", "?")
+    patch_prob = vulnerability.get("patch_prob", "?")
+    return f"{vuln_id}(severity={severity}, score={score}, exploit={exploit_prob}, patch={patch_prob})"
+
+
+def _format_vulnerabilities(vulnerabilities: Any) -> str:
     if not vulnerabilities:
         return "无"
-    return ", ".join(vulnerabilities)
+
+    if isinstance(vulnerabilities, list):
+        return ", ".join(vulnerabilities)
+
+    if isinstance(vulnerabilities, dict):
+        return ", ".join(
+            _format_single_vulnerability(vuln_id, vulnerability)
+            for vuln_id, vulnerability in sorted(vulnerabilities.items())
+        )
+
+    return str(vulnerabilities)
 
 
 def _is_internal_node(node_name: str) -> bool:
@@ -38,7 +66,7 @@ def _derive_initial_visible_nodes(state: WorldState) -> set[str]:
 
 
 def _format_action_catalog(agent_type: str) -> list[str]:
-    actions = list_legal_actions(agent_type)
+    actions = list_legal_actions(agent_type, locale="zh")
     if not actions:
         return ["- 当前无合法动作。"]
     return [f"- `{row['action_type']}`: {row['summary']}" for row in actions]
@@ -101,7 +129,7 @@ def build_red_context(state: WorldState) -> str:
         "## 当前态势",
         f"- 当前回合：{state.turn}",
         f"- 已控制节点数：{len(controlled_nodes)}",
-        f"- 已侦察节点数（基于当前可用日志推断）：{len(recon_targets)}",
+        f"- 已侦察节点数：{len(recon_targets)}",
         "",
         "## 已控制节点",
     ]
@@ -128,9 +156,9 @@ def build_red_context(state: WorldState) -> str:
             node = state.network_nodes[node_name]
             status = node.status if node_name in recon_targets else "未知"
             vulnerabilities = (
-                state.red_known_vulnerabilities.get(node_name, [])
+                state.red_known_vulnerabilities.get(node_name, {})
                 if node_name in recon_targets
-                else []
+                else {}
             )
             lines.extend(
                 [
@@ -153,11 +181,10 @@ def build_red_context(state: WorldState) -> str:
     lines.extend(["", "## 战争迷雾"])
     if hidden_internal_count > 0:
         lines.append(
-            f"- 仍有 {hidden_internal_count} 个未探索内网节点处于战争迷雾中，"
-            "其 vulnerabilities 对红方不可见。"
+            f"- 仍有 {hidden_internal_count} 个未探索内网节点处于战争迷雾中，其漏洞对红方不可见。"
         )
     else:
-        lines.append("- 当前快照下不存在额外的未探索内网节点。")
+        lines.append("- 当前快照下不存在额外未探索内网节点。")
 
     lines.extend(["", "## 可用动作"])
     lines.extend(_format_action_catalog("Red"))
@@ -173,6 +200,8 @@ def build_blue_context(state: WorldState, recent_logs: list[Any]) -> str:
         f"- 当前回合：{state.turn}",
         f"- 系统健康度：{state.system_health}",
         f"- 暴露度：{state.exposure_level}",
+        f"- 红方得分：{state.red_score}",
+        f"- 蓝方得分：{state.blue_score}",
         f"- 节点总数：{len(state.network_nodes)}",
         "",
         "## 全局拓扑",

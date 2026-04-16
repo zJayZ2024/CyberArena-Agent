@@ -5,6 +5,7 @@ from backend_engine.core.schema import (
     SecurityAlert,
     SimulationReplay,
     TopologyEdge,
+    VulnerabilityInfo,
     WorldState,
 )
 
@@ -15,5 +16,6 @@ __all__ = [
     "SecurityAlert",
     "SimulationReplay",
     "TopologyEdge",
+    "VulnerabilityInfo",
     "WorldState",
 ]

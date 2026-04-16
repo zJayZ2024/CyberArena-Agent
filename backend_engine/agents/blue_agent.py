@@ -1,8 +1,25 @@
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable, Mapping
 
 from backend_engine.agents.llm_agent import BaseLLMAgent, LLMDecisionError
-from backend_engine.core.models import AgentDecision, SecurityAlert, WorldState
+from backend_engine.core.models import AgentDecision, SecurityAlert, VulnerabilityInfo, WorldState
+
+
+def _vulnerability_score(value: VulnerabilityInfo | dict[str, Any]) -> int:
+    if isinstance(value, VulnerabilityInfo):
+        return value.score
+    if isinstance(value, dict):
+        raw_score = value.get("score", 0)
+        if isinstance(raw_score, (int, float)):
+            return int(raw_score)
+    return 0
+
+
+def _pick_best_vuln_id(vulnerabilities: Mapping[str, VulnerabilityInfo | dict[str, Any]] | None) -> str | None:
+    if not vulnerabilities:
+        return None
+    vuln_id, _ = max(vulnerabilities.items(), key=lambda item: (_vulnerability_score(item[1]), item[0]))
+    return vuln_id
 
 
 class BlueAgent(BaseLLMAgent):
@@ -92,16 +109,24 @@ class BlueAgent(BaseLLMAgent):
                     continue
 
                 target_node = nodes[alert.target]
-                if target_node.vulnerabilities or target_node.status == "Compromised":
+                if target_node.status == "Compromised":
                     return AgentDecision(
                         agent_type="Blue",
-                        thought=(
-                            f"上一阶段安全告警指向 {alert.target.upper()}，"
-                            "应立刻围绕受击节点进行遏制和修复。"
-                        ),
-                        action_type="RestoreNode" if target_node.status == "Compromised" else "PatchNode",
+                        thought=f"{alert.target.upper()} 已失陷，必须优先恢复。",
+                        action_type="RestoreNode",
                         target=alert.target,
-                        payload=f"根据安全告警优先响应 {alert.target} 的异常活动",
+                        payload=f"恢复 {alert.target} 到干净基线",
+                    )
+
+                vuln_id = _pick_best_vuln_id(target_node.vulnerabilities)
+                if vuln_id:
+                    return AgentDecision(
+                        agent_type="Blue",
+                        thought=f"上一阶段安全告警指向 {alert.target.upper()}，优先修补高价值漏洞。",
+                        action_type="PatchNode",
+                        target=alert.target,
+                        vuln_id=vuln_id,
+                        payload=f"修补 {alert.target} 的 vuln_id={vuln_id}",
                     )
 
         for node_name in ("db", "app", "web"):
@@ -115,13 +140,15 @@ class BlueAgent(BaseLLMAgent):
                 )
 
         for node_name in ("app", "web", "db"):
-            if nodes[node_name].status == "Normal" and nodes[node_name].vulnerabilities:
+            vuln_id = _pick_best_vuln_id(nodes[node_name].vulnerabilities)
+            if nodes[node_name].status == "Normal" and vuln_id:
                 return AgentDecision(
                     agent_type="Blue",
-                    thought=f"{node_name.upper()} 仍存在已知弱点，应立即修补加固。",
+                    thought=f"{node_name.upper()} 仍存在已知高价值漏洞，应立即修补。",
                     action_type="PatchNode",
                     target=node_name,
-                    payload=f"修补 {node_name} 上最优先的漏洞",
+                    vuln_id=vuln_id,
+                    payload=f"修补 {node_name} 上的 vuln_id={vuln_id}",
                 )
 
         return AgentDecision(
