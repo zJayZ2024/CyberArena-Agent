@@ -88,7 +88,7 @@ function NetworkTopology({ initialRounds = DEFAULT_ROUNDS }) {
       <style>{PAGE_STYLES}</style>
       <HeaderHUD />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 24, alignItems: "start" }}>
         <div>
           <SvgGraph
             round={round}
@@ -115,7 +115,9 @@ function NetworkTopology({ initialRounds = DEFAULT_ROUNDS }) {
             {rounds.map((item, i) => <div key={`${item.round}-${i}`} className="info-chip" style={{ cursor: "pointer", borderColor: i === idx ? T.blue : undefined, color: i === idx ? T.blue : undefined }} onClick={() => { setPlaying(false); setIdx(i); }}>R{item.round} {item.judge_result.success ? "OK" : "NO"} {item.red_action.technique_id}</div>)}
           </div>
 
-          <LegendBar phase={ws.red_phase} />
+          <div style={{ marginTop: 16 }}>
+            <LegendBar phase={ws.red_phase} />
+          </div>
 
           <div style={{ paddingTop: 10, color: "#4b5563", fontFamily: T.fontMono, fontSize: 10 }}>
             DEV: call <code style={{ color: "#6b7280" }}>window.loadFrame(json)</code> to replace preview rounds with backend replay data.

@@ -42,7 +42,6 @@ function ScoreCurve({ rounds, idx }) {
         border: `1px solid ${T.border}`,
         borderRadius: 6,
         padding: "14px 16px",
-        marginTop: 14,
       }}
     >
       {/* Header */}

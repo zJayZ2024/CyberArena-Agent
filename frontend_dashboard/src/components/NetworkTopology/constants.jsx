@@ -24,14 +24,14 @@ export const T = {
 
 export const PAGE_STYLES = `
   @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap");
-  .topology-page { max-width: 1200px; margin: 0 auto; min-height: 100vh; padding: 20px; }
+  .topology-page { margin: 0 auto; min-height: 100vh; padding: 20px 28px; }
   .page-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 2px; color: #4b5563; margin-bottom: 12px; text-transform: uppercase; }
-  .controls { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .controls { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
   .ctrl-btn { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 5px 12px; border-radius: 4px; cursor: pointer; background: #111827; border: 1px solid #1f2937; color: #9ca3af; transition: all 0.15s; }
   .ctrl-btn:hover:not(:disabled) { border-color: #3b82f6; color: #3b82f6; }
   .ctrl-btn.active { background: #0d1f3c; border-color: #3b82f6; color: #3b82f6; }
   .ctrl-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-  .info-row { display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+  .info-row { display: flex; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
   .info-chip { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 4px 10px; border-radius: 20px; background: #111827; border: 0.5px solid #1f2937; color: #6b7280; }
 `;
 
