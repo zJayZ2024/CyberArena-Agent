@@ -1,0 +1,98 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "World State",
+  "description": "Global state after a single round of attack/defense exercise in CyberArena Agent.",
+  "type": "object",
+  "properties": {
+    "turn": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Current turn number."
+    },
+    "system_health": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "System health score (0-100)."
+    },
+    "exposure_level": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Exposure level score (0-100)."
+    },
+    "network_nodes": {
+      "type": "object",
+      "description": "Current state of network topology nodes.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "General status of the node (e.g., Normal, Compromised, Down, Defended)."
+          },
+          "exposed_ports": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "List of currently exposed ports on this node."
+          },
+          "vulnerabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of discovered or exploitable vulnerabilities."
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    },
+    "action_logs": {
+      "type": "array",
+      "description": "Logs of actions taken by red, blue and referee agents in this turn.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "agent_type": {
+            "type": "string",
+            "enum": [
+              "Red",
+              "Blue",
+              "Referee"
+            ]
+          },
+          "thought": {
+            "type": "string"
+          },
+          "action_type": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "string"
+          },
+          "referee_result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent_type",
+          "thought",
+          "action_type",
+          "payload",
+          "referee_result"
+        ]
+      }
+    }
+  },
+  "required": [
+    "turn",
+    "system_health",
+    "exposure_level",
+    "network_nodes",
+    "action_logs"
+  ]
+}

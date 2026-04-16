@@ -1,0 +1,191 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Round Result",
+  "description": "Deterministic settlement output for one simulation round.",
+  "type": "object",
+  "properties": {
+    "turn": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "red_action": {
+      "$ref": "#/definitions/redAction"
+    },
+    "blue_action": {
+      "$ref": "#/definitions/blueAction"
+    },
+    "red_result": {
+      "type": "string"
+    },
+    "blue_result": {
+      "type": "string"
+    },
+    "referee_log": {
+      "$ref": "#/definitions/actionLog"
+    },
+    "world_state": {
+      "$ref": "#/definitions/worldState"
+    }
+  },
+  "required": [
+    "turn",
+    "red_action",
+    "blue_action",
+    "red_result",
+    "blue_result",
+    "referee_log",
+    "world_state"
+  ],
+  "definitions": {
+    "redAction": {
+      "type": "object",
+      "properties": {
+        "agent_type": {
+          "type": "string",
+          "const": "Red"
+        },
+        "thought": {
+          "type": "string"
+        },
+        "action_type": {
+          "type": "string"
+        },
+        "target": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "payload": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "agent_type",
+        "thought",
+        "action_type",
+        "payload"
+      ]
+    },
+    "blueAction": {
+      "type": "object",
+      "properties": {
+        "agent_type": {
+          "type": "string",
+          "const": "Blue"
+        },
+        "thought": {
+          "type": "string"
+        },
+        "action_type": {
+          "type": "string"
+        },
+        "target": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "payload": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "agent_type",
+        "thought",
+        "action_type",
+        "payload"
+      ]
+    },
+    "actionLog": {
+      "type": "object",
+      "properties": {
+        "agent_type": {
+          "type": "string",
+          "enum": [
+            "Red",
+            "Blue",
+            "Referee"
+          ]
+        },
+        "thought": {
+          "type": "string"
+        },
+        "action_type": {
+          "type": "string"
+        },
+        "payload": {
+          "type": "string"
+        },
+        "referee_result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "agent_type",
+        "thought",
+        "action_type",
+        "payload",
+        "referee_result"
+      ]
+    },
+    "worldState": {
+      "type": "object",
+      "properties": {
+        "turn": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "system_health": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "exposure_level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "network_nodes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "exposed_ports": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              },
+              "vulnerabilities": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "action_logs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/actionLog"
+          }
+        }
+      },
+      "required": [
+        "turn",
+        "system_health",
+        "exposure_level",
+        "network_nodes",
+        "action_logs"
+      ]
+    }
+  }
+}
