@@ -1,0 +1,2577 @@
+{
+  "scenario": "level_1_basic_web",
+  "total_rounds": 10,
+  "frames": [
+    {
+      "turn": 0,
+      "system_health": 100,
+      "exposure_level": 40,
+      "red_score": 0,
+      "blue_score": 0,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {
+            "CVE-WEB-2026-0001": {
+              "vuln_id": "CVE-WEB-2026-0001",
+              "severity": "High",
+              "score": 22,
+              "exploit_prob": 0.78,
+              "patch_prob": 0.72
+            },
+            "WeakFileUpload": {
+              "vuln_id": "WeakFileUpload",
+              "severity": "Medium",
+              "score": 12,
+              "exploit_prob": 0.62,
+              "patch_prob": 0.86
+            }
+          }
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "DefaultAdminPassword": {
+              "vuln_id": "DefaultAdminPassword",
+              "severity": "High",
+              "score": 18,
+              "exploit_prob": 0.71,
+              "patch_prob": 0.76
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "OpenReplicaAccess": {
+              "vuln_id": "OpenReplicaAccess",
+              "severity": "High",
+              "score": 26,
+              "exploit_prob": 0.66,
+              "patch_prob": 0.63
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [],
+      "security_alerts": [],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web"
+      ],
+      "red_recon_nodes": [],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {}
+    },
+    {
+      "turn": 1,
+      "system_health": 100,
+      "exposure_level": 33,
+      "red_score": 0,
+      "blue_score": 0,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {
+            "CVE-WEB-2026-0001": {
+              "vuln_id": "CVE-WEB-2026-0001",
+              "severity": "High",
+              "score": 22,
+              "exploit_prob": 0.78,
+              "patch_prob": 0.72
+            },
+            "WeakFileUpload": {
+              "vuln_id": "WeakFileUpload",
+              "severity": "Medium",
+              "score": 12,
+              "exploit_prob": 0.62,
+              "patch_prob": 0.86
+            }
+          }
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "DefaultAdminPassword": {
+              "vuln_id": "DefaultAdminPassword",
+              "severity": "High",
+              "score": 18,
+              "exploit_prob": 0.71,
+              "patch_prob": 0.76
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "OpenReplicaAccess": {
+              "vuln_id": "OpenReplicaAccess",
+              "severity": "High",
+              "score": 26,
+              "exploit_prob": 0.66,
+              "patch_prob": 0.63
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "当前回合为 0，尚未控制任何节点，且所有可见节点（fw, internet, web）均无已知漏洞。根据规则，不能假设未知漏洞，也不能盲目攻击。必须优先对可见节点进行侦察（Recon）以发现潜在漏洞或服务详情。选择 'web' 节点作为首要侦察目标，因为它通常包含应用层漏洞，是常见的初始入侵点。",
+          "action_type": "Recon",
+          "payload": "Scan web node for open ports, running services, and potential vulnerabilities.",
+          "referee_result": "已完成对 web 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权",
+          "metadata": {
+            "action_type": "Recon",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": null,
+            "observed_status": "Normal",
+            "observed_ports": [
+              80,
+              443
+            ],
+            "vulnerability_count": 2,
+            "suspected_vulnerabilities": {
+              "CVE-WEB-2026-0001": {
+                "vuln_id": "CVE-WEB-2026-0001",
+                "severity": "High",
+                "score": 22,
+                "exploit_prob": 0.78,
+                "patch_prob": 0.72
+              },
+              "WeakFileUpload": {
+                "vuln_id": "WeakFileUpload",
+                "severity": "Medium",
+                "score": 12,
+                "exploit_prob": 0.62,
+                "patch_prob": 0.86
+              }
+            }
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "当前为第 0 回合，无上一回合安全告警，因此不触发基于告警的 Monitor 强制 SOP。所有节点状态均为 Normal，无需 Restore 或 Isolate。根据推理原则，在无告警约束且节点未失陷时，应优先修补高分值漏洞以收敛攻击面。对比所有节点漏洞，`db` 节点的 `OpenReplicaAccess` 漏洞分值最高 (26)，且为 High  severity，优先修补该节点。",
+          "action_type": "PatchNode",
+          "payload": "修补 db 节点的高分值漏洞 OpenReplicaAccess 以消除核心数据风险",
+          "referee_result": "db 的 vuln_id=OpenReplicaAccess 修补失败",
+          "metadata": {
+            "action_type": "PatchNode",
+            "agent_type": "Blue",
+            "target": "db",
+            "vuln_id": "OpenReplicaAccess",
+            "patched_vulnerability": {
+              "vuln_id": "OpenReplicaAccess",
+              "severity": "High",
+              "score": 26,
+              "exploit_prob": 0.66,
+              "patch_prob": 0.63
+            },
+            "score_value": 26,
+            "previous_status": "Normal",
+            "preserved_ports": [
+              3306
+            ],
+            "roll": 0.999845,
+            "probability": 0.63
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 Recon，蓝方动作为 PatchNode。",
+          "action_type": "ResolveRound",
+          "payload": "web|db",
+          "referee_result": "Red: 已完成对 web 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权; Blue: db 的 vuln_id=OpenReplicaAccess 修补失败",
+          "metadata": {
+            "red_result": {
+              "action_type": "Recon",
+              "agent_type": "Red",
+              "target": "web",
+              "vuln_id": null,
+              "observed_status": "Normal",
+              "observed_ports": [
+                80,
+                443
+              ],
+              "vulnerability_count": 2,
+              "suspected_vulnerabilities": {
+                "CVE-WEB-2026-0001": {
+                  "vuln_id": "CVE-WEB-2026-0001",
+                  "severity": "High",
+                  "score": 22,
+                  "exploit_prob": 0.78,
+                  "patch_prob": 0.72
+                },
+                "WeakFileUpload": {
+                  "vuln_id": "WeakFileUpload",
+                  "severity": "Medium",
+                  "score": 12,
+                  "exploit_prob": 0.62,
+                  "patch_prob": 0.86
+                }
+              }
+            },
+            "blue_result": {
+              "action_type": "PatchNode",
+              "agent_type": "Blue",
+              "target": "db",
+              "vuln_id": "OpenReplicaAccess",
+              "patched_vulnerability": {
+                "vuln_id": "OpenReplicaAccess",
+                "severity": "High",
+                "score": 26,
+                "exploit_prob": 0.66,
+                "patch_prob": 0.63
+              },
+              "score_value": 26,
+              "previous_status": "Normal",
+              "preserved_ports": [
+                3306
+              ],
+              "roll": 0.999845,
+              "probability": 0.63
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] web 节点出现侦察痕迹。",
+                "target": "web",
+                "source_action": "Recon",
+                "metadata": {
+                  "action_type": "Recon",
+                  "agent_type": "Red",
+                  "target": "web",
+                  "vuln_id": null,
+                  "observed_status": "Normal",
+                  "observed_ports": [
+                    80,
+                    443
+                  ],
+                  "vulnerability_count": 2,
+                  "suspected_vulnerabilities": {
+                    "CVE-WEB-2026-0001": {
+                      "vuln_id": "CVE-WEB-2026-0001",
+                      "severity": "High",
+                      "score": 22,
+                      "exploit_prob": 0.78,
+                      "patch_prob": 0.72
+                    },
+                    "WeakFileUpload": {
+                      "vuln_id": "WeakFileUpload",
+                      "severity": "Medium",
+                      "score": 12,
+                      "exploit_prob": 0.62,
+                      "patch_prob": 0.86
+                    }
+                  }
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 0,
+              "interception_bonus": 0,
+              "red_score": 0,
+              "blue_score": 0
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] web 节点出现侦察痕迹。",
+          "target": "web",
+          "source_action": "Recon",
+          "metadata": {
+            "action_type": "Recon",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": null,
+            "observed_status": "Normal",
+            "observed_ports": [
+              80,
+              443
+            ],
+            "vulnerability_count": 2,
+            "suspected_vulnerabilities": {
+              "CVE-WEB-2026-0001": {
+                "vuln_id": "CVE-WEB-2026-0001",
+                "severity": "High",
+                "score": 22,
+                "exploit_prob": 0.78,
+                "patch_prob": 0.72
+              },
+              "WeakFileUpload": {
+                "vuln_id": "WeakFileUpload",
+                "severity": "Medium",
+                "score": 12,
+                "exploit_prob": 0.62,
+                "patch_prob": 0.86
+              }
+            }
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web"
+      ],
+      "red_recon_nodes": [
+        "web"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "CVE-WEB-2026-0001": {
+            "vuln_id": "CVE-WEB-2026-0001",
+            "severity": "High",
+            "score": 22,
+            "exploit_prob": 0.78,
+            "patch_prob": 0.72
+          },
+          "WeakFileUpload": {
+            "vuln_id": "WeakFileUpload",
+            "severity": "Medium",
+            "score": 12,
+            "exploit_prob": 0.62,
+            "patch_prob": 0.86
+          }
+        }
+      }
+    },
+    {
+      "turn": 2,
+      "system_health": 80,
+      "exposure_level": 48,
+      "red_score": 22,
+      "blue_score": 0,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Compromised",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {
+            "CVE-WEB-2026-0001": {
+              "vuln_id": "CVE-WEB-2026-0001",
+              "severity": "High",
+              "score": 22,
+              "exploit_prob": 0.78,
+              "patch_prob": 0.72
+            },
+            "WeakFileUpload": {
+              "vuln_id": "WeakFileUpload",
+              "severity": "Medium",
+              "score": 12,
+              "exploit_prob": 0.62,
+              "patch_prob": 0.86
+            }
+          }
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "DefaultAdminPassword": {
+              "vuln_id": "DefaultAdminPassword",
+              "severity": "High",
+              "score": 18,
+              "exploit_prob": 0.71,
+              "patch_prob": 0.76
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "OpenReplicaAccess": {
+              "vuln_id": "OpenReplicaAccess",
+              "severity": "High",
+              "score": 26,
+              "exploit_prob": 0.66,
+              "patch_prob": 0.63
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "当前已对 web 节点完成侦察，发现两个已知漏洞。CVE-WEB-2026-0001 评分更高且利用成功率较高，应优先尝试利用该漏洞建立初始据点。",
+          "action_type": "ExploitService",
+          "payload": "利用 CVE-WEB-2026-0001 高危漏洞攻击 web 节点的 80/443 服务以获取控制权",
+          "referee_result": "web 已通过 vuln_id=CVE-WEB-2026-0001 被成功攻破",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": "CVE-WEB-2026-0001",
+            "used_vulnerability": {
+              "vuln_id": "CVE-WEB-2026-0001",
+              "severity": "High",
+              "score": 22,
+              "exploit_prob": 0.78,
+              "patch_prob": 0.72
+            },
+            "score_value": 22,
+            "previous_status": "Normal",
+            "roll": 0.382856,
+            "probability": 0.78
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "当前为第 1 回合，收到关于 'web' 节点的 WARN 级别 Recon 告警。根据 SOP 最高优先级规则，WARN 级别告警必须选择 Monitor，除非同一节点连续 2 轮及以上遭到攻击（当前仅第 1 轮，不满足例外条件）。因此，尽管 'web' 节点存在高分漏洞，此时严禁执行 PatchNode，必须执行 Monitor 以确认威胁态势。",
+          "action_type": "Monitor",
+          "payload": "对 web 节点维持监控覆盖，分析侦察痕迹，暂不执行修补以避免业务扰动。",
+          "referee_result": "已持续对 web 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "action_type": "Monitor",
+            "agent_type": "Blue",
+            "target": "web",
+            "vuln_id": null,
+            "monitor_scope": "web",
+            "score_value": 0
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 Monitor。",
+          "action_type": "ResolveRound",
+          "payload": "web|web",
+          "referee_result": "Red: web 已通过 vuln_id=CVE-WEB-2026-0001 被成功攻破; Blue: 已持续对 web 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "red_result": {
+              "action_type": "ExploitService",
+              "agent_type": "Red",
+              "target": "web",
+              "vuln_id": "CVE-WEB-2026-0001",
+              "used_vulnerability": {
+                "vuln_id": "CVE-WEB-2026-0001",
+                "severity": "High",
+                "score": 22,
+                "exploit_prob": 0.78,
+                "patch_prob": 0.72
+              },
+              "score_value": 22,
+              "previous_status": "Normal",
+              "roll": 0.382856,
+              "probability": 0.78
+            },
+            "blue_result": {
+              "action_type": "Monitor",
+              "agent_type": "Blue",
+              "target": "web",
+              "vuln_id": null,
+              "monitor_scope": "web",
+              "score_value": 0
+            },
+            "recent_alerts": [
+              {
+                "severity": "CRIT",
+                "message": "[CRIT] web 节点遭到 ExploitService 攻击，vuln_id=CVE-WEB-2026-0001，当前状态为 Compromised。",
+                "target": "web",
+                "source_action": "ExploitService",
+                "metadata": {
+                  "action_type": "ExploitService",
+                  "agent_type": "Red",
+                  "target": "web",
+                  "vuln_id": "CVE-WEB-2026-0001",
+                  "used_vulnerability": {
+                    "vuln_id": "CVE-WEB-2026-0001",
+                    "severity": "High",
+                    "score": 22,
+                    "exploit_prob": 0.78,
+                    "patch_prob": 0.72
+                  },
+                  "score_value": 22,
+                  "previous_status": "Normal",
+                  "roll": 0.382856,
+                  "probability": 0.78
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 22,
+              "blue_delta": 0,
+              "interception_bonus": 0,
+              "red_score": 22,
+              "blue_score": 0
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "CRIT",
+          "message": "[CRIT] web 节点遭到 ExploitService 攻击，vuln_id=CVE-WEB-2026-0001，当前状态为 Compromised。",
+          "target": "web",
+          "source_action": "ExploitService",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": "CVE-WEB-2026-0001",
+            "used_vulnerability": {
+              "vuln_id": "CVE-WEB-2026-0001",
+              "severity": "High",
+              "score": 22,
+              "exploit_prob": 0.78,
+              "patch_prob": 0.72
+            },
+            "score_value": 22,
+            "previous_status": "Normal",
+            "roll": 0.382856,
+            "probability": 0.78
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "CVE-WEB-2026-0001": {
+            "vuln_id": "CVE-WEB-2026-0001",
+            "severity": "High",
+            "score": 22,
+            "exploit_prob": 0.78,
+            "patch_prob": 0.72
+          },
+          "WeakFileUpload": {
+            "vuln_id": "WeakFileUpload",
+            "severity": "Medium",
+            "score": 12,
+            "exploit_prob": 0.62,
+            "patch_prob": 0.86
+          }
+        }
+      }
+    },
+    {
+      "turn": 3,
+      "system_health": 100,
+      "exposure_level": 29,
+      "red_score": 22,
+      "blue_score": 22,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {
+            "WeakFileUpload": {
+              "vuln_id": "WeakFileUpload",
+              "severity": "Medium",
+              "score": 12,
+              "exploit_prob": 0.62,
+              "patch_prob": 0.86
+            }
+          }
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "DefaultAdminPassword": {
+              "vuln_id": "DefaultAdminPassword",
+              "severity": "High",
+              "score": 18,
+              "exploit_prob": 0.71,
+              "patch_prob": 0.76
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "OpenReplicaAccess": {
+              "vuln_id": "OpenReplicaAccess",
+              "severity": "High",
+              "score": 26,
+              "exploit_prob": 0.66,
+              "patch_prob": 0.63
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "已控制 web 节点，发现相邻节点 app 和 fw 但状态未知。根据规则，在横向移动前必须先侦察相邻节点以发现漏洞。app 节点无已知暴露服务和漏洞，优先对其进行 Recon 以获取攻击面信息。",
+          "action_type": "Recon",
+          "payload": "Scan internal node 'app' for open ports, running services, and potential vulnerabilities.",
+          "referee_result": "已完成对 app 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权",
+          "metadata": {
+            "action_type": "Recon",
+            "agent_type": "Red",
+            "target": "app",
+            "vuln_id": null,
+            "observed_status": "Normal",
+            "observed_ports": [
+              8080
+            ],
+            "vulnerability_count": 1,
+            "suspected_vulnerabilities": {
+              "DefaultAdminPassword": {
+                "vuln_id": "DefaultAdminPassword",
+                "severity": "High",
+                "score": 18,
+                "exploit_prob": 0.71,
+                "patch_prob": 0.76
+              }
+            }
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "最新告警显示 web 节点已因 CVE-WEB-2026-0001 被攻破 (Compromised)。根据 SOP 第 5 条，对于已失陷节点应优先考虑 RestoreNode 或 Isolate。考虑到系统健康度尚可 (80)，且需要尽快恢复业务功能，选择 RestoreNode 将 web 节点恢复到干净状态是最佳策略，这能直接消除当前的失陷状态。",
+          "action_type": "RestoreNode",
+          "payload": "Restore web node to clean Normal state to recover from compromise.",
+          "referee_result": "web 已恢复并回到 Normal 状态",
+          "metadata": {
+            "action_type": "RestoreNode",
+            "agent_type": "Blue",
+            "target": "web",
+            "vuln_id": "CVE-WEB-2026-0001",
+            "removed_vulnerability": {
+              "vuln_id": "CVE-WEB-2026-0001",
+              "severity": "High",
+              "score": 22,
+              "exploit_prob": 0.78,
+              "patch_prob": 0.72
+            },
+            "score_value": 22,
+            "previous_status": "Compromised"
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 Recon，蓝方动作为 RestoreNode。",
+          "action_type": "ResolveRound",
+          "payload": "app|web",
+          "referee_result": "Red: 已完成对 app 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权; Blue: web 已恢复并回到 Normal 状态",
+          "metadata": {
+            "red_result": {
+              "action_type": "Recon",
+              "agent_type": "Red",
+              "target": "app",
+              "vuln_id": null,
+              "observed_status": "Normal",
+              "observed_ports": [
+                8080
+              ],
+              "vulnerability_count": 1,
+              "suspected_vulnerabilities": {
+                "DefaultAdminPassword": {
+                  "vuln_id": "DefaultAdminPassword",
+                  "severity": "High",
+                  "score": 18,
+                  "exploit_prob": 0.71,
+                  "patch_prob": 0.76
+                }
+              }
+            },
+            "blue_result": {
+              "action_type": "RestoreNode",
+              "agent_type": "Blue",
+              "target": "web",
+              "vuln_id": "CVE-WEB-2026-0001",
+              "removed_vulnerability": {
+                "vuln_id": "CVE-WEB-2026-0001",
+                "severity": "High",
+                "score": 22,
+                "exploit_prob": 0.78,
+                "patch_prob": 0.72
+              },
+              "score_value": 22,
+              "previous_status": "Compromised"
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] app 节点出现侦察痕迹。",
+                "target": "app",
+                "source_action": "Recon",
+                "metadata": {
+                  "action_type": "Recon",
+                  "agent_type": "Red",
+                  "target": "app",
+                  "vuln_id": null,
+                  "observed_status": "Normal",
+                  "observed_ports": [
+                    8080
+                  ],
+                  "vulnerability_count": 1,
+                  "suspected_vulnerabilities": {
+                    "DefaultAdminPassword": {
+                      "vuln_id": "DefaultAdminPassword",
+                      "severity": "High",
+                      "score": 18,
+                      "exploit_prob": 0.71,
+                      "patch_prob": 0.76
+                    }
+                  }
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 22,
+              "interception_bonus": 0,
+              "red_score": 22,
+              "blue_score": 22
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] app 节点出现侦察痕迹。",
+          "target": "app",
+          "source_action": "Recon",
+          "metadata": {
+            "action_type": "Recon",
+            "agent_type": "Red",
+            "target": "app",
+            "vuln_id": null,
+            "observed_status": "Normal",
+            "observed_ports": [
+              8080
+            ],
+            "vulnerability_count": 1,
+            "suspected_vulnerabilities": {
+              "DefaultAdminPassword": {
+                "vuln_id": "DefaultAdminPassword",
+                "severity": "High",
+                "score": 18,
+                "exploit_prob": 0.71,
+                "patch_prob": 0.76
+              }
+            }
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web",
+        "app"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ],
+        "app": [
+          8080
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "CVE-WEB-2026-0001": {
+            "vuln_id": "CVE-WEB-2026-0001",
+            "severity": "High",
+            "score": 22,
+            "exploit_prob": 0.78,
+            "patch_prob": 0.72
+          },
+          "WeakFileUpload": {
+            "vuln_id": "WeakFileUpload",
+            "severity": "Medium",
+            "score": 12,
+            "exploit_prob": 0.62,
+            "patch_prob": 0.86
+          }
+        },
+        "app": {
+          "DefaultAdminPassword": {
+            "vuln_id": "DefaultAdminPassword",
+            "severity": "High",
+            "score": 18,
+            "exploit_prob": 0.71,
+            "patch_prob": 0.76
+          }
+        }
+      }
+    },
+    {
+      "turn": 4,
+      "system_health": 100,
+      "exposure_level": 29,
+      "red_score": 22,
+      "blue_score": 22,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {
+            "WeakFileUpload": {
+              "vuln_id": "WeakFileUpload",
+              "severity": "Medium",
+              "score": 12,
+              "exploit_prob": 0.62,
+              "patch_prob": 0.86
+            }
+          }
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "DefaultAdminPassword": {
+              "vuln_id": "DefaultAdminPassword",
+              "severity": "High",
+              "score": 18,
+              "exploit_prob": 0.71,
+              "patch_prob": 0.76
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "OpenReplicaAccess": {
+              "vuln_id": "OpenReplicaAccess",
+              "severity": "High",
+              "score": 26,
+              "exploit_prob": 0.66,
+              "patch_prob": 0.63
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "当前没有已控制节点，无法进行横向移动或数据窃取。在已侦察节点中，`web` 节点拥有分值最高 (22) 且利用成功率较高 (0.78) 的漏洞 CVE-WEB-2026-0001，优于 `app` 节点的漏洞。应优先尝试利用 `web` 节点的高分漏洞以建立初始据点。",
+          "action_type": "ExploitService",
+          "payload": "利用 CVE-WEB-2026-0001 远程代码执行漏洞攻击 web 节点的 80/443 服务，尝试获取 shell 权限。",
+          "referee_result": "所选 vuln_id CVE-WEB-2026-0001 不存在于目标节点",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": "CVE-WEB-2026-0001"
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "最新告警显示 app 节点出现 Recon 痕迹且级别为 WARN。根据 SOP 最高优先级规则，当 source_action 为 Recon 或 severity 为 WARN 时，必须选择 Monitor。虽然 app 存在高危漏洞，但当前仅为单轮侦察告警，未触发连续两轮攻击的高阶例外规则，因此严禁执行 PatchNode，应维持监控以确认红方意图。",
+          "action_type": "Monitor",
+          "payload": "对 app 节点维持高强度监控，记录侦察行为特征，暂不执行修补以避免业务扰动。",
+          "referee_result": "已持续对 app 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "action_type": "Monitor",
+            "agent_type": "Blue",
+            "target": "app",
+            "vuln_id": null,
+            "monitor_scope": "app",
+            "score_value": 0
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 Monitor。",
+          "action_type": "ResolveRound",
+          "payload": "web|app",
+          "referee_result": "Red: 所选 vuln_id CVE-WEB-2026-0001 不存在于目标节点; Blue: 已持续对 app 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "red_result": {
+              "action_type": "ExploitService",
+              "agent_type": "Red",
+              "target": "web",
+              "vuln_id": "CVE-WEB-2026-0001"
+            },
+            "blue_result": {
+              "action_type": "Monitor",
+              "agent_type": "Blue",
+              "target": "app",
+              "vuln_id": null,
+              "monitor_scope": "app",
+              "score_value": 0
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] web 节点遭到 ExploitService 攻击，vuln_id=CVE-WEB-2026-0001，当前状态为 Normal。",
+                "target": "web",
+                "source_action": "ExploitService",
+                "metadata": {
+                  "action_type": "ExploitService",
+                  "agent_type": "Red",
+                  "target": "web",
+                  "vuln_id": "CVE-WEB-2026-0001"
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 0,
+              "interception_bonus": 0,
+              "red_score": 22,
+              "blue_score": 22
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] web 节点遭到 ExploitService 攻击，vuln_id=CVE-WEB-2026-0001，当前状态为 Normal。",
+          "target": "web",
+          "source_action": "ExploitService",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": "CVE-WEB-2026-0001"
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web",
+        "app"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ],
+        "app": [
+          8080
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "WeakFileUpload": {
+            "vuln_id": "WeakFileUpload",
+            "severity": "Medium",
+            "score": 12,
+            "exploit_prob": 0.62,
+            "patch_prob": 0.86
+          }
+        },
+        "app": {
+          "DefaultAdminPassword": {
+            "vuln_id": "DefaultAdminPassword",
+            "severity": "High",
+            "score": 18,
+            "exploit_prob": 0.71,
+            "patch_prob": 0.76
+          }
+        }
+      }
+    },
+    {
+      "turn": 5,
+      "system_health": 100,
+      "exposure_level": 29,
+      "red_score": 22,
+      "blue_score": 22,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {
+            "WeakFileUpload": {
+              "vuln_id": "WeakFileUpload",
+              "severity": "Medium",
+              "score": 12,
+              "exploit_prob": 0.62,
+              "patch_prob": 0.86
+            }
+          }
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "DefaultAdminPassword": {
+              "vuln_id": "DefaultAdminPassword",
+              "severity": "High",
+              "score": 18,
+              "exploit_prob": 0.71,
+              "patch_prob": 0.76
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "OpenReplicaAccess": {
+              "vuln_id": "OpenReplicaAccess",
+              "severity": "High",
+              "score": 26,
+              "exploit_prob": 0.66,
+              "patch_prob": 0.63
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "当前无已控制节点，无法进行横向移动或数据窃取。在已侦察节点中，`app` 节点的 DefaultAdminPassword 漏洞评分 (18) 和成功率 (0.71) 均高于 `web` 节点的 WeakFileUpload。应优先尝试利用高分漏洞建立初始据点。",
+          "action_type": "ExploitService",
+          "payload": "Attempt to login to port 8080 using default administrator credentials.",
+          "referee_result": "app 不是 ExploitService 的合法目标。内部资产应在建立据点后使用 LateralMove。",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "app",
+            "vuln_id": "DefaultAdminPassword"
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "最新告警显示 web 节点遭受 ExploitService 攻击，但告警级别为 WARN。根据 SOP 最高优先级规则，当 severity 为 WARN 时，必须选择 Monitor 以避免高扰动修补影响业务稳定性。虽然存在连续攻击的可能性，但当前仅提供了单轮告警信息，且未明确提及上一轮（第 3 回合）针对 web 的 Recon 或攻击记录，因此不触发高阶例外规则。web 节点当前状态为 Normal，未失陷，故无需 Restore 或 Isolate。综上，严格执行 SOP，选择 Monitor。",
+          "action_type": "Monitor",
+          "payload": "对遭受 WARN 级别 ExploitService 攻击的 web 节点维持监控，观察后续攻击行为，暂不进行修补以保障业务稳定。",
+          "referee_result": "已持续对 web 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "action_type": "Monitor",
+            "agent_type": "Blue",
+            "target": "web",
+            "vuln_id": null,
+            "monitor_scope": "web",
+            "score_value": 0
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 Monitor。",
+          "action_type": "ResolveRound",
+          "payload": "app|web",
+          "referee_result": "Red: app 不是 ExploitService 的合法目标。内部资产应在建立据点后使用 LateralMove。; Blue: 已持续对 web 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "red_result": {
+              "action_type": "ExploitService",
+              "agent_type": "Red",
+              "target": "app",
+              "vuln_id": "DefaultAdminPassword"
+            },
+            "blue_result": {
+              "action_type": "Monitor",
+              "agent_type": "Blue",
+              "target": "web",
+              "vuln_id": null,
+              "monitor_scope": "web",
+              "score_value": 0
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] app 节点遭到 ExploitService 攻击，vuln_id=DefaultAdminPassword，当前状态为 Normal。",
+                "target": "app",
+                "source_action": "ExploitService",
+                "metadata": {
+                  "action_type": "ExploitService",
+                  "agent_type": "Red",
+                  "target": "app",
+                  "vuln_id": "DefaultAdminPassword"
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 0,
+              "interception_bonus": 0,
+              "red_score": 22,
+              "blue_score": 22
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] app 节点遭到 ExploitService 攻击，vuln_id=DefaultAdminPassword，当前状态为 Normal。",
+          "target": "app",
+          "source_action": "ExploitService",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "app",
+            "vuln_id": "DefaultAdminPassword"
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web",
+        "app"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ],
+        "app": [
+          8080
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "WeakFileUpload": {
+            "vuln_id": "WeakFileUpload",
+            "severity": "Medium",
+            "score": 12,
+            "exploit_prob": 0.62,
+            "patch_prob": 0.86
+          }
+        },
+        "app": {
+          "DefaultAdminPassword": {
+            "vuln_id": "DefaultAdminPassword",
+            "severity": "High",
+            "score": 18,
+            "exploit_prob": 0.71,
+            "patch_prob": 0.76
+          }
+        }
+      }
+    },
+    {
+      "turn": 6,
+      "system_health": 100,
+      "exposure_level": 29,
+      "red_score": 22,
+      "blue_score": 22,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {
+            "WeakFileUpload": {
+              "vuln_id": "WeakFileUpload",
+              "severity": "Medium",
+              "score": 12,
+              "exploit_prob": 0.62,
+              "patch_prob": 0.86
+            }
+          }
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "DefaultAdminPassword": {
+              "vuln_id": "DefaultAdminPassword",
+              "severity": "High",
+              "score": 18,
+              "exploit_prob": 0.71,
+              "patch_prob": 0.76
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "OpenReplicaAccess": {
+              "vuln_id": "OpenReplicaAccess",
+              "severity": "High",
+              "score": 26,
+              "exploit_prob": 0.66,
+              "patch_prob": 0.63
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "当前无已控制节点，无法进行横向移动或数据窃取。在已侦察节点中，`app` 节点的 DefaultAdminPassword 漏洞评分 (18) 和利用成功率 (0.71) 均高于 `web` 节点的 WeakFileUpload。应优先尝试利用高分漏洞建立初始据点。",
+          "action_type": "ExploitService",
+          "payload": "Attempt to login to port 8080 using default administrator credentials.",
+          "referee_result": "app 不是 ExploitService 的合法目标。内部资产应在建立据点后使用 LateralMove。",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "app",
+            "vuln_id": "DefaultAdminPassword"
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "最新告警显示 app 节点遭到 ExploitService 攻击，severity 为 WARN。根据 SOP 规则，WARN 级别告警默认必须执行 Monitor，除非满足连续 2 轮同节点告警的例外条件。当前上下文仅提供了上一回合的告警，无法确认是否满足连续告警条件，因此严格遵守 SOP，选择 Monitor 以避免高扰动修补影响业务稳定性。",
+          "action_type": "Monitor",
+          "payload": "对 app 节点维持监控覆盖，观察后续攻击行为，暂不执行修补操作。",
+          "referee_result": "已持续对 app 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "action_type": "Monitor",
+            "agent_type": "Blue",
+            "target": "app",
+            "vuln_id": null,
+            "monitor_scope": "app",
+            "score_value": 0
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 Monitor。",
+          "action_type": "ResolveRound",
+          "payload": "app|app",
+          "referee_result": "Red: app 不是 ExploitService 的合法目标。内部资产应在建立据点后使用 LateralMove。; Blue: 已持续对 app 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "red_result": {
+              "action_type": "ExploitService",
+              "agent_type": "Red",
+              "target": "app",
+              "vuln_id": "DefaultAdminPassword"
+            },
+            "blue_result": {
+              "action_type": "Monitor",
+              "agent_type": "Blue",
+              "target": "app",
+              "vuln_id": null,
+              "monitor_scope": "app",
+              "score_value": 0
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] app 节点遭到 ExploitService 攻击，vuln_id=DefaultAdminPassword，当前状态为 Normal。",
+                "target": "app",
+                "source_action": "ExploitService",
+                "metadata": {
+                  "action_type": "ExploitService",
+                  "agent_type": "Red",
+                  "target": "app",
+                  "vuln_id": "DefaultAdminPassword"
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 0,
+              "interception_bonus": 0,
+              "red_score": 22,
+              "blue_score": 22
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] app 节点遭到 ExploitService 攻击，vuln_id=DefaultAdminPassword，当前状态为 Normal。",
+          "target": "app",
+          "source_action": "ExploitService",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "app",
+            "vuln_id": "DefaultAdminPassword"
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web",
+        "app"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ],
+        "app": [
+          8080
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "WeakFileUpload": {
+            "vuln_id": "WeakFileUpload",
+            "severity": "Medium",
+            "score": 12,
+            "exploit_prob": 0.62,
+            "patch_prob": 0.86
+          }
+        },
+        "app": {
+          "DefaultAdminPassword": {
+            "vuln_id": "DefaultAdminPassword",
+            "severity": "High",
+            "score": 18,
+            "exploit_prob": 0.71,
+            "patch_prob": 0.76
+          }
+        }
+      }
+    },
+    {
+      "turn": 7,
+      "system_health": 100,
+      "exposure_level": 29,
+      "red_score": 22,
+      "blue_score": 22,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {
+            "WeakFileUpload": {
+              "vuln_id": "WeakFileUpload",
+              "severity": "Medium",
+              "score": 12,
+              "exploit_prob": 0.62,
+              "patch_prob": 0.86
+            }
+          }
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "DefaultAdminPassword": {
+              "vuln_id": "DefaultAdminPassword",
+              "severity": "High",
+              "score": 18,
+              "exploit_prob": 0.71,
+              "patch_prob": 0.76
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "OpenReplicaAccess": {
+              "vuln_id": "OpenReplicaAccess",
+              "severity": "High",
+              "score": 26,
+              "exploit_prob": 0.66,
+              "patch_prob": 0.63
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "当前无已控制节点，需先获取初始据点。在已侦察节点中，`app` 节点拥有高危漏洞 DefaultAdminPassword (score=18)，其利用成功率 (0.71) 和分值均高于 `web` 节点的 WeakFileUpload。优先攻击 `app` 节点以建立第一个据点。",
+          "action_type": "ExploitService",
+          "payload": "Attempt to login to port 8080 using default administrator credentials.",
+          "referee_result": "app 不是 ExploitService 的合法目标。内部资产应在建立据点后使用 LateralMove。",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "app",
+            "vuln_id": "DefaultAdminPassword"
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "最新告警显示 app 节点遭到 ExploitService 攻击，severity 为 WARN。根据 SOP 规则，WARN 级别告警默认必须选择 Monitor，除非满足连续 2 轮同节点告警的例外条件。当前上下文仅提供了上一回合的告警，无法确认是否连续 2 轮，因此严格遵守 SOP，选择 Monitor 以避免高扰动修补影响业务稳定性。",
+          "action_type": "Monitor",
+          "payload": "对 app 节点维持监控覆盖，观察后续攻击行为，暂不执行修补操作。",
+          "referee_result": "已持续对 app 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "action_type": "Monitor",
+            "agent_type": "Blue",
+            "target": "app",
+            "vuln_id": null,
+            "monitor_scope": "app",
+            "score_value": 0
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 Monitor。",
+          "action_type": "ResolveRound",
+          "payload": "app|app",
+          "referee_result": "Red: app 不是 ExploitService 的合法目标。内部资产应在建立据点后使用 LateralMove。; Blue: 已持续对 app 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "red_result": {
+              "action_type": "ExploitService",
+              "agent_type": "Red",
+              "target": "app",
+              "vuln_id": "DefaultAdminPassword"
+            },
+            "blue_result": {
+              "action_type": "Monitor",
+              "agent_type": "Blue",
+              "target": "app",
+              "vuln_id": null,
+              "monitor_scope": "app",
+              "score_value": 0
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] app 节点遭到 ExploitService 攻击，vuln_id=DefaultAdminPassword，当前状态为 Normal。",
+                "target": "app",
+                "source_action": "ExploitService",
+                "metadata": {
+                  "action_type": "ExploitService",
+                  "agent_type": "Red",
+                  "target": "app",
+                  "vuln_id": "DefaultAdminPassword"
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 0,
+              "interception_bonus": 0,
+              "red_score": 22,
+              "blue_score": 22
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] app 节点遭到 ExploitService 攻击，vuln_id=DefaultAdminPassword，当前状态为 Normal。",
+          "target": "app",
+          "source_action": "ExploitService",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "app",
+            "vuln_id": "DefaultAdminPassword"
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web",
+        "app"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ],
+        "app": [
+          8080
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "WeakFileUpload": {
+            "vuln_id": "WeakFileUpload",
+            "severity": "Medium",
+            "score": 12,
+            "exploit_prob": 0.62,
+            "patch_prob": 0.86
+          }
+        },
+        "app": {
+          "DefaultAdminPassword": {
+            "vuln_id": "DefaultAdminPassword",
+            "severity": "High",
+            "score": 18,
+            "exploit_prob": 0.71,
+            "patch_prob": 0.76
+          }
+        }
+      }
+    },
+    {
+      "turn": 8,
+      "system_health": 100,
+      "exposure_level": 29,
+      "red_score": 22,
+      "blue_score": 22,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {
+            "WeakFileUpload": {
+              "vuln_id": "WeakFileUpload",
+              "severity": "Medium",
+              "score": 12,
+              "exploit_prob": 0.62,
+              "patch_prob": 0.86
+            }
+          }
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "DefaultAdminPassword": {
+              "vuln_id": "DefaultAdminPassword",
+              "severity": "High",
+              "score": 18,
+              "exploit_prob": 0.71,
+              "patch_prob": 0.76
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "OpenReplicaAccess": {
+              "vuln_id": "OpenReplicaAccess",
+              "severity": "High",
+              "score": 26,
+              "exploit_prob": 0.66,
+              "patch_prob": 0.63
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "当前无已控制节点，需先获取初始据点。在已侦察节点中，`app` 节点的 DefaultAdminPassword 漏洞评分 (18) 高于 `web` 节点的 WeakFileUpload (12)，且利用成功率更高 (0.71 vs 0.62)。因此优先攻击 `app` 节点以建立第一个据点。",
+          "action_type": "ExploitService",
+          "payload": "Use default admin credentials to gain access to the app service on port 8080.",
+          "referee_result": "app 不是 ExploitService 的合法目标。内部资产应在建立据点后使用 LateralMove。",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "app",
+            "vuln_id": "DefaultAdminPassword"
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "最新告警显示 app 节点遭到 ExploitService 攻击，severity 为 WARN。根据 SOP 规则，WARN 级别告警默认必须选择 Monitor，以避免高扰动修补影响业务稳定性。检查历史上下文，未发现 app 节点连续 2 轮及以上遭到 Recon 或攻击的例外情况，且节点当前状态为 Normal 未失陷。因此，严格遵守 SOP，执行 Monitor 动作。",
+          "action_type": "Monitor",
+          "payload": "对 app 节点维持监控覆盖，观察 WARN 级别 ExploitService 攻击的后续影响，暂不进行修补以避免业务扰动。",
+          "referee_result": "已持续对 app 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "action_type": "Monitor",
+            "agent_type": "Blue",
+            "target": "app",
+            "vuln_id": null,
+            "monitor_scope": "app",
+            "score_value": 0
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 Monitor。",
+          "action_type": "ResolveRound",
+          "payload": "app|app",
+          "referee_result": "Red: app 不是 ExploitService 的合法目标。内部资产应在建立据点后使用 LateralMove。; Blue: 已持续对 app 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "red_result": {
+              "action_type": "ExploitService",
+              "agent_type": "Red",
+              "target": "app",
+              "vuln_id": "DefaultAdminPassword"
+            },
+            "blue_result": {
+              "action_type": "Monitor",
+              "agent_type": "Blue",
+              "target": "app",
+              "vuln_id": null,
+              "monitor_scope": "app",
+              "score_value": 0
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] app 节点遭到 ExploitService 攻击，vuln_id=DefaultAdminPassword，当前状态为 Normal。",
+                "target": "app",
+                "source_action": "ExploitService",
+                "metadata": {
+                  "action_type": "ExploitService",
+                  "agent_type": "Red",
+                  "target": "app",
+                  "vuln_id": "DefaultAdminPassword"
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 0,
+              "interception_bonus": 0,
+              "red_score": 22,
+              "blue_score": 22
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] app 节点遭到 ExploitService 攻击，vuln_id=DefaultAdminPassword，当前状态为 Normal。",
+          "target": "app",
+          "source_action": "ExploitService",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "app",
+            "vuln_id": "DefaultAdminPassword"
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web",
+        "app"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ],
+        "app": [
+          8080
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "WeakFileUpload": {
+            "vuln_id": "WeakFileUpload",
+            "severity": "Medium",
+            "score": 12,
+            "exploit_prob": 0.62,
+            "patch_prob": 0.86
+          }
+        },
+        "app": {
+          "DefaultAdminPassword": {
+            "vuln_id": "DefaultAdminPassword",
+            "severity": "High",
+            "score": 18,
+            "exploit_prob": 0.71,
+            "patch_prob": 0.76
+          }
+        }
+      }
+    },
+    {
+      "turn": 9,
+      "system_health": 100,
+      "exposure_level": 29,
+      "red_score": 22,
+      "blue_score": 22,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {
+            "WeakFileUpload": {
+              "vuln_id": "WeakFileUpload",
+              "severity": "Medium",
+              "score": 12,
+              "exploit_prob": 0.62,
+              "patch_prob": 0.86
+            }
+          }
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "DefaultAdminPassword": {
+              "vuln_id": "DefaultAdminPassword",
+              "severity": "High",
+              "score": 18,
+              "exploit_prob": 0.71,
+              "patch_prob": 0.76
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "OpenReplicaAccess": {
+              "vuln_id": "OpenReplicaAccess",
+              "severity": "High",
+              "score": 26,
+              "exploit_prob": 0.66,
+              "patch_prob": 0.63
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "当前无已控制节点，无法进行横向移动或数据窃取。在已侦察节点中，`app` 节点的 DefaultAdminPassword 漏洞评分 (18) 和利用成功率 (0.71) 均高于 `web` 节点的 WeakFileUpload。应优先尝试利用高分漏洞获取首个据点。",
+          "action_type": "ExploitService",
+          "payload": "Attempt to login to port 8080 using default administrator credentials.",
+          "referee_result": "app 不是 ExploitService 的合法目标。内部资产应在建立据点后使用 LateralMove。",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "app",
+            "vuln_id": "DefaultAdminPassword"
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "最新告警显示 app 节点遭到 ExploitService 攻击，severity 为 WARN。根据 SOP 规则，WARN 级别告警默认必须选择 Monitor，以避免高扰动修补影响业务稳定性。检查历史上下文（当前仅提供单轮告警），未发现 app 节点连续 2 轮及以上遭到 Recon 或攻击的例外情况，且节点状态仍为 Normal，未失陷。因此，严格遵守 SOP，执行 Monitor 动作。",
+          "action_type": "Monitor",
+          "payload": "对 app 节点维持高强度监控，观察 ExploitService 攻击后续行为，暂不执行修补以避免业务中断。",
+          "referee_result": "已持续对 app 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "action_type": "Monitor",
+            "agent_type": "Blue",
+            "target": "app",
+            "vuln_id": null,
+            "monitor_scope": "app",
+            "score_value": 0
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 Monitor。",
+          "action_type": "ResolveRound",
+          "payload": "app|app",
+          "referee_result": "Red: app 不是 ExploitService 的合法目标。内部资产应在建立据点后使用 LateralMove。; Blue: 已持续对 app 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "red_result": {
+              "action_type": "ExploitService",
+              "agent_type": "Red",
+              "target": "app",
+              "vuln_id": "DefaultAdminPassword"
+            },
+            "blue_result": {
+              "action_type": "Monitor",
+              "agent_type": "Blue",
+              "target": "app",
+              "vuln_id": null,
+              "monitor_scope": "app",
+              "score_value": 0
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] app 节点遭到 ExploitService 攻击，vuln_id=DefaultAdminPassword，当前状态为 Normal。",
+                "target": "app",
+                "source_action": "ExploitService",
+                "metadata": {
+                  "action_type": "ExploitService",
+                  "agent_type": "Red",
+                  "target": "app",
+                  "vuln_id": "DefaultAdminPassword"
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 0,
+              "interception_bonus": 0,
+              "red_score": 22,
+              "blue_score": 22
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] app 节点遭到 ExploitService 攻击，vuln_id=DefaultAdminPassword，当前状态为 Normal。",
+          "target": "app",
+          "source_action": "ExploitService",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "app",
+            "vuln_id": "DefaultAdminPassword"
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web",
+        "app"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ],
+        "app": [
+          8080
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "WeakFileUpload": {
+            "vuln_id": "WeakFileUpload",
+            "severity": "Medium",
+            "score": 12,
+            "exploit_prob": 0.62,
+            "patch_prob": 0.86
+          }
+        },
+        "app": {
+          "DefaultAdminPassword": {
+            "vuln_id": "DefaultAdminPassword",
+            "severity": "High",
+            "score": 18,
+            "exploit_prob": 0.71,
+            "patch_prob": 0.76
+          }
+        }
+      }
+    },
+    {
+      "turn": 10,
+      "system_health": 100,
+      "exposure_level": 29,
+      "red_score": 22,
+      "blue_score": 22,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {
+            "WeakFileUpload": {
+              "vuln_id": "WeakFileUpload",
+              "severity": "Medium",
+              "score": 12,
+              "exploit_prob": 0.62,
+              "patch_prob": 0.86
+            }
+          }
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "DefaultAdminPassword": {
+              "vuln_id": "DefaultAdminPassword",
+              "severity": "High",
+              "score": 18,
+              "exploit_prob": 0.71,
+              "patch_prob": 0.76
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "OpenReplicaAccess": {
+              "vuln_id": "OpenReplicaAccess",
+              "severity": "High",
+              "score": 26,
+              "exploit_prob": 0.66,
+              "patch_prob": 0.63
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "当前无已控制节点，需先获取初始据点。在已侦察节点中，`app` 节点的 DefaultAdminPassword 漏洞评分 (18) 高于 `web` 节点的 WeakFileUpload (12)，且利用成功率更高 (0.71 vs 0.62)。因此优先攻击 `app` 节点以建立第一个据点。",
+          "action_type": "ExploitService",
+          "payload": "利用默认管理员密码登录 app 节点的 8080 服务获取控制权",
+          "referee_result": "app 不是 ExploitService 的合法目标。内部资产应在建立据点后使用 LateralMove。",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "app",
+            "vuln_id": "DefaultAdminPassword"
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "最新告警显示 app 节点遭到 ExploitService 攻击，severity 为 WARN。根据 SOP 规则，WARN 级别告警默认必须选择 Monitor，以避免高扰动修补影响业务稳定性。虽然 app 节点存在高危漏洞，但当前状态仍为 Normal，且未满足'连续 2 轮及以上遭到 Recon 或攻击'的高阶例外条件（上一轮为 Exploit 而非 Recon，且仅提及本轮告警），因此严格执行 SOP，选择 Monitor 进行持续观测。",
+          "action_type": "Monitor",
+          "payload": "对 app 节点维持监控覆盖，观测 ExploitService 攻击后续行为，暂不执行修补以避免业务扰动。",
+          "referee_result": "已持续对 app 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "action_type": "Monitor",
+            "agent_type": "Blue",
+            "target": "app",
+            "vuln_id": null,
+            "monitor_scope": "app",
+            "score_value": 0
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 Monitor。",
+          "action_type": "ResolveRound",
+          "payload": "app|app",
+          "referee_result": "Red: app 不是 ExploitService 的合法目标。内部资产应在建立据点后使用 LateralMove。; Blue: 已持续对 app 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "red_result": {
+              "action_type": "ExploitService",
+              "agent_type": "Red",
+              "target": "app",
+              "vuln_id": "DefaultAdminPassword"
+            },
+            "blue_result": {
+              "action_type": "Monitor",
+              "agent_type": "Blue",
+              "target": "app",
+              "vuln_id": null,
+              "monitor_scope": "app",
+              "score_value": 0
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] app 节点遭到 ExploitService 攻击，vuln_id=DefaultAdminPassword，当前状态为 Normal。",
+                "target": "app",
+                "source_action": "ExploitService",
+                "metadata": {
+                  "action_type": "ExploitService",
+                  "agent_type": "Red",
+                  "target": "app",
+                  "vuln_id": "DefaultAdminPassword"
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 0,
+              "interception_bonus": 0,
+              "red_score": 22,
+              "blue_score": 22
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] app 节点遭到 ExploitService 攻击，vuln_id=DefaultAdminPassword，当前状态为 Normal。",
+          "target": "app",
+          "source_action": "ExploitService",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "app",
+            "vuln_id": "DefaultAdminPassword"
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web",
+        "app"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ],
+        "app": [
+          8080
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "WeakFileUpload": {
+            "vuln_id": "WeakFileUpload",
+            "severity": "Medium",
+            "score": 12,
+            "exploit_prob": 0.62,
+            "patch_prob": 0.86
+          }
+        },
+        "app": {
+          "DefaultAdminPassword": {
+            "vuln_id": "DefaultAdminPassword",
+            "severity": "High",
+            "score": 18,
+            "exploit_prob": 0.71,
+            "patch_prob": 0.76
+          }
+        }
+      }
+    }
+  ]
+}

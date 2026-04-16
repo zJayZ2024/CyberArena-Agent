@@ -1,0 +1,4016 @@
+{
+  "scenario": "level_1_basic_web",
+  "total_rounds": 12,
+  "frames": [
+    {
+      "turn": 0,
+      "system_health": 100,
+      "exposure_level": 40,
+      "red_score": 0,
+      "blue_score": 0,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {
+            "CVE-2021-44228_Log4Shell_RCE": {
+              "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+              "severity": "High",
+              "score": 28,
+              "exploit_prob": 0.58,
+              "patch_prob": 0.62
+            },
+            "CVE-2021-41773_Apache_PathTraversal_RCE": {
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+              "severity": "High",
+              "score": 22,
+              "exploit_prob": 0.49,
+              "patch_prob": 0.7
+            },
+            "CVE-2023-4966_CitrixBleed_SessionHijack": {
+              "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.44,
+              "patch_prob": 0.56
+            }
+          }
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "CVE-2022-22965_Spring4Shell_RCE": {
+              "vuln_id": "CVE-2022-22965_Spring4Shell_RCE",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.46,
+              "patch_prob": 0.58
+            },
+            "CVE-2017-5638_Struts2_RCE": {
+              "vuln_id": "CVE-2017-5638_Struts2_RCE",
+              "severity": "Critical",
+              "score": 26,
+              "exploit_prob": 0.52,
+              "patch_prob": 0.64
+            },
+            "CVE-2023-34362_MOVEit_SQLi": {
+              "vuln_id": "CVE-2023-34362_MOVEit_SQLi",
+              "severity": "High",
+              "score": 20,
+              "exploit_prob": 0.41,
+              "patch_prob": 0.67
+            }
+          }
+        },
+        "storage": {
+          "status": "Normal",
+          "exposed_ports": [
+            139,
+            445
+          ],
+          "vulnerabilities": {
+            "CVE-2017-0144_EternalBlue_SMB_RCE": {
+              "vuln_id": "CVE-2017-0144_EternalBlue_SMB_RCE",
+              "severity": "Critical",
+              "score": 30,
+              "exploit_prob": 0.43,
+              "patch_prob": 0.55
+            },
+            "CVE-2020-1472_ZeroLogon_AuthBypass": {
+              "vuln_id": "CVE-2020-1472_ZeroLogon_AuthBypass",
+              "severity": "Critical",
+              "score": 29,
+              "exploit_prob": 0.47,
+              "patch_prob": 0.52
+            },
+            "CVE-2021-44142_Samba_OOB_RCE": {
+              "vuln_id": "CVE-2021-44142_Samba_OOB_RCE",
+              "severity": "High",
+              "score": 23,
+              "exploit_prob": 0.39,
+              "patch_prob": 0.63
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "CVE-2016-6662_MySQL_Config_Injection": {
+              "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
+              "severity": "High",
+              "score": 25,
+              "exploit_prob": 0.4,
+              "patch_prob": 0.57
+            },
+            "CVE-2012-2122_MySQL_Auth_Bypass": {
+              "vuln_id": "CVE-2012-2122_MySQL_Auth_Bypass",
+              "severity": "High",
+              "score": 21,
+              "exploit_prob": 0.34,
+              "patch_prob": 0.69
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "storage"
+        },
+        {
+          "source": "storage",
+          "target": "db"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [],
+      "security_alerts": [],
+      "red_visible_nodes": [],
+      "red_recon_nodes": [],
+      "red_known_services": {},
+      "red_known_vulnerabilities": {}
+    },
+    {
+      "turn": 1,
+      "system_health": 100,
+      "exposure_level": 63,
+      "red_score": 0,
+      "blue_score": 0,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {
+            "CVE-2021-44228_Log4Shell_RCE": {
+              "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+              "severity": "High",
+              "score": 28,
+              "exploit_prob": 0.58,
+              "patch_prob": 0.62
+            },
+            "CVE-2021-41773_Apache_PathTraversal_RCE": {
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+              "severity": "High",
+              "score": 22,
+              "exploit_prob": 0.49,
+              "patch_prob": 0.7
+            },
+            "CVE-2023-4966_CitrixBleed_SessionHijack": {
+              "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.44,
+              "patch_prob": 0.56
+            }
+          }
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "CVE-2022-22965_Spring4Shell_RCE": {
+              "vuln_id": "CVE-2022-22965_Spring4Shell_RCE",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.46,
+              "patch_prob": 0.58
+            },
+            "CVE-2017-5638_Struts2_RCE": {
+              "vuln_id": "CVE-2017-5638_Struts2_RCE",
+              "severity": "Critical",
+              "score": 26,
+              "exploit_prob": 0.52,
+              "patch_prob": 0.64
+            },
+            "CVE-2023-34362_MOVEit_SQLi": {
+              "vuln_id": "CVE-2023-34362_MOVEit_SQLi",
+              "severity": "High",
+              "score": 20,
+              "exploit_prob": 0.41,
+              "patch_prob": 0.67
+            }
+          }
+        },
+        "storage": {
+          "status": "Normal",
+          "exposed_ports": [
+            139,
+            445
+          ],
+          "vulnerabilities": {
+            "CVE-2017-0144_EternalBlue_SMB_RCE": {
+              "vuln_id": "CVE-2017-0144_EternalBlue_SMB_RCE",
+              "severity": "Critical",
+              "score": 30,
+              "exploit_prob": 0.43,
+              "patch_prob": 0.55
+            },
+            "CVE-2020-1472_ZeroLogon_AuthBypass": {
+              "vuln_id": "CVE-2020-1472_ZeroLogon_AuthBypass",
+              "severity": "Critical",
+              "score": 29,
+              "exploit_prob": 0.47,
+              "patch_prob": 0.52
+            },
+            "CVE-2021-44142_Samba_OOB_RCE": {
+              "vuln_id": "CVE-2021-44142_Samba_OOB_RCE",
+              "severity": "High",
+              "score": 23,
+              "exploit_prob": 0.39,
+              "patch_prob": 0.63
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "CVE-2016-6662_MySQL_Config_Injection": {
+              "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
+              "severity": "High",
+              "score": 25,
+              "exploit_prob": 0.4,
+              "patch_prob": 0.57
+            },
+            "CVE-2012-2122_MySQL_Auth_Bypass": {
+              "vuln_id": "CVE-2012-2122_MySQL_Auth_Bypass",
+              "severity": "High",
+              "score": 21,
+              "exploit_prob": 0.34,
+              "patch_prob": 0.69
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "storage"
+        },
+        {
+          "source": "storage",
+          "target": "db"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "先完成对 web 的侦察，明确漏洞类型后再制定攻击手法。",
+          "action_type": "Recon",
+          "payload": "侦察 web 的端口、服务指纹和漏洞类型",
+          "referee_result": "已完成对 web 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权",
+          "metadata": {
+            "action_type": "Recon",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": null,
+            "observed_status": "Normal",
+            "observed_ports": [
+              80,
+              443
+            ],
+            "vulnerability_count": 3,
+            "suspected_vulnerabilities": {
+              "CVE-2021-44228_Log4Shell_RCE": {
+                "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+                "severity": "High",
+                "score": 28,
+                "exploit_prob": 0.58,
+                "patch_prob": 0.62
+              },
+              "CVE-2021-41773_Apache_PathTraversal_RCE": {
+                "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+                "severity": "High",
+                "score": 22,
+                "exploit_prob": 0.49,
+                "patch_prob": 0.7
+              },
+              "CVE-2023-4966_CitrixBleed_SessionHijack": {
+                "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+                "severity": "High",
+                "score": 24,
+                "exploit_prob": 0.44,
+                "patch_prob": 0.56
+              }
+            }
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "检测到侦察行为，先保持监控与取证，等待更明确攻击迹象。",
+          "action_type": "Monitor",
+          "payload": "针对 web 提升日志采集与告警灵敏度",
+          "referee_result": "已持续对 web 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "action_type": "Monitor",
+            "agent_type": "Blue",
+            "target": "web",
+            "vuln_id": null,
+            "monitor_scope": "web",
+            "score_value": 0
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 Recon，蓝方动作为 Monitor。",
+          "action_type": "ResolveRound",
+          "payload": "web|web",
+          "referee_result": "Red: 已完成对 web 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权; Blue: 已持续对 web 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "red_result": {
+              "action_type": "Recon",
+              "agent_type": "Red",
+              "target": "web",
+              "vuln_id": null,
+              "observed_status": "Normal",
+              "observed_ports": [
+                80,
+                443
+              ],
+              "vulnerability_count": 3,
+              "suspected_vulnerabilities": {
+                "CVE-2021-44228_Log4Shell_RCE": {
+                  "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+                  "severity": "High",
+                  "score": 28,
+                  "exploit_prob": 0.58,
+                  "patch_prob": 0.62
+                },
+                "CVE-2021-41773_Apache_PathTraversal_RCE": {
+                  "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+                  "severity": "High",
+                  "score": 22,
+                  "exploit_prob": 0.49,
+                  "patch_prob": 0.7
+                },
+                "CVE-2023-4966_CitrixBleed_SessionHijack": {
+                  "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+                  "severity": "High",
+                  "score": 24,
+                  "exploit_prob": 0.44,
+                  "patch_prob": 0.56
+                }
+              }
+            },
+            "blue_result": {
+              "action_type": "Monitor",
+              "agent_type": "Blue",
+              "target": "web",
+              "vuln_id": null,
+              "monitor_scope": "web",
+              "score_value": 0
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] web 节点出现侦察痕迹。",
+                "target": "web",
+                "source_action": "Recon",
+                "metadata": {
+                  "action_type": "Recon",
+                  "agent_type": "Red",
+                  "target": "web",
+                  "vuln_id": null,
+                  "observed_status": "Normal",
+                  "observed_ports": [
+                    80,
+                    443
+                  ],
+                  "vulnerability_count": 3,
+                  "suspected_vulnerabilities": {
+                    "CVE-2021-44228_Log4Shell_RCE": {
+                      "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+                      "severity": "High",
+                      "score": 28,
+                      "exploit_prob": 0.58,
+                      "patch_prob": 0.62
+                    },
+                    "CVE-2021-41773_Apache_PathTraversal_RCE": {
+                      "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+                      "severity": "High",
+                      "score": 22,
+                      "exploit_prob": 0.49,
+                      "patch_prob": 0.7
+                    },
+                    "CVE-2023-4966_CitrixBleed_SessionHijack": {
+                      "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+                      "severity": "High",
+                      "score": 24,
+                      "exploit_prob": 0.44,
+                      "patch_prob": 0.56
+                    }
+                  }
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 0,
+              "interception_bonus": 0,
+              "red_score": 0,
+              "blue_score": 0
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] web 节点出现侦察痕迹。",
+          "target": "web",
+          "source_action": "Recon",
+          "metadata": {
+            "action_type": "Recon",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": null,
+            "observed_status": "Normal",
+            "observed_ports": [
+              80,
+              443
+            ],
+            "vulnerability_count": 3,
+            "suspected_vulnerabilities": {
+              "CVE-2021-44228_Log4Shell_RCE": {
+                "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+                "severity": "High",
+                "score": 28,
+                "exploit_prob": 0.58,
+                "patch_prob": 0.62
+              },
+              "CVE-2021-41773_Apache_PathTraversal_RCE": {
+                "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+                "severity": "High",
+                "score": 22,
+                "exploit_prob": 0.49,
+                "patch_prob": 0.7
+              },
+              "CVE-2023-4966_CitrixBleed_SessionHijack": {
+                "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+                "severity": "High",
+                "score": 24,
+                "exploit_prob": 0.44,
+                "patch_prob": 0.56
+              }
+            }
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web"
+      ],
+      "red_recon_nodes": [
+        "web"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "CVE-2021-44228_Log4Shell_RCE": {
+            "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+            "severity": "High",
+            "score": 28,
+            "exploit_prob": 0.58,
+            "patch_prob": 0.62
+          },
+          "CVE-2021-41773_Apache_PathTraversal_RCE": {
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "severity": "High",
+            "score": 22,
+            "exploit_prob": 0.49,
+            "patch_prob": 0.7
+          },
+          "CVE-2023-4966_CitrixBleed_SessionHijack": {
+            "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+            "severity": "High",
+            "score": 24,
+            "exploit_prob": 0.44,
+            "patch_prob": 0.56
+          }
+        }
+      }
+    },
+    {
+      "turn": 2,
+      "system_health": 85,
+      "exposure_level": 63,
+      "red_score": 0,
+      "blue_score": 38,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Down",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {
+            "CVE-2021-44228_Log4Shell_RCE": {
+              "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+              "severity": "High",
+              "score": 28,
+              "exploit_prob": 0.58,
+              "patch_prob": 0.62
+            },
+            "CVE-2021-41773_Apache_PathTraversal_RCE": {
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+              "severity": "High",
+              "score": 22,
+              "exploit_prob": 0.49,
+              "patch_prob": 0.7
+            },
+            "CVE-2023-4966_CitrixBleed_SessionHijack": {
+              "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.44,
+              "patch_prob": 0.56
+            }
+          }
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "CVE-2022-22965_Spring4Shell_RCE": {
+              "vuln_id": "CVE-2022-22965_Spring4Shell_RCE",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.46,
+              "patch_prob": 0.58
+            },
+            "CVE-2017-5638_Struts2_RCE": {
+              "vuln_id": "CVE-2017-5638_Struts2_RCE",
+              "severity": "Critical",
+              "score": 26,
+              "exploit_prob": 0.52,
+              "patch_prob": 0.64
+            },
+            "CVE-2023-34362_MOVEit_SQLi": {
+              "vuln_id": "CVE-2023-34362_MOVEit_SQLi",
+              "severity": "High",
+              "score": 20,
+              "exploit_prob": 0.41,
+              "patch_prob": 0.67
+            }
+          }
+        },
+        "storage": {
+          "status": "Normal",
+          "exposed_ports": [
+            139,
+            445
+          ],
+          "vulnerabilities": {
+            "CVE-2017-0144_EternalBlue_SMB_RCE": {
+              "vuln_id": "CVE-2017-0144_EternalBlue_SMB_RCE",
+              "severity": "Critical",
+              "score": 30,
+              "exploit_prob": 0.43,
+              "patch_prob": 0.55
+            },
+            "CVE-2020-1472_ZeroLogon_AuthBypass": {
+              "vuln_id": "CVE-2020-1472_ZeroLogon_AuthBypass",
+              "severity": "Critical",
+              "score": 29,
+              "exploit_prob": 0.47,
+              "patch_prob": 0.52
+            },
+            "CVE-2021-44142_Samba_OOB_RCE": {
+              "vuln_id": "CVE-2021-44142_Samba_OOB_RCE",
+              "severity": "High",
+              "score": 23,
+              "exploit_prob": 0.39,
+              "patch_prob": 0.63
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "CVE-2016-6662_MySQL_Config_Injection": {
+              "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
+              "severity": "High",
+              "score": 25,
+              "exploit_prob": 0.4,
+              "patch_prob": 0.57
+            },
+            "CVE-2012-2122_MySQL_Auth_Bypass": {
+              "vuln_id": "CVE-2012-2122_MySQL_Auth_Bypass",
+              "severity": "High",
+              "score": 21,
+              "exploit_prob": 0.34,
+              "patch_prob": 0.69
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "storage"
+        },
+        {
+          "source": "storage",
+          "target": "db"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "已确认 web 上 CVE-2021-44228_Log4Shell_RCE 属于 RCE 类型，执行对应的外网利用链。",
+          "action_type": "ExploitService",
+          "payload": "利用 vuln_id=CVE-2021-44228_Log4Shell_RCE 在 web 触发远程代码执行并建立持久据点",
+          "referee_result": "web attack on vuln_id=CVE-2021-44228_Log4Shell_RCE was intercepted by blue Isolate",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+            "used_vulnerability": {
+              "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+              "severity": "High",
+              "score": 28,
+              "exploit_prob": 0.58,
+              "patch_prob": 0.62
+            },
+            "score_value": 0,
+            "previous_status": "Normal",
+            "roll": 0.197802,
+            "probability": 0.58,
+            "intercepted": true,
+            "intercepted_by": "Isolate"
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "已确认攻击利用的是 RCE 类型漏洞，优先隔离 web 进行遏制。",
+          "action_type": "Isolate",
+          "payload": "隔离 web 并阻断 vuln_id=CVE-2021-44228_Log4Shell_RCE 对应的远程执行链路",
+          "referee_result": "web 已被隔离并下线",
+          "metadata": {
+            "action_type": "Isolate",
+            "agent_type": "Blue",
+            "target": "web",
+            "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+            "score_value": 28,
+            "previous_status": "Compromised",
+            "interception_bonus": 10,
+            "intercepted_red_action": "ExploitService"
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 Isolate。",
+          "action_type": "ResolveRound",
+          "payload": "web|web",
+          "referee_result": "Red: web attack on vuln_id=CVE-2021-44228_Log4Shell_RCE was intercepted by blue Isolate; Blue: web 已被隔离并下线",
+          "metadata": {
+            "red_result": {
+              "action_type": "ExploitService",
+              "agent_type": "Red",
+              "target": "web",
+              "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+              "used_vulnerability": {
+                "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+                "severity": "High",
+                "score": 28,
+                "exploit_prob": 0.58,
+                "patch_prob": 0.62
+              },
+              "score_value": 0,
+              "previous_status": "Normal",
+              "roll": 0.197802,
+              "probability": 0.58,
+              "intercepted": true,
+              "intercepted_by": "Isolate"
+            },
+            "blue_result": {
+              "action_type": "Isolate",
+              "agent_type": "Blue",
+              "target": "web",
+              "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+              "score_value": 28,
+              "previous_status": "Compromised",
+              "interception_bonus": 10,
+              "intercepted_red_action": "ExploitService"
+            },
+            "recent_alerts": [
+              {
+                "severity": "INFO",
+                "message": "[INFO] web 上针对 vuln_id=CVE-2021-44228_Log4Shell_RCE 的 ExploitService 已被蓝方 Isolate 成功拦截。",
+                "target": "web",
+                "source_action": "ExploitService",
+                "metadata": {
+                  "action_type": "ExploitService",
+                  "agent_type": "Red",
+                  "target": "web",
+                  "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+                  "used_vulnerability": {
+                    "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+                    "severity": "High",
+                    "score": 28,
+                    "exploit_prob": 0.58,
+                    "patch_prob": 0.62
+                  },
+                  "score_value": 28,
+                  "previous_status": "Normal",
+                  "roll": 0.197802,
+                  "probability": 0.58,
+                  "intercepted": true,
+                  "intercepted_by": "Isolate"
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 38,
+              "interception_bonus": 10,
+              "red_score": 0,
+              "blue_score": 38
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "INFO",
+          "message": "[INFO] web 上针对 vuln_id=CVE-2021-44228_Log4Shell_RCE 的 ExploitService 已被蓝方 Isolate 成功拦截。",
+          "target": "web",
+          "source_action": "ExploitService",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+            "used_vulnerability": {
+              "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+              "severity": "High",
+              "score": 28,
+              "exploit_prob": 0.58,
+              "patch_prob": 0.62
+            },
+            "score_value": 28,
+            "previous_status": "Normal",
+            "roll": 0.197802,
+            "probability": 0.58,
+            "intercepted": true,
+            "intercepted_by": "Isolate"
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "CVE-2021-44228_Log4Shell_RCE": {
+            "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+            "severity": "High",
+            "score": 28,
+            "exploit_prob": 0.58,
+            "patch_prob": 0.62
+          },
+          "CVE-2021-41773_Apache_PathTraversal_RCE": {
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "severity": "High",
+            "score": 22,
+            "exploit_prob": 0.49,
+            "patch_prob": 0.7
+          },
+          "CVE-2023-4966_CitrixBleed_SessionHijack": {
+            "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+            "severity": "High",
+            "score": 24,
+            "exploit_prob": 0.44,
+            "patch_prob": 0.56
+          }
+        }
+      }
+    },
+    {
+      "turn": 3,
+      "system_health": 100,
+      "exposure_level": 59,
+      "red_score": 0,
+      "blue_score": 66,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {
+            "CVE-2021-41773_Apache_PathTraversal_RCE": {
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+              "severity": "High",
+              "score": 22,
+              "exploit_prob": 0.49,
+              "patch_prob": 0.7
+            },
+            "CVE-2023-4966_CitrixBleed_SessionHijack": {
+              "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.44,
+              "patch_prob": 0.56
+            }
+          }
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "CVE-2022-22965_Spring4Shell_RCE": {
+              "vuln_id": "CVE-2022-22965_Spring4Shell_RCE",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.46,
+              "patch_prob": 0.58
+            },
+            "CVE-2017-5638_Struts2_RCE": {
+              "vuln_id": "CVE-2017-5638_Struts2_RCE",
+              "severity": "Critical",
+              "score": 26,
+              "exploit_prob": 0.52,
+              "patch_prob": 0.64
+            },
+            "CVE-2023-34362_MOVEit_SQLi": {
+              "vuln_id": "CVE-2023-34362_MOVEit_SQLi",
+              "severity": "High",
+              "score": 20,
+              "exploit_prob": 0.41,
+              "patch_prob": 0.67
+            }
+          }
+        },
+        "storage": {
+          "status": "Normal",
+          "exposed_ports": [
+            139,
+            445
+          ],
+          "vulnerabilities": {
+            "CVE-2017-0144_EternalBlue_SMB_RCE": {
+              "vuln_id": "CVE-2017-0144_EternalBlue_SMB_RCE",
+              "severity": "Critical",
+              "score": 30,
+              "exploit_prob": 0.43,
+              "patch_prob": 0.55
+            },
+            "CVE-2020-1472_ZeroLogon_AuthBypass": {
+              "vuln_id": "CVE-2020-1472_ZeroLogon_AuthBypass",
+              "severity": "Critical",
+              "score": 29,
+              "exploit_prob": 0.47,
+              "patch_prob": 0.52
+            },
+            "CVE-2021-44142_Samba_OOB_RCE": {
+              "vuln_id": "CVE-2021-44142_Samba_OOB_RCE",
+              "severity": "High",
+              "score": 23,
+              "exploit_prob": 0.39,
+              "patch_prob": 0.63
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "CVE-2016-6662_MySQL_Config_Injection": {
+              "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
+              "severity": "High",
+              "score": 25,
+              "exploit_prob": 0.4,
+              "patch_prob": 0.57
+            },
+            "CVE-2012-2122_MySQL_Auth_Bypass": {
+              "vuln_id": "CVE-2012-2122_MySQL_Auth_Bypass",
+              "severity": "High",
+              "score": 21,
+              "exploit_prob": 0.34,
+              "patch_prob": 0.69
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "storage"
+        },
+        {
+          "source": "storage",
+          "target": "db"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "已确认 web 上 CVE-2021-44228_Log4Shell_RCE 属于 RCE 类型，执行对应的外网利用链。",
+          "action_type": "ExploitService",
+          "payload": "利用 vuln_id=CVE-2021-44228_Log4Shell_RCE 在 web 触发远程代码执行并建立持久据点",
+          "referee_result": "web 当前处于下线状态，没有可利用的在线服务",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": "CVE-2021-44228_Log4Shell_RCE"
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "WEB 已失陷或下线，按应急预案先恢复业务并清理高风险漏洞。",
+          "action_type": "RestoreNode",
+          "payload": "从干净快照恢复 web，并修补 vuln_id=CVE-2021-44228_Log4Shell_RCE",
+          "referee_result": "web 已恢复并回到 Normal 状态",
+          "metadata": {
+            "action_type": "RestoreNode",
+            "agent_type": "Blue",
+            "target": "web",
+            "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+            "removed_vulnerability": {
+              "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+              "severity": "High",
+              "score": 28,
+              "exploit_prob": 0.58,
+              "patch_prob": 0.62
+            },
+            "score_value": 28,
+            "previous_status": "Down"
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 RestoreNode。",
+          "action_type": "ResolveRound",
+          "payload": "web|web",
+          "referee_result": "Red: web 当前处于下线状态，没有可利用的在线服务; Blue: web 已恢复并回到 Normal 状态",
+          "metadata": {
+            "red_result": {
+              "action_type": "ExploitService",
+              "agent_type": "Red",
+              "target": "web",
+              "vuln_id": "CVE-2021-44228_Log4Shell_RCE"
+            },
+            "blue_result": {
+              "action_type": "RestoreNode",
+              "agent_type": "Blue",
+              "target": "web",
+              "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+              "removed_vulnerability": {
+                "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+                "severity": "High",
+                "score": 28,
+                "exploit_prob": 0.58,
+                "patch_prob": 0.62
+              },
+              "score_value": 28,
+              "previous_status": "Down"
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] web 节点遭到 ExploitService 攻击，vuln_id=CVE-2021-44228_Log4Shell_RCE，当前状态为 Down。",
+                "target": "web",
+                "source_action": "ExploitService",
+                "metadata": {
+                  "action_type": "ExploitService",
+                  "agent_type": "Red",
+                  "target": "web",
+                  "vuln_id": "CVE-2021-44228_Log4Shell_RCE"
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 28,
+              "interception_bonus": 0,
+              "red_score": 0,
+              "blue_score": 66
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] web 节点遭到 ExploitService 攻击，vuln_id=CVE-2021-44228_Log4Shell_RCE，当前状态为 Down。",
+          "target": "web",
+          "source_action": "ExploitService",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": "CVE-2021-44228_Log4Shell_RCE"
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "CVE-2021-44228_Log4Shell_RCE": {
+            "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+            "severity": "High",
+            "score": 28,
+            "exploit_prob": 0.58,
+            "patch_prob": 0.62
+          },
+          "CVE-2021-41773_Apache_PathTraversal_RCE": {
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "severity": "High",
+            "score": 22,
+            "exploit_prob": 0.49,
+            "patch_prob": 0.7
+          },
+          "CVE-2023-4966_CitrixBleed_SessionHijack": {
+            "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+            "severity": "High",
+            "score": 24,
+            "exploit_prob": 0.44,
+            "patch_prob": 0.56
+          }
+        }
+      }
+    },
+    {
+      "turn": 4,
+      "system_health": 85,
+      "exposure_level": 59,
+      "red_score": 0,
+      "blue_score": 98,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Down",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {
+            "CVE-2021-41773_Apache_PathTraversal_RCE": {
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+              "severity": "High",
+              "score": 22,
+              "exploit_prob": 0.49,
+              "patch_prob": 0.7
+            },
+            "CVE-2023-4966_CitrixBleed_SessionHijack": {
+              "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.44,
+              "patch_prob": 0.56
+            }
+          }
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "CVE-2022-22965_Spring4Shell_RCE": {
+              "vuln_id": "CVE-2022-22965_Spring4Shell_RCE",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.46,
+              "patch_prob": 0.58
+            },
+            "CVE-2017-5638_Struts2_RCE": {
+              "vuln_id": "CVE-2017-5638_Struts2_RCE",
+              "severity": "Critical",
+              "score": 26,
+              "exploit_prob": 0.52,
+              "patch_prob": 0.64
+            },
+            "CVE-2023-34362_MOVEit_SQLi": {
+              "vuln_id": "CVE-2023-34362_MOVEit_SQLi",
+              "severity": "High",
+              "score": 20,
+              "exploit_prob": 0.41,
+              "patch_prob": 0.67
+            }
+          }
+        },
+        "storage": {
+          "status": "Normal",
+          "exposed_ports": [
+            139,
+            445
+          ],
+          "vulnerabilities": {
+            "CVE-2017-0144_EternalBlue_SMB_RCE": {
+              "vuln_id": "CVE-2017-0144_EternalBlue_SMB_RCE",
+              "severity": "Critical",
+              "score": 30,
+              "exploit_prob": 0.43,
+              "patch_prob": 0.55
+            },
+            "CVE-2020-1472_ZeroLogon_AuthBypass": {
+              "vuln_id": "CVE-2020-1472_ZeroLogon_AuthBypass",
+              "severity": "Critical",
+              "score": 29,
+              "exploit_prob": 0.47,
+              "patch_prob": 0.52
+            },
+            "CVE-2021-44142_Samba_OOB_RCE": {
+              "vuln_id": "CVE-2021-44142_Samba_OOB_RCE",
+              "severity": "High",
+              "score": 23,
+              "exploit_prob": 0.39,
+              "patch_prob": 0.63
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "CVE-2016-6662_MySQL_Config_Injection": {
+              "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
+              "severity": "High",
+              "score": 25,
+              "exploit_prob": 0.4,
+              "patch_prob": 0.57
+            },
+            "CVE-2012-2122_MySQL_Auth_Bypass": {
+              "vuln_id": "CVE-2012-2122_MySQL_Auth_Bypass",
+              "severity": "High",
+              "score": 21,
+              "exploit_prob": 0.34,
+              "patch_prob": 0.69
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "storage"
+        },
+        {
+          "source": "storage",
+          "target": "db"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "已确认 web 上 CVE-2021-41773_Apache_PathTraversal_RCE 属于 RCE 类型，执行对应的外网利用链。",
+          "action_type": "ExploitService",
+          "payload": "利用 vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE 在 web 触发远程代码执行并建立持久据点",
+          "referee_result": "web attack on vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE was intercepted by blue Isolate",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "used_vulnerability": {
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+              "severity": "High",
+              "score": 22,
+              "exploit_prob": 0.49,
+              "patch_prob": 0.7
+            },
+            "score_value": 0,
+            "previous_status": "Normal",
+            "roll": 0.699923,
+            "probability": 0.49,
+            "intercepted": true,
+            "intercepted_by": "Isolate"
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "已确认攻击利用的是 RCE 类型漏洞，优先隔离 web 进行遏制。",
+          "action_type": "Isolate",
+          "payload": "隔离 web 并阻断 vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE 对应的远程执行链路",
+          "referee_result": "web 已被隔离并下线",
+          "metadata": {
+            "action_type": "Isolate",
+            "agent_type": "Blue",
+            "target": "web",
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "score_value": 22,
+            "previous_status": "Normal",
+            "interception_bonus": 10,
+            "intercepted_red_action": "ExploitService"
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 Isolate。",
+          "action_type": "ResolveRound",
+          "payload": "web|web",
+          "referee_result": "Red: web attack on vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE was intercepted by blue Isolate; Blue: web 已被隔离并下线",
+          "metadata": {
+            "red_result": {
+              "action_type": "ExploitService",
+              "agent_type": "Red",
+              "target": "web",
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+              "used_vulnerability": {
+                "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+                "severity": "High",
+                "score": 22,
+                "exploit_prob": 0.49,
+                "patch_prob": 0.7
+              },
+              "score_value": 0,
+              "previous_status": "Normal",
+              "roll": 0.699923,
+              "probability": 0.49,
+              "intercepted": true,
+              "intercepted_by": "Isolate"
+            },
+            "blue_result": {
+              "action_type": "Isolate",
+              "agent_type": "Blue",
+              "target": "web",
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+              "score_value": 22,
+              "previous_status": "Normal",
+              "interception_bonus": 10,
+              "intercepted_red_action": "ExploitService"
+            },
+            "recent_alerts": [
+              {
+                "severity": "INFO",
+                "message": "[INFO] web 上针对 vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE 的 ExploitService 已被蓝方 Isolate 成功拦截。",
+                "target": "web",
+                "source_action": "ExploitService",
+                "metadata": {
+                  "action_type": "ExploitService",
+                  "agent_type": "Red",
+                  "target": "web",
+                  "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+                  "used_vulnerability": {
+                    "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+                    "severity": "High",
+                    "score": 22,
+                    "exploit_prob": 0.49,
+                    "patch_prob": 0.7
+                  },
+                  "score_value": 22,
+                  "previous_status": "Normal",
+                  "roll": 0.699923,
+                  "probability": 0.49,
+                  "intercepted": true,
+                  "intercepted_by": "Isolate"
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 32,
+              "interception_bonus": 10,
+              "red_score": 0,
+              "blue_score": 98
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "INFO",
+          "message": "[INFO] web 上针对 vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE 的 ExploitService 已被蓝方 Isolate 成功拦截。",
+          "target": "web",
+          "source_action": "ExploitService",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "used_vulnerability": {
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+              "severity": "High",
+              "score": 22,
+              "exploit_prob": 0.49,
+              "patch_prob": 0.7
+            },
+            "score_value": 22,
+            "previous_status": "Normal",
+            "roll": 0.699923,
+            "probability": 0.49,
+            "intercepted": true,
+            "intercepted_by": "Isolate"
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "CVE-2021-44228_Log4Shell_RCE": {
+            "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+            "severity": "High",
+            "score": 28,
+            "exploit_prob": 0.58,
+            "patch_prob": 0.62
+          },
+          "CVE-2021-41773_Apache_PathTraversal_RCE": {
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "severity": "High",
+            "score": 22,
+            "exploit_prob": 0.49,
+            "patch_prob": 0.7
+          },
+          "CVE-2023-4966_CitrixBleed_SessionHijack": {
+            "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+            "severity": "High",
+            "score": 24,
+            "exploit_prob": 0.44,
+            "patch_prob": 0.56
+          }
+        }
+      }
+    },
+    {
+      "turn": 5,
+      "system_health": 100,
+      "exposure_level": 55,
+      "red_score": 0,
+      "blue_score": 122,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {
+            "CVE-2021-41773_Apache_PathTraversal_RCE": {
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+              "severity": "High",
+              "score": 22,
+              "exploit_prob": 0.49,
+              "patch_prob": 0.7
+            }
+          }
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "CVE-2022-22965_Spring4Shell_RCE": {
+              "vuln_id": "CVE-2022-22965_Spring4Shell_RCE",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.46,
+              "patch_prob": 0.58
+            },
+            "CVE-2017-5638_Struts2_RCE": {
+              "vuln_id": "CVE-2017-5638_Struts2_RCE",
+              "severity": "Critical",
+              "score": 26,
+              "exploit_prob": 0.52,
+              "patch_prob": 0.64
+            },
+            "CVE-2023-34362_MOVEit_SQLi": {
+              "vuln_id": "CVE-2023-34362_MOVEit_SQLi",
+              "severity": "High",
+              "score": 20,
+              "exploit_prob": 0.41,
+              "patch_prob": 0.67
+            }
+          }
+        },
+        "storage": {
+          "status": "Normal",
+          "exposed_ports": [
+            139,
+            445
+          ],
+          "vulnerabilities": {
+            "CVE-2017-0144_EternalBlue_SMB_RCE": {
+              "vuln_id": "CVE-2017-0144_EternalBlue_SMB_RCE",
+              "severity": "Critical",
+              "score": 30,
+              "exploit_prob": 0.43,
+              "patch_prob": 0.55
+            },
+            "CVE-2020-1472_ZeroLogon_AuthBypass": {
+              "vuln_id": "CVE-2020-1472_ZeroLogon_AuthBypass",
+              "severity": "Critical",
+              "score": 29,
+              "exploit_prob": 0.47,
+              "patch_prob": 0.52
+            },
+            "CVE-2021-44142_Samba_OOB_RCE": {
+              "vuln_id": "CVE-2021-44142_Samba_OOB_RCE",
+              "severity": "High",
+              "score": 23,
+              "exploit_prob": 0.39,
+              "patch_prob": 0.63
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "CVE-2016-6662_MySQL_Config_Injection": {
+              "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
+              "severity": "High",
+              "score": 25,
+              "exploit_prob": 0.4,
+              "patch_prob": 0.57
+            },
+            "CVE-2012-2122_MySQL_Auth_Bypass": {
+              "vuln_id": "CVE-2012-2122_MySQL_Auth_Bypass",
+              "severity": "High",
+              "score": 21,
+              "exploit_prob": 0.34,
+              "patch_prob": 0.69
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "storage"
+        },
+        {
+          "source": "storage",
+          "target": "db"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "已确认 web 上 CVE-2021-41773_Apache_PathTraversal_RCE 属于 RCE 类型，执行对应的外网利用链。",
+          "action_type": "ExploitService",
+          "payload": "利用 vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE 在 web 触发远程代码执行并建立持久据点",
+          "referee_result": "web 当前处于下线状态，没有可利用的在线服务",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE"
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "WEB 已失陷或下线，按应急预案先恢复业务并清理高风险漏洞。",
+          "action_type": "RestoreNode",
+          "payload": "从干净快照恢复 web，并修补 vuln_id=CVE-2023-4966_CitrixBleed_SessionHijack",
+          "referee_result": "web 已恢复并回到 Normal 状态",
+          "metadata": {
+            "action_type": "RestoreNode",
+            "agent_type": "Blue",
+            "target": "web",
+            "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+            "removed_vulnerability": {
+              "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.44,
+              "patch_prob": 0.56
+            },
+            "score_value": 24,
+            "previous_status": "Down"
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 RestoreNode。",
+          "action_type": "ResolveRound",
+          "payload": "web|web",
+          "referee_result": "Red: web 当前处于下线状态，没有可利用的在线服务; Blue: web 已恢复并回到 Normal 状态",
+          "metadata": {
+            "red_result": {
+              "action_type": "ExploitService",
+              "agent_type": "Red",
+              "target": "web",
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE"
+            },
+            "blue_result": {
+              "action_type": "RestoreNode",
+              "agent_type": "Blue",
+              "target": "web",
+              "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+              "removed_vulnerability": {
+                "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+                "severity": "High",
+                "score": 24,
+                "exploit_prob": 0.44,
+                "patch_prob": 0.56
+              },
+              "score_value": 24,
+              "previous_status": "Down"
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] web 节点遭到 ExploitService 攻击，vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE，当前状态为 Down。",
+                "target": "web",
+                "source_action": "ExploitService",
+                "metadata": {
+                  "action_type": "ExploitService",
+                  "agent_type": "Red",
+                  "target": "web",
+                  "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE"
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 24,
+              "interception_bonus": 0,
+              "red_score": 0,
+              "blue_score": 122
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] web 节点遭到 ExploitService 攻击，vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE，当前状态为 Down。",
+          "target": "web",
+          "source_action": "ExploitService",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE"
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "CVE-2021-44228_Log4Shell_RCE": {
+            "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+            "severity": "High",
+            "score": 28,
+            "exploit_prob": 0.58,
+            "patch_prob": 0.62
+          },
+          "CVE-2021-41773_Apache_PathTraversal_RCE": {
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "severity": "High",
+            "score": 22,
+            "exploit_prob": 0.49,
+            "patch_prob": 0.7
+          },
+          "CVE-2023-4966_CitrixBleed_SessionHijack": {
+            "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+            "severity": "High",
+            "score": 24,
+            "exploit_prob": 0.44,
+            "patch_prob": 0.56
+          }
+        }
+      }
+    },
+    {
+      "turn": 6,
+      "system_health": 85,
+      "exposure_level": 55,
+      "red_score": 0,
+      "blue_score": 154,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Down",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {
+            "CVE-2021-41773_Apache_PathTraversal_RCE": {
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+              "severity": "High",
+              "score": 22,
+              "exploit_prob": 0.49,
+              "patch_prob": 0.7
+            }
+          }
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "CVE-2022-22965_Spring4Shell_RCE": {
+              "vuln_id": "CVE-2022-22965_Spring4Shell_RCE",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.46,
+              "patch_prob": 0.58
+            },
+            "CVE-2017-5638_Struts2_RCE": {
+              "vuln_id": "CVE-2017-5638_Struts2_RCE",
+              "severity": "Critical",
+              "score": 26,
+              "exploit_prob": 0.52,
+              "patch_prob": 0.64
+            },
+            "CVE-2023-34362_MOVEit_SQLi": {
+              "vuln_id": "CVE-2023-34362_MOVEit_SQLi",
+              "severity": "High",
+              "score": 20,
+              "exploit_prob": 0.41,
+              "patch_prob": 0.67
+            }
+          }
+        },
+        "storage": {
+          "status": "Normal",
+          "exposed_ports": [
+            139,
+            445
+          ],
+          "vulnerabilities": {
+            "CVE-2017-0144_EternalBlue_SMB_RCE": {
+              "vuln_id": "CVE-2017-0144_EternalBlue_SMB_RCE",
+              "severity": "Critical",
+              "score": 30,
+              "exploit_prob": 0.43,
+              "patch_prob": 0.55
+            },
+            "CVE-2020-1472_ZeroLogon_AuthBypass": {
+              "vuln_id": "CVE-2020-1472_ZeroLogon_AuthBypass",
+              "severity": "Critical",
+              "score": 29,
+              "exploit_prob": 0.47,
+              "patch_prob": 0.52
+            },
+            "CVE-2021-44142_Samba_OOB_RCE": {
+              "vuln_id": "CVE-2021-44142_Samba_OOB_RCE",
+              "severity": "High",
+              "score": 23,
+              "exploit_prob": 0.39,
+              "patch_prob": 0.63
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "CVE-2016-6662_MySQL_Config_Injection": {
+              "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
+              "severity": "High",
+              "score": 25,
+              "exploit_prob": 0.4,
+              "patch_prob": 0.57
+            },
+            "CVE-2012-2122_MySQL_Auth_Bypass": {
+              "vuln_id": "CVE-2012-2122_MySQL_Auth_Bypass",
+              "severity": "High",
+              "score": 21,
+              "exploit_prob": 0.34,
+              "patch_prob": 0.69
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "storage"
+        },
+        {
+          "source": "storage",
+          "target": "db"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "已确认 web 上 CVE-2021-41773_Apache_PathTraversal_RCE 属于 RCE 类型，执行对应的外网利用链。",
+          "action_type": "ExploitService",
+          "payload": "利用 vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE 在 web 触发远程代码执行并建立持久据点",
+          "referee_result": "web attack on vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE was intercepted by blue Isolate",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "used_vulnerability": {
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+              "severity": "High",
+              "score": 22,
+              "exploit_prob": 0.49,
+              "patch_prob": 0.7
+            },
+            "score_value": 0,
+            "previous_status": "Normal",
+            "roll": 0.914683,
+            "probability": 0.49,
+            "intercepted": true,
+            "intercepted_by": "Isolate"
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "已确认攻击利用的是 RCE 类型漏洞，优先隔离 web 进行遏制。",
+          "action_type": "Isolate",
+          "payload": "隔离 web 并阻断 vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE 对应的远程执行链路",
+          "referee_result": "web 已被隔离并下线",
+          "metadata": {
+            "action_type": "Isolate",
+            "agent_type": "Blue",
+            "target": "web",
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "score_value": 22,
+            "previous_status": "Normal",
+            "interception_bonus": 10,
+            "intercepted_red_action": "ExploitService"
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 Isolate。",
+          "action_type": "ResolveRound",
+          "payload": "web|web",
+          "referee_result": "Red: web attack on vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE was intercepted by blue Isolate; Blue: web 已被隔离并下线",
+          "metadata": {
+            "red_result": {
+              "action_type": "ExploitService",
+              "agent_type": "Red",
+              "target": "web",
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+              "used_vulnerability": {
+                "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+                "severity": "High",
+                "score": 22,
+                "exploit_prob": 0.49,
+                "patch_prob": 0.7
+              },
+              "score_value": 0,
+              "previous_status": "Normal",
+              "roll": 0.914683,
+              "probability": 0.49,
+              "intercepted": true,
+              "intercepted_by": "Isolate"
+            },
+            "blue_result": {
+              "action_type": "Isolate",
+              "agent_type": "Blue",
+              "target": "web",
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+              "score_value": 22,
+              "previous_status": "Normal",
+              "interception_bonus": 10,
+              "intercepted_red_action": "ExploitService"
+            },
+            "recent_alerts": [
+              {
+                "severity": "INFO",
+                "message": "[INFO] web 上针对 vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE 的 ExploitService 已被蓝方 Isolate 成功拦截。",
+                "target": "web",
+                "source_action": "ExploitService",
+                "metadata": {
+                  "action_type": "ExploitService",
+                  "agent_type": "Red",
+                  "target": "web",
+                  "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+                  "used_vulnerability": {
+                    "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+                    "severity": "High",
+                    "score": 22,
+                    "exploit_prob": 0.49,
+                    "patch_prob": 0.7
+                  },
+                  "score_value": 22,
+                  "previous_status": "Normal",
+                  "roll": 0.914683,
+                  "probability": 0.49,
+                  "intercepted": true,
+                  "intercepted_by": "Isolate"
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 32,
+              "interception_bonus": 10,
+              "red_score": 0,
+              "blue_score": 154
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "INFO",
+          "message": "[INFO] web 上针对 vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE 的 ExploitService 已被蓝方 Isolate 成功拦截。",
+          "target": "web",
+          "source_action": "ExploitService",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "used_vulnerability": {
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+              "severity": "High",
+              "score": 22,
+              "exploit_prob": 0.49,
+              "patch_prob": 0.7
+            },
+            "score_value": 22,
+            "previous_status": "Normal",
+            "roll": 0.914683,
+            "probability": 0.49,
+            "intercepted": true,
+            "intercepted_by": "Isolate"
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "CVE-2021-44228_Log4Shell_RCE": {
+            "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+            "severity": "High",
+            "score": 28,
+            "exploit_prob": 0.58,
+            "patch_prob": 0.62
+          },
+          "CVE-2021-41773_Apache_PathTraversal_RCE": {
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "severity": "High",
+            "score": 22,
+            "exploit_prob": 0.49,
+            "patch_prob": 0.7
+          },
+          "CVE-2023-4966_CitrixBleed_SessionHijack": {
+            "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+            "severity": "High",
+            "score": 24,
+            "exploit_prob": 0.44,
+            "patch_prob": 0.56
+          }
+        }
+      }
+    },
+    {
+      "turn": 7,
+      "system_health": 100,
+      "exposure_level": 51,
+      "red_score": 0,
+      "blue_score": 176,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "CVE-2022-22965_Spring4Shell_RCE": {
+              "vuln_id": "CVE-2022-22965_Spring4Shell_RCE",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.46,
+              "patch_prob": 0.58
+            },
+            "CVE-2017-5638_Struts2_RCE": {
+              "vuln_id": "CVE-2017-5638_Struts2_RCE",
+              "severity": "Critical",
+              "score": 26,
+              "exploit_prob": 0.52,
+              "patch_prob": 0.64
+            },
+            "CVE-2023-34362_MOVEit_SQLi": {
+              "vuln_id": "CVE-2023-34362_MOVEit_SQLi",
+              "severity": "High",
+              "score": 20,
+              "exploit_prob": 0.41,
+              "patch_prob": 0.67
+            }
+          }
+        },
+        "storage": {
+          "status": "Normal",
+          "exposed_ports": [
+            139,
+            445
+          ],
+          "vulnerabilities": {
+            "CVE-2017-0144_EternalBlue_SMB_RCE": {
+              "vuln_id": "CVE-2017-0144_EternalBlue_SMB_RCE",
+              "severity": "Critical",
+              "score": 30,
+              "exploit_prob": 0.43,
+              "patch_prob": 0.55
+            },
+            "CVE-2020-1472_ZeroLogon_AuthBypass": {
+              "vuln_id": "CVE-2020-1472_ZeroLogon_AuthBypass",
+              "severity": "Critical",
+              "score": 29,
+              "exploit_prob": 0.47,
+              "patch_prob": 0.52
+            },
+            "CVE-2021-44142_Samba_OOB_RCE": {
+              "vuln_id": "CVE-2021-44142_Samba_OOB_RCE",
+              "severity": "High",
+              "score": 23,
+              "exploit_prob": 0.39,
+              "patch_prob": 0.63
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "CVE-2016-6662_MySQL_Config_Injection": {
+              "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
+              "severity": "High",
+              "score": 25,
+              "exploit_prob": 0.4,
+              "patch_prob": 0.57
+            },
+            "CVE-2012-2122_MySQL_Auth_Bypass": {
+              "vuln_id": "CVE-2012-2122_MySQL_Auth_Bypass",
+              "severity": "High",
+              "score": 21,
+              "exploit_prob": 0.34,
+              "patch_prob": 0.69
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "storage"
+        },
+        {
+          "source": "storage",
+          "target": "db"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "已确认 web 上 CVE-2021-41773_Apache_PathTraversal_RCE 属于 RCE 类型，执行对应的外网利用链。",
+          "action_type": "ExploitService",
+          "payload": "利用 vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE 在 web 触发远程代码执行并建立持久据点",
+          "referee_result": "web 当前处于下线状态，没有可利用的在线服务",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE"
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "WEB 已失陷或下线，按应急预案先恢复业务并清理高风险漏洞。",
+          "action_type": "RestoreNode",
+          "payload": "从干净快照恢复 web，并修补 vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE",
+          "referee_result": "web 已恢复并回到 Normal 状态",
+          "metadata": {
+            "action_type": "RestoreNode",
+            "agent_type": "Blue",
+            "target": "web",
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "removed_vulnerability": {
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+              "severity": "High",
+              "score": 22,
+              "exploit_prob": 0.49,
+              "patch_prob": 0.7
+            },
+            "score_value": 22,
+            "previous_status": "Down"
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 RestoreNode。",
+          "action_type": "ResolveRound",
+          "payload": "web|web",
+          "referee_result": "Red: web 当前处于下线状态，没有可利用的在线服务; Blue: web 已恢复并回到 Normal 状态",
+          "metadata": {
+            "red_result": {
+              "action_type": "ExploitService",
+              "agent_type": "Red",
+              "target": "web",
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE"
+            },
+            "blue_result": {
+              "action_type": "RestoreNode",
+              "agent_type": "Blue",
+              "target": "web",
+              "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+              "removed_vulnerability": {
+                "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+                "severity": "High",
+                "score": 22,
+                "exploit_prob": 0.49,
+                "patch_prob": 0.7
+              },
+              "score_value": 22,
+              "previous_status": "Down"
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] web 节点遭到 ExploitService 攻击，vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE，当前状态为 Down。",
+                "target": "web",
+                "source_action": "ExploitService",
+                "metadata": {
+                  "action_type": "ExploitService",
+                  "agent_type": "Red",
+                  "target": "web",
+                  "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE"
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 22,
+              "interception_bonus": 0,
+              "red_score": 0,
+              "blue_score": 176
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] web 节点遭到 ExploitService 攻击，vuln_id=CVE-2021-41773_Apache_PathTraversal_RCE，当前状态为 Down。",
+          "target": "web",
+          "source_action": "ExploitService",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE"
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "CVE-2021-44228_Log4Shell_RCE": {
+            "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+            "severity": "High",
+            "score": 28,
+            "exploit_prob": 0.58,
+            "patch_prob": 0.62
+          },
+          "CVE-2021-41773_Apache_PathTraversal_RCE": {
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "severity": "High",
+            "score": 22,
+            "exploit_prob": 0.49,
+            "patch_prob": 0.7
+          },
+          "CVE-2023-4966_CitrixBleed_SessionHijack": {
+            "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+            "severity": "High",
+            "score": 24,
+            "exploit_prob": 0.44,
+            "patch_prob": 0.56
+          }
+        }
+      }
+    },
+    {
+      "turn": 8,
+      "system_health": 100,
+      "exposure_level": 51,
+      "red_score": 0,
+      "blue_score": 176,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "CVE-2022-22965_Spring4Shell_RCE": {
+              "vuln_id": "CVE-2022-22965_Spring4Shell_RCE",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.46,
+              "patch_prob": 0.58
+            },
+            "CVE-2017-5638_Struts2_RCE": {
+              "vuln_id": "CVE-2017-5638_Struts2_RCE",
+              "severity": "Critical",
+              "score": 26,
+              "exploit_prob": 0.52,
+              "patch_prob": 0.64
+            },
+            "CVE-2023-34362_MOVEit_SQLi": {
+              "vuln_id": "CVE-2023-34362_MOVEit_SQLi",
+              "severity": "High",
+              "score": 20,
+              "exploit_prob": 0.41,
+              "patch_prob": 0.67
+            }
+          }
+        },
+        "storage": {
+          "status": "Normal",
+          "exposed_ports": [
+            139,
+            445
+          ],
+          "vulnerabilities": {
+            "CVE-2017-0144_EternalBlue_SMB_RCE": {
+              "vuln_id": "CVE-2017-0144_EternalBlue_SMB_RCE",
+              "severity": "Critical",
+              "score": 30,
+              "exploit_prob": 0.43,
+              "patch_prob": 0.55
+            },
+            "CVE-2020-1472_ZeroLogon_AuthBypass": {
+              "vuln_id": "CVE-2020-1472_ZeroLogon_AuthBypass",
+              "severity": "Critical",
+              "score": 29,
+              "exploit_prob": 0.47,
+              "patch_prob": 0.52
+            },
+            "CVE-2021-44142_Samba_OOB_RCE": {
+              "vuln_id": "CVE-2021-44142_Samba_OOB_RCE",
+              "severity": "High",
+              "score": 23,
+              "exploit_prob": 0.39,
+              "patch_prob": 0.63
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "CVE-2016-6662_MySQL_Config_Injection": {
+              "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
+              "severity": "High",
+              "score": 25,
+              "exploit_prob": 0.4,
+              "patch_prob": 0.57
+            },
+            "CVE-2012-2122_MySQL_Auth_Bypass": {
+              "vuln_id": "CVE-2012-2122_MySQL_Auth_Bypass",
+              "severity": "High",
+              "score": 21,
+              "exploit_prob": 0.34,
+              "patch_prob": 0.69
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "storage"
+        },
+        {
+          "source": "storage",
+          "target": "db"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "web 漏洞类型未确认，继续侦察以避免盲打。",
+          "action_type": "Recon",
+          "payload": "继续分析 web 漏洞类型并收集可利用证据",
+          "referee_result": "已完成对 web 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权",
+          "metadata": {
+            "action_type": "Recon",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": null,
+            "observed_status": "Normal",
+            "observed_ports": [
+              80,
+              443
+            ],
+            "vulnerability_count": 0,
+            "suspected_vulnerabilities": {}
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "检测到侦察行为，先保持监控与取证，等待更明确攻击迹象。",
+          "action_type": "Monitor",
+          "payload": "针对 web 提升日志采集与告警灵敏度",
+          "referee_result": "已持续对 web 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "action_type": "Monitor",
+            "agent_type": "Blue",
+            "target": "web",
+            "vuln_id": null,
+            "monitor_scope": "web",
+            "score_value": 0
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 Recon，蓝方动作为 Monitor。",
+          "action_type": "ResolveRound",
+          "payload": "web|web",
+          "referee_result": "Red: 已完成对 web 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权; Blue: 已持续对 web 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "red_result": {
+              "action_type": "Recon",
+              "agent_type": "Red",
+              "target": "web",
+              "vuln_id": null,
+              "observed_status": "Normal",
+              "observed_ports": [
+                80,
+                443
+              ],
+              "vulnerability_count": 0,
+              "suspected_vulnerabilities": {}
+            },
+            "blue_result": {
+              "action_type": "Monitor",
+              "agent_type": "Blue",
+              "target": "web",
+              "vuln_id": null,
+              "monitor_scope": "web",
+              "score_value": 0
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] web 节点出现侦察痕迹。",
+                "target": "web",
+                "source_action": "Recon",
+                "metadata": {
+                  "action_type": "Recon",
+                  "agent_type": "Red",
+                  "target": "web",
+                  "vuln_id": null,
+                  "observed_status": "Normal",
+                  "observed_ports": [
+                    80,
+                    443
+                  ],
+                  "vulnerability_count": 0,
+                  "suspected_vulnerabilities": {}
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 0,
+              "interception_bonus": 0,
+              "red_score": 0,
+              "blue_score": 176
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] web 节点出现侦察痕迹。",
+          "target": "web",
+          "source_action": "Recon",
+          "metadata": {
+            "action_type": "Recon",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": null,
+            "observed_status": "Normal",
+            "observed_ports": [
+              80,
+              443
+            ],
+            "vulnerability_count": 0,
+            "suspected_vulnerabilities": {}
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "CVE-2021-44228_Log4Shell_RCE": {
+            "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+            "severity": "High",
+            "score": 28,
+            "exploit_prob": 0.58,
+            "patch_prob": 0.62
+          },
+          "CVE-2021-41773_Apache_PathTraversal_RCE": {
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "severity": "High",
+            "score": 22,
+            "exploit_prob": 0.49,
+            "patch_prob": 0.7
+          },
+          "CVE-2023-4966_CitrixBleed_SessionHijack": {
+            "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+            "severity": "High",
+            "score": 24,
+            "exploit_prob": 0.44,
+            "patch_prob": 0.56
+          }
+        }
+      }
+    },
+    {
+      "turn": 9,
+      "system_health": 100,
+      "exposure_level": 51,
+      "red_score": 0,
+      "blue_score": 176,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "CVE-2022-22965_Spring4Shell_RCE": {
+              "vuln_id": "CVE-2022-22965_Spring4Shell_RCE",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.46,
+              "patch_prob": 0.58
+            },
+            "CVE-2017-5638_Struts2_RCE": {
+              "vuln_id": "CVE-2017-5638_Struts2_RCE",
+              "severity": "Critical",
+              "score": 26,
+              "exploit_prob": 0.52,
+              "patch_prob": 0.64
+            },
+            "CVE-2023-34362_MOVEit_SQLi": {
+              "vuln_id": "CVE-2023-34362_MOVEit_SQLi",
+              "severity": "High",
+              "score": 20,
+              "exploit_prob": 0.41,
+              "patch_prob": 0.67
+            }
+          }
+        },
+        "storage": {
+          "status": "Normal",
+          "exposed_ports": [
+            139,
+            445
+          ],
+          "vulnerabilities": {
+            "CVE-2017-0144_EternalBlue_SMB_RCE": {
+              "vuln_id": "CVE-2017-0144_EternalBlue_SMB_RCE",
+              "severity": "Critical",
+              "score": 30,
+              "exploit_prob": 0.43,
+              "patch_prob": 0.55
+            },
+            "CVE-2020-1472_ZeroLogon_AuthBypass": {
+              "vuln_id": "CVE-2020-1472_ZeroLogon_AuthBypass",
+              "severity": "Critical",
+              "score": 29,
+              "exploit_prob": 0.47,
+              "patch_prob": 0.52
+            },
+            "CVE-2021-44142_Samba_OOB_RCE": {
+              "vuln_id": "CVE-2021-44142_Samba_OOB_RCE",
+              "severity": "High",
+              "score": 23,
+              "exploit_prob": 0.39,
+              "patch_prob": 0.63
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "CVE-2016-6662_MySQL_Config_Injection": {
+              "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
+              "severity": "High",
+              "score": 25,
+              "exploit_prob": 0.4,
+              "patch_prob": 0.57
+            },
+            "CVE-2012-2122_MySQL_Auth_Bypass": {
+              "vuln_id": "CVE-2012-2122_MySQL_Auth_Bypass",
+              "severity": "High",
+              "score": 21,
+              "exploit_prob": 0.34,
+              "patch_prob": 0.69
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "storage"
+        },
+        {
+          "source": "storage",
+          "target": "db"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "web 漏洞类型未确认，继续侦察以避免盲打。",
+          "action_type": "Recon",
+          "payload": "继续分析 web 漏洞类型并收集可利用证据",
+          "referee_result": "已完成对 web 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权",
+          "metadata": {
+            "action_type": "Recon",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": null,
+            "observed_status": "Normal",
+            "observed_ports": [
+              80,
+              443
+            ],
+            "vulnerability_count": 0,
+            "suspected_vulnerabilities": {}
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "检测到侦察行为，先保持监控与取证，等待更明确攻击迹象。",
+          "action_type": "Monitor",
+          "payload": "针对 web 提升日志采集与告警灵敏度",
+          "referee_result": "已持续对 web 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "action_type": "Monitor",
+            "agent_type": "Blue",
+            "target": "web",
+            "vuln_id": null,
+            "monitor_scope": "web",
+            "score_value": 0
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 Recon，蓝方动作为 Monitor。",
+          "action_type": "ResolveRound",
+          "payload": "web|web",
+          "referee_result": "Red: 已完成对 web 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权; Blue: 已持续对 web 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "red_result": {
+              "action_type": "Recon",
+              "agent_type": "Red",
+              "target": "web",
+              "vuln_id": null,
+              "observed_status": "Normal",
+              "observed_ports": [
+                80,
+                443
+              ],
+              "vulnerability_count": 0,
+              "suspected_vulnerabilities": {}
+            },
+            "blue_result": {
+              "action_type": "Monitor",
+              "agent_type": "Blue",
+              "target": "web",
+              "vuln_id": null,
+              "monitor_scope": "web",
+              "score_value": 0
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] web 节点出现侦察痕迹。",
+                "target": "web",
+                "source_action": "Recon",
+                "metadata": {
+                  "action_type": "Recon",
+                  "agent_type": "Red",
+                  "target": "web",
+                  "vuln_id": null,
+                  "observed_status": "Normal",
+                  "observed_ports": [
+                    80,
+                    443
+                  ],
+                  "vulnerability_count": 0,
+                  "suspected_vulnerabilities": {}
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 0,
+              "interception_bonus": 0,
+              "red_score": 0,
+              "blue_score": 176
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] web 节点出现侦察痕迹。",
+          "target": "web",
+          "source_action": "Recon",
+          "metadata": {
+            "action_type": "Recon",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": null,
+            "observed_status": "Normal",
+            "observed_ports": [
+              80,
+              443
+            ],
+            "vulnerability_count": 0,
+            "suspected_vulnerabilities": {}
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "CVE-2021-44228_Log4Shell_RCE": {
+            "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+            "severity": "High",
+            "score": 28,
+            "exploit_prob": 0.58,
+            "patch_prob": 0.62
+          },
+          "CVE-2021-41773_Apache_PathTraversal_RCE": {
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "severity": "High",
+            "score": 22,
+            "exploit_prob": 0.49,
+            "patch_prob": 0.7
+          },
+          "CVE-2023-4966_CitrixBleed_SessionHijack": {
+            "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+            "severity": "High",
+            "score": 24,
+            "exploit_prob": 0.44,
+            "patch_prob": 0.56
+          }
+        }
+      }
+    },
+    {
+      "turn": 10,
+      "system_health": 100,
+      "exposure_level": 51,
+      "red_score": 0,
+      "blue_score": 176,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "CVE-2022-22965_Spring4Shell_RCE": {
+              "vuln_id": "CVE-2022-22965_Spring4Shell_RCE",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.46,
+              "patch_prob": 0.58
+            },
+            "CVE-2017-5638_Struts2_RCE": {
+              "vuln_id": "CVE-2017-5638_Struts2_RCE",
+              "severity": "Critical",
+              "score": 26,
+              "exploit_prob": 0.52,
+              "patch_prob": 0.64
+            },
+            "CVE-2023-34362_MOVEit_SQLi": {
+              "vuln_id": "CVE-2023-34362_MOVEit_SQLi",
+              "severity": "High",
+              "score": 20,
+              "exploit_prob": 0.41,
+              "patch_prob": 0.67
+            }
+          }
+        },
+        "storage": {
+          "status": "Normal",
+          "exposed_ports": [
+            139,
+            445
+          ],
+          "vulnerabilities": {
+            "CVE-2017-0144_EternalBlue_SMB_RCE": {
+              "vuln_id": "CVE-2017-0144_EternalBlue_SMB_RCE",
+              "severity": "Critical",
+              "score": 30,
+              "exploit_prob": 0.43,
+              "patch_prob": 0.55
+            },
+            "CVE-2020-1472_ZeroLogon_AuthBypass": {
+              "vuln_id": "CVE-2020-1472_ZeroLogon_AuthBypass",
+              "severity": "Critical",
+              "score": 29,
+              "exploit_prob": 0.47,
+              "patch_prob": 0.52
+            },
+            "CVE-2021-44142_Samba_OOB_RCE": {
+              "vuln_id": "CVE-2021-44142_Samba_OOB_RCE",
+              "severity": "High",
+              "score": 23,
+              "exploit_prob": 0.39,
+              "patch_prob": 0.63
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "CVE-2016-6662_MySQL_Config_Injection": {
+              "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
+              "severity": "High",
+              "score": 25,
+              "exploit_prob": 0.4,
+              "patch_prob": 0.57
+            },
+            "CVE-2012-2122_MySQL_Auth_Bypass": {
+              "vuln_id": "CVE-2012-2122_MySQL_Auth_Bypass",
+              "severity": "High",
+              "score": 21,
+              "exploit_prob": 0.34,
+              "patch_prob": 0.69
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "storage"
+        },
+        {
+          "source": "storage",
+          "target": "db"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "web 漏洞类型未确认，继续侦察以避免盲打。",
+          "action_type": "Recon",
+          "payload": "继续分析 web 漏洞类型并收集可利用证据",
+          "referee_result": "已完成对 web 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权",
+          "metadata": {
+            "action_type": "Recon",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": null,
+            "observed_status": "Normal",
+            "observed_ports": [
+              80,
+              443
+            ],
+            "vulnerability_count": 0,
+            "suspected_vulnerabilities": {}
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "检测到侦察行为，先保持监控与取证，等待更明确攻击迹象。",
+          "action_type": "Monitor",
+          "payload": "针对 web 提升日志采集与告警灵敏度",
+          "referee_result": "已持续对 web 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "action_type": "Monitor",
+            "agent_type": "Blue",
+            "target": "web",
+            "vuln_id": null,
+            "monitor_scope": "web",
+            "score_value": 0
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 Recon，蓝方动作为 Monitor。",
+          "action_type": "ResolveRound",
+          "payload": "web|web",
+          "referee_result": "Red: 已完成对 web 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权; Blue: 已持续对 web 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "red_result": {
+              "action_type": "Recon",
+              "agent_type": "Red",
+              "target": "web",
+              "vuln_id": null,
+              "observed_status": "Normal",
+              "observed_ports": [
+                80,
+                443
+              ],
+              "vulnerability_count": 0,
+              "suspected_vulnerabilities": {}
+            },
+            "blue_result": {
+              "action_type": "Monitor",
+              "agent_type": "Blue",
+              "target": "web",
+              "vuln_id": null,
+              "monitor_scope": "web",
+              "score_value": 0
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] web 节点出现侦察痕迹。",
+                "target": "web",
+                "source_action": "Recon",
+                "metadata": {
+                  "action_type": "Recon",
+                  "agent_type": "Red",
+                  "target": "web",
+                  "vuln_id": null,
+                  "observed_status": "Normal",
+                  "observed_ports": [
+                    80,
+                    443
+                  ],
+                  "vulnerability_count": 0,
+                  "suspected_vulnerabilities": {}
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 0,
+              "interception_bonus": 0,
+              "red_score": 0,
+              "blue_score": 176
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] web 节点出现侦察痕迹。",
+          "target": "web",
+          "source_action": "Recon",
+          "metadata": {
+            "action_type": "Recon",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": null,
+            "observed_status": "Normal",
+            "observed_ports": [
+              80,
+              443
+            ],
+            "vulnerability_count": 0,
+            "suspected_vulnerabilities": {}
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "CVE-2021-44228_Log4Shell_RCE": {
+            "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+            "severity": "High",
+            "score": 28,
+            "exploit_prob": 0.58,
+            "patch_prob": 0.62
+          },
+          "CVE-2021-41773_Apache_PathTraversal_RCE": {
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "severity": "High",
+            "score": 22,
+            "exploit_prob": 0.49,
+            "patch_prob": 0.7
+          },
+          "CVE-2023-4966_CitrixBleed_SessionHijack": {
+            "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+            "severity": "High",
+            "score": 24,
+            "exploit_prob": 0.44,
+            "patch_prob": 0.56
+          }
+        }
+      }
+    },
+    {
+      "turn": 11,
+      "system_health": 100,
+      "exposure_level": 51,
+      "red_score": 0,
+      "blue_score": 176,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "CVE-2022-22965_Spring4Shell_RCE": {
+              "vuln_id": "CVE-2022-22965_Spring4Shell_RCE",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.46,
+              "patch_prob": 0.58
+            },
+            "CVE-2017-5638_Struts2_RCE": {
+              "vuln_id": "CVE-2017-5638_Struts2_RCE",
+              "severity": "Critical",
+              "score": 26,
+              "exploit_prob": 0.52,
+              "patch_prob": 0.64
+            },
+            "CVE-2023-34362_MOVEit_SQLi": {
+              "vuln_id": "CVE-2023-34362_MOVEit_SQLi",
+              "severity": "High",
+              "score": 20,
+              "exploit_prob": 0.41,
+              "patch_prob": 0.67
+            }
+          }
+        },
+        "storage": {
+          "status": "Normal",
+          "exposed_ports": [
+            139,
+            445
+          ],
+          "vulnerabilities": {
+            "CVE-2017-0144_EternalBlue_SMB_RCE": {
+              "vuln_id": "CVE-2017-0144_EternalBlue_SMB_RCE",
+              "severity": "Critical",
+              "score": 30,
+              "exploit_prob": 0.43,
+              "patch_prob": 0.55
+            },
+            "CVE-2020-1472_ZeroLogon_AuthBypass": {
+              "vuln_id": "CVE-2020-1472_ZeroLogon_AuthBypass",
+              "severity": "Critical",
+              "score": 29,
+              "exploit_prob": 0.47,
+              "patch_prob": 0.52
+            },
+            "CVE-2021-44142_Samba_OOB_RCE": {
+              "vuln_id": "CVE-2021-44142_Samba_OOB_RCE",
+              "severity": "High",
+              "score": 23,
+              "exploit_prob": 0.39,
+              "patch_prob": 0.63
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "CVE-2016-6662_MySQL_Config_Injection": {
+              "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
+              "severity": "High",
+              "score": 25,
+              "exploit_prob": 0.4,
+              "patch_prob": 0.57
+            },
+            "CVE-2012-2122_MySQL_Auth_Bypass": {
+              "vuln_id": "CVE-2012-2122_MySQL_Auth_Bypass",
+              "severity": "High",
+              "score": 21,
+              "exploit_prob": 0.34,
+              "patch_prob": 0.69
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "storage"
+        },
+        {
+          "source": "storage",
+          "target": "db"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "web 漏洞类型未确认，继续侦察以避免盲打。",
+          "action_type": "Recon",
+          "payload": "继续分析 web 漏洞类型并收集可利用证据",
+          "referee_result": "已完成对 web 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权",
+          "metadata": {
+            "action_type": "Recon",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": null,
+            "observed_status": "Normal",
+            "observed_ports": [
+              80,
+              443
+            ],
+            "vulnerability_count": 0,
+            "suspected_vulnerabilities": {}
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "检测到侦察行为，先保持监控与取证，等待更明确攻击迹象。",
+          "action_type": "Monitor",
+          "payload": "针对 web 提升日志采集与告警灵敏度",
+          "referee_result": "已持续对 web 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "action_type": "Monitor",
+            "agent_type": "Blue",
+            "target": "web",
+            "vuln_id": null,
+            "monitor_scope": "web",
+            "score_value": 0
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 Recon，蓝方动作为 Monitor。",
+          "action_type": "ResolveRound",
+          "payload": "web|web",
+          "referee_result": "Red: 已完成对 web 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权; Blue: 已持续对 web 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "red_result": {
+              "action_type": "Recon",
+              "agent_type": "Red",
+              "target": "web",
+              "vuln_id": null,
+              "observed_status": "Normal",
+              "observed_ports": [
+                80,
+                443
+              ],
+              "vulnerability_count": 0,
+              "suspected_vulnerabilities": {}
+            },
+            "blue_result": {
+              "action_type": "Monitor",
+              "agent_type": "Blue",
+              "target": "web",
+              "vuln_id": null,
+              "monitor_scope": "web",
+              "score_value": 0
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] web 节点出现侦察痕迹。",
+                "target": "web",
+                "source_action": "Recon",
+                "metadata": {
+                  "action_type": "Recon",
+                  "agent_type": "Red",
+                  "target": "web",
+                  "vuln_id": null,
+                  "observed_status": "Normal",
+                  "observed_ports": [
+                    80,
+                    443
+                  ],
+                  "vulnerability_count": 0,
+                  "suspected_vulnerabilities": {}
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 0,
+              "interception_bonus": 0,
+              "red_score": 0,
+              "blue_score": 176
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] web 节点出现侦察痕迹。",
+          "target": "web",
+          "source_action": "Recon",
+          "metadata": {
+            "action_type": "Recon",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": null,
+            "observed_status": "Normal",
+            "observed_ports": [
+              80,
+              443
+            ],
+            "vulnerability_count": 0,
+            "suspected_vulnerabilities": {}
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "CVE-2021-44228_Log4Shell_RCE": {
+            "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+            "severity": "High",
+            "score": 28,
+            "exploit_prob": 0.58,
+            "patch_prob": 0.62
+          },
+          "CVE-2021-41773_Apache_PathTraversal_RCE": {
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "severity": "High",
+            "score": 22,
+            "exploit_prob": 0.49,
+            "patch_prob": 0.7
+          },
+          "CVE-2023-4966_CitrixBleed_SessionHijack": {
+            "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+            "severity": "High",
+            "score": 24,
+            "exploit_prob": 0.44,
+            "patch_prob": 0.56
+          }
+        }
+      }
+    },
+    {
+      "turn": 12,
+      "system_health": 100,
+      "exposure_level": 51,
+      "red_score": 0,
+      "blue_score": 176,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "fw": {
+          "status": "Normal",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": {}
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": {
+            "CVE-2022-22965_Spring4Shell_RCE": {
+              "vuln_id": "CVE-2022-22965_Spring4Shell_RCE",
+              "severity": "High",
+              "score": 24,
+              "exploit_prob": 0.46,
+              "patch_prob": 0.58
+            },
+            "CVE-2017-5638_Struts2_RCE": {
+              "vuln_id": "CVE-2017-5638_Struts2_RCE",
+              "severity": "Critical",
+              "score": 26,
+              "exploit_prob": 0.52,
+              "patch_prob": 0.64
+            },
+            "CVE-2023-34362_MOVEit_SQLi": {
+              "vuln_id": "CVE-2023-34362_MOVEit_SQLi",
+              "severity": "High",
+              "score": 20,
+              "exploit_prob": 0.41,
+              "patch_prob": 0.67
+            }
+          }
+        },
+        "storage": {
+          "status": "Normal",
+          "exposed_ports": [
+            139,
+            445
+          ],
+          "vulnerabilities": {
+            "CVE-2017-0144_EternalBlue_SMB_RCE": {
+              "vuln_id": "CVE-2017-0144_EternalBlue_SMB_RCE",
+              "severity": "Critical",
+              "score": 30,
+              "exploit_prob": 0.43,
+              "patch_prob": 0.55
+            },
+            "CVE-2020-1472_ZeroLogon_AuthBypass": {
+              "vuln_id": "CVE-2020-1472_ZeroLogon_AuthBypass",
+              "severity": "Critical",
+              "score": 29,
+              "exploit_prob": 0.47,
+              "patch_prob": 0.52
+            },
+            "CVE-2021-44142_Samba_OOB_RCE": {
+              "vuln_id": "CVE-2021-44142_Samba_OOB_RCE",
+              "severity": "High",
+              "score": 23,
+              "exploit_prob": 0.39,
+              "patch_prob": 0.63
+            }
+          }
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": {
+            "CVE-2016-6662_MySQL_Config_Injection": {
+              "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
+              "severity": "High",
+              "score": 25,
+              "exploit_prob": 0.4,
+              "patch_prob": 0.57
+            },
+            "CVE-2012-2122_MySQL_Auth_Bypass": {
+              "vuln_id": "CVE-2012-2122_MySQL_Auth_Bypass",
+              "severity": "High",
+              "score": 21,
+              "exploit_prob": 0.34,
+              "patch_prob": 0.69
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "storage"
+        },
+        {
+          "source": "storage",
+          "target": "db"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "web 漏洞类型未确认，继续侦察以避免盲打。",
+          "action_type": "Recon",
+          "payload": "继续分析 web 漏洞类型并收集可利用证据",
+          "referee_result": "已完成对 web 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权",
+          "metadata": {
+            "action_type": "Recon",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": null,
+            "observed_status": "Normal",
+            "observed_ports": [
+              80,
+              443
+            ],
+            "vulnerability_count": 0,
+            "suspected_vulnerabilities": {}
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "检测到侦察行为，先保持监控与取证，等待更明确攻击迹象。",
+          "action_type": "Monitor",
+          "payload": "针对 web 提升日志采集与告警灵敏度",
+          "referee_result": "已持续对 web 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "action_type": "Monitor",
+            "agent_type": "Blue",
+            "target": "web",
+            "vuln_id": null,
+            "monitor_scope": "web",
+            "score_value": 0
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 Recon，蓝方动作为 Monitor。",
+          "action_type": "ResolveRound",
+          "payload": "web|web",
+          "referee_result": "Red: 已完成对 web 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权; Blue: 已持续对 web 保持监控；拓扑状态未发生变化",
+          "metadata": {
+            "red_result": {
+              "action_type": "Recon",
+              "agent_type": "Red",
+              "target": "web",
+              "vuln_id": null,
+              "observed_status": "Normal",
+              "observed_ports": [
+                80,
+                443
+              ],
+              "vulnerability_count": 0,
+              "suspected_vulnerabilities": {}
+            },
+            "blue_result": {
+              "action_type": "Monitor",
+              "agent_type": "Blue",
+              "target": "web",
+              "vuln_id": null,
+              "monitor_scope": "web",
+              "score_value": 0
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] web 节点出现侦察痕迹。",
+                "target": "web",
+                "source_action": "Recon",
+                "metadata": {
+                  "action_type": "Recon",
+                  "agent_type": "Red",
+                  "target": "web",
+                  "vuln_id": null,
+                  "observed_status": "Normal",
+                  "observed_ports": [
+                    80,
+                    443
+                  ],
+                  "vulnerability_count": 0,
+                  "suspected_vulnerabilities": {}
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 0,
+              "blue_delta": 0,
+              "interception_bonus": 0,
+              "red_score": 0,
+              "blue_score": 176
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] web 节点出现侦察痕迹。",
+          "target": "web",
+          "source_action": "Recon",
+          "metadata": {
+            "action_type": "Recon",
+            "agent_type": "Red",
+            "target": "web",
+            "vuln_id": null,
+            "observed_status": "Normal",
+            "observed_ports": [
+              80,
+              443
+            ],
+            "vulnerability_count": 0,
+            "suspected_vulnerabilities": {}
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": {
+          "CVE-2021-44228_Log4Shell_RCE": {
+            "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+            "severity": "High",
+            "score": 28,
+            "exploit_prob": 0.58,
+            "patch_prob": 0.62
+          },
+          "CVE-2021-41773_Apache_PathTraversal_RCE": {
+            "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+            "severity": "High",
+            "score": 22,
+            "exploit_prob": 0.49,
+            "patch_prob": 0.7
+          },
+          "CVE-2023-4966_CitrixBleed_SessionHijack": {
+            "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+            "severity": "High",
+            "score": 24,
+            "exploit_prob": 0.44,
+            "patch_prob": 0.56
+          }
+        }
+      }
+    }
+  ]
+}

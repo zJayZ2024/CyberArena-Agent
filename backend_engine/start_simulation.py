@@ -12,6 +12,7 @@ from backend_engine.agents.blue_agent import BlueAgent
 from backend_engine.agents.red_agent import RedAgent
 from backend_engine.core.network_topology import load_scenario
 from backend_engine.core.referee_engine import RefereeEngine
+from backend_engine.engine.context_builder import build_blue_context, build_red_context
 
 
 def run_simulation(rounds: int, scenario_path: Path, output_path: Path) -> dict:
@@ -19,13 +20,33 @@ def run_simulation(rounds: int, scenario_path: Path, output_path: Path) -> dict:
     red_agent = RedAgent()
     blue_agent = BlueAgent()
     referee = RefereeEngine()
+    state = referee.prepare_state(state)
 
     frames = [state.model_dump(mode="json")]
 
     for _ in range(rounds):
-        red_action = red_agent.decide(state)
-        blue_action = blue_agent.decide(state, red_action)
-        state = referee.resolve_round(state, red_action, blue_action)
+        red_context = build_red_context(state)
+        try:
+            red_action = red_agent.decide(state, context_markdown=red_context)
+        except Exception as exc:
+            print(f"[Simulation] RedAgent 决策异常，回退规则策略：{exc}")
+            red_action = red_agent._fallback_decide(state)
+
+        interim_state, red_result, recent_logs = referee.resolve_red_phase(state, red_action)
+        blue_perceived_state = referee.get_blue_perceived_state()
+
+        blue_context = build_blue_context(blue_perceived_state, recent_logs)
+        try:
+            blue_action = blue_agent.decide(
+                blue_perceived_state,
+                recent_logs=recent_logs,
+                context_markdown=blue_context,
+            )
+        except Exception as exc:
+            print(f"[Simulation] BlueAgent 决策异常，回退规则策略：{exc}")
+            blue_action = blue_agent._fallback_decide(blue_perceived_state, recent_logs=recent_logs)
+
+        state = referee.finalize_round(interim_state, red_action, red_result, blue_action)
         frames.append(state.model_dump(mode="json"))
 
     replay = {

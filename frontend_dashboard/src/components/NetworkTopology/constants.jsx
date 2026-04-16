@@ -24,22 +24,22 @@ export const T = {
 
 export const PAGE_STYLES = `
   @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap");
-  .topology-page { max-width: 920px; margin: 0 auto; min-height: 100vh; padding: 20px; }
-  .page-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 2px; color: #4b5563; margin-bottom: 12px; text-transform: uppercase; }
-  .controls { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-  .ctrl-btn { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 5px 12px; border-radius: 4px; cursor: pointer; background: #111827; border: 1px solid #1f2937; color: #9ca3af; transition: all 0.15s; }
+  .topology-page { margin: 0 auto; min-height: 100vh; padding: 24px 40px; }
+  .page-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 2px; color: #4b5563; margin-bottom: 16px; text-transform: uppercase; }
+  .controls { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+  .ctrl-btn { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 6px 14px; border-radius: 4px; cursor: pointer; background: #111827; border: 1px solid #1f2937; color: #9ca3af; transition: all 0.15s; }
   .ctrl-btn:hover:not(:disabled) { border-color: #3b82f6; color: #3b82f6; }
   .ctrl-btn.active { background: #0d1f3c; border-color: #3b82f6; color: #3b82f6; }
   .ctrl-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-  .info-row { display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
-  .info-chip { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 4px 10px; border-radius: 20px; background: #111827; border: 0.5px solid #1f2937; color: #6b7280; }
+  .info-row { display: flex; gap: 14px; margin-top: 18px; flex-wrap: wrap; }
+  .info-chip { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 5px 12px; border-radius: 20px; background: #111827; border: 0.5px solid #1f2937; color: #6b7280; }
 `;
 
 export const ZONE_CONFIGS = {
-  internet: { label: "INTERNET", x: 110, y: 15, w: 120, h: 350, color: T.gray, bg: "rgba(55,65,81,0.06)" },
-  dmz: { label: "DMZ", x: 250, y: 15, w: 120, h: 350, color: T.blue, bg: "rgba(59,130,246,0.05)" },
-  internal: { label: "INTERNAL", x: 390, y: 15, w: 120, h: 350, color: T.green, bg: "rgba(34,197,94,0.05)" },
-  database: { label: "DATABASE", x: 530, y: 15, w: 120, h: 350, color: T.amber, bg: "rgba(245,158,11,0.05)" },
+  internet: { label: "INTERNET", x: 110, y: 40, w: 120, h: 350, color: T.gray, bg: "rgba(55,65,81,0.06)" },
+  dmz: { label: "DMZ", x: 250, y: 40, w: 120, h: 350, color: T.blue, bg: "rgba(59,130,246,0.05)" },
+  internal: { label: "INTERNAL", x: 390, y: 40, w: 120, h: 350, color: T.green, bg: "rgba(34,197,94,0.05)" },
+  database: { label: "DATABASE", x: 530, y: 40, w: 120, h: 350, color: T.amber, bg: "rgba(245,158,11,0.05)" },
 };
 
 export const NODE_CONFIGS = {

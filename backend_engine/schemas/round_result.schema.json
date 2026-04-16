@@ -1,124 +1,36 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Round Result",
-  "description": "Deterministic settlement output for one simulation round.",
-  "type": "object",
-  "properties": {
-    "turn": {
-      "type": "integer",
-      "minimum": 1
-    },
-    "red_action": {
-      "$ref": "#/definitions/redAction"
-    },
-    "blue_action": {
-      "$ref": "#/definitions/blueAction"
-    },
-    "red_result": {
-      "type": "string"
-    },
-    "blue_result": {
-      "type": "string"
-    },
-    "referee_log": {
-      "$ref": "#/definitions/actionLog"
-    },
-    "world_state": {
-      "$ref": "#/definitions/worldState"
-    }
-  },
-  "required": [
-    "turn",
-    "red_action",
-    "blue_action",
-    "red_result",
-    "blue_result",
-    "referee_log",
-    "world_state"
-  ],
-  "definitions": {
-    "redAction": {
-      "type": "object",
+  "$defs": {
+    "ActionLog": {
       "properties": {
         "agent_type": {
-          "type": "string",
-          "const": "Red"
-        },
-        "thought": {
-          "type": "string"
-        },
-        "action_type": {
-          "type": "string"
-        },
-        "target": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "payload": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "agent_type",
-        "thought",
-        "action_type",
-        "payload"
-      ]
-    },
-    "blueAction": {
-      "type": "object",
-      "properties": {
-        "agent_type": {
-          "type": "string",
-          "const": "Blue"
-        },
-        "thought": {
-          "type": "string"
-        },
-        "action_type": {
-          "type": "string"
-        },
-        "target": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "payload": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "agent_type",
-        "thought",
-        "action_type",
-        "payload"
-      ]
-    },
-    "actionLog": {
-      "type": "object",
-      "properties": {
-        "agent_type": {
-          "type": "string",
           "enum": [
             "Red",
             "Blue",
             "Referee"
-          ]
+          ],
+          "title": "Agent Type",
+          "type": "string"
         },
         "thought": {
+          "title": "Thought",
           "type": "string"
         },
         "action_type": {
+          "title": "Action Type",
           "type": "string"
         },
         "payload": {
+          "title": "Payload",
           "type": "string"
         },
         "referee_result": {
+          "title": "Referee Result",
           "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
         }
       },
       "required": [
@@ -127,65 +39,276 @@
         "action_type",
         "payload",
         "referee_result"
-      ]
+      ],
+      "title": "ActionLog",
+      "type": "object"
     },
-    "worldState": {
-      "type": "object",
+    "NetworkNode": {
+      "properties": {
+        "status": {
+          "description": "Current node status.",
+          "enum": [
+            "Normal",
+            "Compromised",
+            "Down"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "exposed_ports": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Exposed Ports",
+          "type": "array"
+        },
+        "vulnerabilities": {
+          "additionalProperties": {
+            "$ref": "#/$defs/VulnerabilityInfo"
+          },
+          "title": "Vulnerabilities",
+          "type": "object"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "NetworkNode",
+      "type": "object"
+    },
+    "SecurityAlert": {
+      "properties": {
+        "severity": {
+          "default": "INFO",
+          "enum": [
+            "INFO",
+            "WARN",
+            "CRIT"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        },
+        "source_action": {
+          "default": "",
+          "title": "Source Action",
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "SecurityAlert",
+      "type": "object"
+    },
+    "TopologyEdge": {
+      "properties": {
+        "source": {
+          "description": "The source node id.",
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "description": "The target node id.",
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "target"
+      ],
+      "title": "TopologyEdge",
+      "type": "object"
+    },
+    "VulnerabilityInfo": {
+      "properties": {
+        "vuln_id": {
+          "description": "Unique vulnerability identifier.",
+          "title": "Vuln Id",
+          "type": "string"
+        },
+        "severity": {
+          "description": "Severity label such as High/Medium/Low.",
+          "title": "Severity",
+          "type": "string"
+        },
+        "score": {
+          "description": "Score awarded when this vulnerability is successfully used or fixed.",
+          "minimum": 0,
+          "title": "Score",
+          "type": "integer"
+        },
+        "exploit_prob": {
+          "description": "Probability of successful exploitation.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Exploit Prob",
+          "type": "number"
+        },
+        "patch_prob": {
+          "description": "Probability of successful patching.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Patch Prob",
+          "type": "number"
+        }
+      },
+      "required": [
+        "vuln_id",
+        "severity",
+        "score",
+        "exploit_prob",
+        "patch_prob"
+      ],
+      "title": "VulnerabilityInfo",
+      "type": "object"
+    },
+    "WorldState": {
       "properties": {
         "turn": {
-          "type": "integer",
-          "minimum": 0
+          "title": "Turn",
+          "type": "integer"
         },
         "system_health": {
-          "type": "integer",
+          "maximum": 100,
           "minimum": 0,
-          "maximum": 100
+          "title": "System Health",
+          "type": "integer"
         },
         "exposure_level": {
-          "type": "integer",
+          "maximum": 100,
           "minimum": 0,
-          "maximum": 100
+          "title": "Exposure Level",
+          "type": "integer"
+        },
+        "red_score": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Red Score",
+          "type": "integer"
+        },
+        "blue_score": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Blue Score",
+          "type": "integer"
         },
         "network_nodes": {
-          "type": "object",
           "additionalProperties": {
-            "type": "object",
-            "properties": {
-              "status": {
-                "type": "string"
-              },
-              "exposed_ports": {
-                "type": "array",
-                "items": {
-                  "type": "integer"
-                }
-              },
-              "vulnerabilities": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              }
-            },
-            "required": [
-              "status"
-            ]
-          }
+            "$ref": "#/$defs/NetworkNode"
+          },
+          "title": "Network Nodes",
+          "type": "object"
+        },
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/TopologyEdge"
+          },
+          "title": "Edges",
+          "type": "array"
         },
         "action_logs": {
-          "type": "array",
           "items": {
-            "$ref": "#/definitions/actionLog"
-          }
+            "$ref": "#/$defs/ActionLog"
+          },
+          "title": "Action Logs",
+          "type": "array"
+        },
+        "security_alerts": {
+          "items": {
+            "$ref": "#/$defs/SecurityAlert"
+          },
+          "title": "Security Alerts",
+          "type": "array"
+        },
+        "red_visible_nodes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Red Visible Nodes",
+          "type": "array"
+        },
+        "red_recon_nodes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Red Recon Nodes",
+          "type": "array"
+        },
+        "red_known_services": {
+          "additionalProperties": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "title": "Red Known Services",
+          "type": "object"
+        },
+        "red_known_vulnerabilities": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "$ref": "#/$defs/VulnerabilityInfo"
+            },
+            "type": "object"
+          },
+          "title": "Red Known Vulnerabilities",
+          "type": "object"
         }
       },
       "required": [
         "turn",
         "system_health",
         "exposure_level",
-        "network_nodes",
-        "action_logs"
-      ]
+        "network_nodes"
+      ],
+      "title": "WorldState",
+      "type": "object"
     }
-  }
+  },
+  "properties": {
+    "scenario": {
+      "title": "Scenario",
+      "type": "string"
+    },
+    "total_rounds": {
+      "minimum": 0,
+      "title": "Total Rounds",
+      "type": "integer"
+    },
+    "frames": {
+      "items": {
+        "$ref": "#/$defs/WorldState"
+      },
+      "title": "Frames",
+      "type": "array"
+    }
+  },
+  "required": [
+    "scenario",
+    "total_rounds"
+  ],
+  "title": "SimulationReplay",
+  "type": "object"
 }

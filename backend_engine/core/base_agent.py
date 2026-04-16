@@ -9,7 +9,7 @@ from typing import List, Dict, Literal, Optional, Type, TypeVar
 # 1. 数据契约定义 (Schemas)
 # ==========================================
 class NetworkNode(BaseModel):
-    status: str = Field(..., description="General status of the node (e.g., 'Normal', 'Compromised', 'Down', 'Defended').")
+    status: str = Field(..., description="General status of the node (e.g., 'Normal', 'Compromised', 'Down').")
     exposed_ports: Optional[List[int]] = Field(default_factory=list)
     vulnerabilities: Optional[List[str]] = Field(default_factory=list)
 

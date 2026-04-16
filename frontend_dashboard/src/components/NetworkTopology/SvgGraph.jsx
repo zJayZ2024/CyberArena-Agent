@@ -105,14 +105,14 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, showThought, o
 
       {showThought && <NodeDetailPanel round={round} onClose={onCloseThought} />}
 
-      <svg viewBox="0 0 800 380" width="100%" height="auto" style={{ display: "block" }} preserveAspectRatio="xMidYMid meet">
+      <svg viewBox="0 0 800 440" width="100%" height="auto" style={{ display: "block" }} preserveAspectRatio="xMidYMid meet">
         <defs>
           <pattern id="sl" width="1" height="3" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="1" y2="0" stroke="#fff" strokeWidth="0.4" opacity="0.012" /></pattern>
           <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L9 5L1 9" fill="none" stroke={T.red} strokeWidth="1.5" /></marker>
           <marker id="ab" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L9 5L1 9" fill="none" stroke={T.blue} strokeWidth="1.5" /></marker>
           <marker id="ag" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L9 5L1 9" fill="none" stroke={T.gray} strokeWidth="1" /></marker>
         </defs>
-        <rect width="800" height="380" fill="url(#sl)" />
+        <rect width="800" height="440" fill="url(#sl)" />
 
         {Object.values(ZONE_CONFIGS).map((zone) => <g key={zone.label}><rect x={zone.x} y={zone.y} width={zone.w} height={zone.h} rx={6} fill={zone.bg} stroke={zone.color} strokeWidth="0.5" strokeDasharray="5 3" opacity={0.85} /><text x={zone.x + zone.w / 2} y={zone.y + 14} textAnchor="middle" fontFamily={T.fontMono} fontSize={8} fill={zone.color} letterSpacing="1.5" fontWeight="600" opacity="0.75">{zone.label}</text></g>)}
         {STATIC_EDGES.map(([from, to]) => {
@@ -150,13 +150,13 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, showThought, o
           <rect x={-60} y={0} width={120} height={18} rx={4} fill={T.bgPanel} stroke={T.border} strokeWidth="0.5" />
           <text x={0} y={13} textAnchor="middle" fontFamily={T.fontMono} fontSize={8} fill={T.grayText} letterSpacing="1">ROUND {ws.round ?? 1} / {rounds.length} · {ws.red_phase?.toUpperCase()}</text>
         </g>
-        <g transform="translate(274,368)">
+        <g transform="translate(274,420)">
           <text fontFamily={T.fontMono} fontSize={7} fill={T.grayDim} x={0} y={0}>AVAIL</text>
           <rect x={34} y={-8} width={100} height={7} rx={2} fill={T.bgPanel} stroke={T.border} strokeWidth="0.5" />
           <rect x={34} y={-8} width={100 * (ws.availability ?? 1)} height={7} rx={2} fill={T.green} opacity="0.7" />
           <text fontFamily={T.fontMono} fontSize={7} fill={T.green} x={138} y={0}>{Math.round((ws.availability ?? 1) * 100)}%</text>
         </g>
-        <g transform="translate(470,356)">
+        <g transform="translate(470,408)">
           {[[T.red, true, "Attack"], [T.blue, false, "Defense"], [T.gray, false, "Network"]].map(([color, dashed, label], i) => <g key={`${label}-${i}`} transform={`translate(${i * 90},0)`}><line x1={0} y1={8} x2={20} y2={8} stroke={color} strokeWidth={1.2} strokeDasharray={dashed ? "4 2" : "none"} opacity="0.8" /><text x={24} y={12} fontFamily={T.fontMono} fontSize={7} fill={T.grayDim}>{label}</text></g>)}
         </g>
       </svg>
