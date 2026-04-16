@@ -88,7 +88,7 @@ function NetworkTopology({ initialRounds = DEFAULT_ROUNDS }) {
       <style>{PAGE_STYLES}</style>
       <HeaderHUD />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 24, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 24, alignItems: "start" }}>
         <div>
           <SvgGraph
             round={round}
