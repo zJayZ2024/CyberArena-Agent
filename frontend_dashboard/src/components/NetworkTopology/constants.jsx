@@ -36,10 +36,10 @@ export const PAGE_STYLES = `
 `;
 
 export const ZONE_CONFIGS = {
-  internet: { label: "INTERNET", x: 110, y: 15, w: 120, h: 350, color: T.gray, bg: "rgba(55,65,81,0.06)" },
-  dmz: { label: "DMZ", x: 250, y: 15, w: 120, h: 350, color: T.blue, bg: "rgba(59,130,246,0.05)" },
-  internal: { label: "INTERNAL", x: 390, y: 15, w: 120, h: 350, color: T.green, bg: "rgba(34,197,94,0.05)" },
-  database: { label: "DATABASE", x: 530, y: 15, w: 120, h: 350, color: T.amber, bg: "rgba(245,158,11,0.05)" },
+  internet: { label: "INTERNET", x: 110, y: 30, w: 120, h: 340, color: T.gray, bg: "rgba(55,65,81,0.06)" },
+  dmz: { label: "DMZ", x: 250, y: 30, w: 120, h: 340, color: T.blue, bg: "rgba(59,130,246,0.05)" },
+  internal: { label: "INTERNAL", x: 390, y: 30, w: 120, h: 340, color: T.green, bg: "rgba(34,197,94,0.05)" },
+  database: { label: "DATABASE", x: 530, y: 30, w: 120, h: 340, color: T.amber, bg: "rgba(245,158,11,0.05)" },
 };
 
 export const NODE_CONFIGS = {
