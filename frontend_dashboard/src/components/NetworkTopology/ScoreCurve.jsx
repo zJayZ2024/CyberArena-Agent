@@ -2,8 +2,8 @@ import { T } from "./constants";
 
 function ScoreCurve({ rounds, idx }) {
   const width = 800;
-  const height = 160;
-  const padding = { top: 16, right: 24, bottom: 24, left: 32 };
+  const height = 110;
+  const padding = { top: 10, right: 20, bottom: 18, left: 28 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 

@@ -19,6 +19,9 @@ function EventLog({ rounds, idx }) {
       type: "ATK",
       text: redText,
       rightBadge: red.technique_id,
+      color: T.red,
+      bg: T.redBg,
+      dim: T.redDim,
     });
 
     // DEF event
@@ -27,6 +30,10 @@ function EventLog({ rounds, idx }) {
       round: r.round,
       type: "DEF",
       text: `${target}: ${blue.reasoning}`,
+      rightBadge: null,
+      color: T.blue,
+      bg: T.blueBg,
+      dim: T.blueDim,
     });
   });
 
@@ -36,8 +43,8 @@ function EventLog({ rounds, idx }) {
         background: T.bgPanel,
         border: `1px solid ${T.border}`,
         borderRadius: 6,
-        padding: "14px 16px",
-        marginTop: 14,
+        padding: "12px 14px",
+        marginTop: 12,
       }}
     >
       {/* Header */}
@@ -52,16 +59,15 @@ function EventLog({ rounds, idx }) {
         <div
           style={{
             fontFamily: T.fontMono,
-            fontSize: 11,
-            letterSpacing: 1.5,
+            fontSize: 10,
+            letterSpacing: 1.2,
             color: T.grayText,
             textTransform: "uppercase",
           }}
         >
           Event Log
         </div>
-        <div style={{ fontFamily: T.fontMono, fontSize: 10, color: T.grayDim }}
-        >
+        <div style={{ fontFamily: T.fontMono, fontSize: 9, color: T.grayDim }}>
           {events.length} events
         </div>
       </div>
@@ -71,8 +77,8 @@ function EventLog({ rounds, idx }) {
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: 8,
-          maxHeight: 220,
+          gap: 6,
+          maxHeight: 200,
           overflowY: "auto",
         }}
       >
@@ -82,8 +88,8 @@ function EventLog({ rounds, idx }) {
             style={{
               display: "flex",
               alignItems: "flex-start",
-              gap: 10,
-              padding: "8px 10px",
+              gap: 8,
+              padding: "6px 8px",
               background: T.bg,
               border: `1px solid ${T.border}`,
               borderRadius: 4,
@@ -92,10 +98,10 @@ function EventLog({ rounds, idx }) {
             <span
               style={{
                 fontFamily: T.fontMono,
-                fontSize: 10,
+                fontSize: 9,
                 color: T.grayDim,
-                minWidth: 22,
-                paddingTop: 1,
+                minWidth: 20,
+                paddingTop: 2,
               }}
             >
               R{e.round}
@@ -103,16 +109,16 @@ function EventLog({ rounds, idx }) {
             <span
               style={{
                 fontFamily: T.fontMono,
-                fontSize: 9,
+                fontSize: 8,
                 fontWeight: 600,
-                color: e.type === "ATK" ? T.red : T.blue,
-                background: e.type === "ATK" ? T.redBg : T.blueBg,
-                border: `1px solid ${e.type === "ATK" ? T.redDim : T.blueDim}`,
-                borderRadius: 3,
-                padding: "2px 6px",
+                color: e.color,
+                background: e.bg,
+                border: `1px solid ${e.dim}`,
+                borderRadius: 2,
+                padding: "1px 4px",
                 textTransform: "uppercase",
                 letterSpacing: 0.5,
-                marginTop: 1,
+                marginTop: 2,
               }}
             >
               {e.type}
@@ -121,10 +127,10 @@ function EventLog({ rounds, idx }) {
               style={{
                 flex: 1,
                 fontFamily: T.fontMono,
-                fontSize: 11,
-                color: "#c9cdd4",
-                lineHeight: 1.45,
-                paddingTop: 1,
+                fontSize: 10,
+                color: e.type === "ATK" ? "#fca5a5" : "#93c5fd",
+                lineHeight: 1.4,
+                paddingTop: 2,
               }}
             >
               {e.text}
@@ -133,9 +139,11 @@ function EventLog({ rounds, idx }) {
               <span
                 style={{
                   fontFamily: T.fontMono,
-                  fontSize: 10,
-                  color: T.red,
-                  paddingTop: 1,
+                  fontSize: 9,
+                  color: e.color,
+                  paddingTop: 2,
+                  minWidth: 36,
+                  textAlign: "right",
                 }}
               >
                 {e.rightBadge}

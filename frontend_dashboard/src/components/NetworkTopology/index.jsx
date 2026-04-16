@@ -88,7 +88,7 @@ function NetworkTopology({ initialRounds = DEFAULT_ROUNDS }) {
       <style>{PAGE_STYLES}</style>
       <HeaderHUD />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 16, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, alignItems: "start" }}>
         <div>
           <SvgGraph
             round={round}
@@ -102,8 +102,6 @@ function NetworkTopology({ initialRounds = DEFAULT_ROUNDS }) {
             toast={toast}
           />
 
-          <LegendBar phase={ws.red_phase} />
-
           <div className="controls">
             <button type="button" className={`ctrl-btn${playing ? " active" : ""}`} onClick={() => setPlaying((current) => !current)}>{playing ? "PAUSE" : "PLAY"}</button>
             <button type="button" className="ctrl-btn" onClick={() => { setPlaying(false); setIdx(0); }}>RESET</button>
@@ -116,6 +114,8 @@ function NetworkTopology({ initialRounds = DEFAULT_ROUNDS }) {
           <div className="info-row">
             {rounds.map((item, i) => <div key={`${item.round}-${i}`} className="info-chip" style={{ cursor: "pointer", borderColor: i === idx ? T.blue : undefined, color: i === idx ? T.blue : undefined }} onClick={() => { setPlaying(false); setIdx(i); }}>R{item.round} {item.judge_result.success ? "OK" : "NO"} {item.red_action.technique_id}</div>)}
           </div>
+
+          <LegendBar phase={ws.red_phase} />
 
           <div style={{ paddingTop: 10, color: "#4b5563", fontFamily: T.fontMono, fontSize: 10 }}>
             DEV: call <code style={{ color: "#6b7280" }}>window.loadFrame(json)</code> to replace preview rounds with backend replay data.
