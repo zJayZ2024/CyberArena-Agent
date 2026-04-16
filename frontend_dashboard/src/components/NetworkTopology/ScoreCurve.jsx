@@ -2,8 +2,8 @@ import { T } from "./constants";
 
 function ScoreCurve({ rounds, idx }) {
   const width = 800;
-  const height = 140;
-  const padding = { top: 12, right: 20, bottom: 20, left: 32 };
+  const height = 170;
+  const padding = { top: 14, right: 20, bottom: 22, left: 40 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 
@@ -111,7 +111,7 @@ function ScoreCurve({ rounds, idx }) {
         {[0, 25, 50, 75, 100].map((v, i) => {
           const y = getY(v);
           return (
-            <text key={i} x={padding.left - 8} y={y + 3} textAnchor="end" fill={T.grayDim} fontFamily={T.fontMono} fontSize={9}>
+            <text key={i} x={padding.left - 10} y={y + 5} textAnchor="end" fill={T.grayText} fontFamily={T.fontMono} fontSize={11}>
               {v}
             </text>
           );
