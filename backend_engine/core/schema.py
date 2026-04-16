@@ -95,6 +95,13 @@ class AgentDecision(BaseModel):
     payload: str = Field(default="")
 
 
+class RefereeJudgement(BaseModel):
+    is_success: bool = Field(..., description="Whether the action succeeds from a technical perspective.")
+    rationale: str = Field(..., description="Detailed reason why the action succeeds or fails.")
+    score_awarded: int = Field(..., ge=0, description="Score granted by the referee for this action.")
+    effect: str = Field(..., description="Referee-assigned action effect label, such as compromise/hardening/failed.")
+
+
 class SecurityAlert(BaseModel):
     severity: Literal["INFO", "WARN", "CRIT"] = Field(default="INFO")
     message: str = Field(...)

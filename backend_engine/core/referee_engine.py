@@ -1,18 +1,12 @@
 from __future__ import annotations
 
 import copy
+from typing import Any
 
 from backend_engine.agents.referee_agent import RefereeAgent
 from backend_engine.core.models import ActionLog, AgentDecision, SecurityAlert, VulnerabilityInfo, WorldState
-from backend_engine.core.scoring import apply_round_scores, recalculate_scores
-from backend_engine.engine.actions import (
-    ACTION_REGISTRY,
-    ActionResult,
-    PERIMETER_KEYWORDS,
-)
-
-
-INTERCEPTION_BONUS = 10
+from backend_engine.core.scoring import recalculate_scores
+from backend_engine.engine.actions import ACTION_REGISTRY, ActionContext, ActionResult, PERIMETER_KEYWORDS
 
 
 def _is_perimeter_node(node_name: str) -> bool:
@@ -27,7 +21,6 @@ def _append_unique(items: list[str], value: str) -> None:
 
 def _build_adjacency_map(state: WorldState) -> dict[str, list[str]]:
     adjacency: dict[str, list[str]] = {node_name: [] for node_name in state.network_nodes}
-
     for edge in state.edges:
         if edge.source not in state.network_nodes or edge.target not in state.network_nodes:
             continue
@@ -35,7 +28,6 @@ def _build_adjacency_map(state: WorldState) -> dict[str, list[str]]:
             adjacency[edge.source].append(edge.target)
         if edge.source not in adjacency[edge.target]:
             adjacency[edge.target].append(edge.source)
-
     return adjacency
 
 
@@ -79,19 +71,33 @@ class RefereeEngine:
         next_state.action_logs = []
         next_state.security_alerts = []
 
-        red_result = ACTION_REGISTRY.resolve(
+        red_result = self._adjudicate_action(
             next_state,
             red,
             locale="zh",
             opposing_decision=None,
         )
-
         self._purge_invalid_red_intel(next_state, red, red_result)
         self._update_red_perception(next_state, red, red_result)
-        recent_alerts = self._build_security_alerts(next_state, red, red_result)
-        next_state.security_alerts = recent_alerts
-
+        next_state.security_alerts = self._build_security_alerts(next_state, red, red_result)
         return next_state, red_result, visible_alerts
+
+    def resolve_blue_phase(
+        self,
+        state: WorldState,
+        blue: AgentDecision,
+        *,
+        opposing_decision: AgentDecision | None = None,
+    ) -> tuple[WorldState, ActionResult]:
+        next_state = state.model_copy(deep=True)
+        self.prepare_state(next_state)
+        blue_result = self._adjudicate_action(
+            next_state,
+            blue,
+            locale="zh",
+            opposing_decision=opposing_decision,
+        )
+        return next_state, blue_result
 
     def finalize_round(
         self,
@@ -100,33 +106,11 @@ class RefereeEngine:
         red_result: ActionResult,
         blue: AgentDecision,
     ) -> WorldState:
-        next_state = state.model_copy(deep=True)
-        self.prepare_state(next_state)
-
-        blue_result = ACTION_REGISTRY.resolve(
-            next_state,
-            blue,
-            locale="zh",
-            opposing_decision=red,
-        )
-
-        red_final_result = red_result
-        interception_bonus = 0
-        if self._should_intercept(red, red_result, blue, blue_result):
-            self._apply_interception(next_state, red, red_result, blue, blue_result)
-            red_final_result = self._build_intercepted_red_result(red, red_result, blue)
-            self._rewrite_alerts_for_interception(next_state, red, blue)
-            interception_bonus = INTERCEPTION_BONUS
-            blue_result.metadata["interception_bonus"] = INTERCEPTION_BONUS
-            blue_result.metadata["intercepted_red_action"] = red.action_type
-
-        score_summary = apply_round_scores(
-            next_state,
-            red_final_result,
-            blue_result,
-            interception_bonus=interception_bonus,
-        )
+        next_state, blue_result = self.resolve_blue_phase(state, blue, opposing_decision=red)
         recalculate_scores(next_state)
+
+        red_delta = int(red_result.metadata.get("score_awarded", 0)) if red_result.success else 0
+        blue_delta = int(blue_result.metadata.get("score_awarded", 0)) if blue_result.success else 0
 
         next_state.action_logs = [
             ActionLog(
@@ -134,8 +118,8 @@ class RefereeEngine:
                 thought=red.thought,
                 action_type=red.action_type,
                 payload=red.payload,
-                referee_result=red_final_result.message,
-                metadata=red_final_result.metadata,
+                referee_result=red_result.message,
+                metadata=red_result.metadata,
             ),
             ActionLog(
                 agent_type="Blue",
@@ -148,12 +132,17 @@ class RefereeEngine:
             self.referee.log_resolution(
                 red,
                 blue,
-                f"Red: {red_final_result.message}; Blue: {blue_result.message}",
+                f"Red: {red_result.message}; Blue: {blue_result.message}",
                 metadata={
-                    "red_result": red_final_result.metadata,
+                    "red_result": red_result.metadata,
                     "blue_result": blue_result.metadata,
                     "recent_alerts": [alert.model_dump(mode="json") for alert in next_state.security_alerts],
-                    "score_summary": score_summary,
+                    "score_summary": {
+                        "red_delta": red_delta,
+                        "blue_delta": blue_delta,
+                        "red_score": next_state.red_score,
+                        "blue_score": next_state.blue_score,
+                    },
                 },
             ),
         ]
@@ -166,6 +155,109 @@ class RefereeEngine:
         interim_state, red_result, _ = self.resolve_red_phase(state, red)
         return self.finalize_round(interim_state, red, red_result, blue)
 
+    def _adjudicate_action(
+        self,
+        state: WorldState,
+        decision: AgentDecision,
+        *,
+        locale: str = "zh",
+        opposing_decision: AgentDecision | None = None,
+    ) -> ActionResult:
+        action = ACTION_REGISTRY.get(decision.action_type)
+        if action is None:
+            return ActionResult(
+                success=False,
+                effect="rejected",
+                message=f"非法动作：{decision.action_type}" if locale == "zh" else f"Illegal action: {decision.action_type}",
+                metadata={
+                    "action_type": decision.action_type,
+                    "agent_type": decision.agent_type,
+                    "target": decision.target,
+                    "vuln_id": decision.vuln_id,
+                    "score_awarded": 0,
+                    "validation": "failed",
+                },
+            )
+
+        context = ActionContext(
+            state=state,
+            decision=decision,
+            locale="zh" if locale == "zh" else "en",
+            opposing_decision=opposing_decision,
+        )
+        validation_error = action.validate(context)
+        if validation_error is not None:
+            metadata = dict(validation_error.metadata)
+            metadata.update({"score_awarded": 0, "validation": "failed"})
+            return ActionResult(
+                success=False,
+                effect=validation_error.effect,
+                message=validation_error.message,
+                metadata=metadata,
+            )
+
+        descriptor = action.descriptor(locale="zh").as_dict()
+        judgement = self.referee.judge_action(
+            state,
+            decision,
+            action_descriptor=descriptor,
+            validation_summary={
+                "validated": True,
+                "target": decision.target,
+                "vuln_id": decision.vuln_id,
+            },
+        )
+
+        if not judgement.is_success:
+            return ActionResult(
+                success=False,
+                effect=judgement.effect or "failed",
+                message=judgement.rationale,
+                metadata={
+                    "action_type": decision.action_type,
+                    "agent_type": decision.agent_type,
+                    "target": decision.target,
+                    "vuln_id": decision.vuln_id,
+                    "score_awarded": 0,
+                    "referee_effect": judgement.effect,
+                    "referee_rationale": judgement.rationale,
+                    "validation": "passed",
+                },
+            )
+
+        execute_result = action.execute(context)
+        if not execute_result.success:
+            metadata = dict(execute_result.metadata)
+            metadata.update({"score_awarded": 0, "execution": "failed_after_judgement"})
+            return ActionResult(
+                success=False,
+                effect=execute_result.effect,
+                message=execute_result.message,
+                metadata=metadata,
+            )
+
+        score_awarded = max(0, int(judgement.score_awarded))
+        if decision.agent_type == "Red":
+            state.red_score += score_awarded
+        else:
+            state.blue_score += score_awarded
+
+        metadata = dict(execute_result.metadata)
+        metadata.update(
+            {
+                "score_awarded": score_awarded,
+                "referee_effect": judgement.effect,
+                "referee_rationale": judgement.rationale,
+                "validation": "passed",
+            }
+        )
+        return ActionResult(
+            success=True,
+            effect=judgement.effect or execute_result.effect,
+            message=judgement.rationale,
+            metadata=metadata,
+        )
+
     def _ensure_initial_red_visibility(self, state: WorldState) -> None:
         if state.red_visible_nodes:
             return
@@ -173,7 +265,6 @@ class RefereeEngine:
         for node_name, node in state.network_nodes.items():
             if not _is_perimeter_node(node_name):
                 continue
-
             _append_unique(state.red_visible_nodes, node_name)
             if node.exposed_ports:
                 state.red_known_services[node_name] = list(node.exposed_ports)
@@ -187,11 +278,9 @@ class RefereeEngine:
 
         if red.action_type == "Recon" and red_result.success:
             _append_unique(state.red_recon_nodes, target)
-
             observed_ports = red_result.metadata.get("observed_ports", [])
             if observed_ports:
                 state.red_known_services[target] = list(observed_ports)
-
             suspected_vulnerabilities = red_result.metadata.get("suspected_vulnerabilities", {})
             if suspected_vulnerabilities:
                 state.red_known_vulnerabilities[target] = _coerce_vulnerability_snapshot(suspected_vulnerabilities)
@@ -266,93 +355,6 @@ class RefereeEngine:
         )
         return any(signal in reason for signal in invalidation_signals)
 
-    def _should_intercept(
-        self,
-        red: AgentDecision,
-        red_result: ActionResult,
-        blue: AgentDecision,
-        blue_result: ActionResult,
-    ) -> bool:
-        if not blue_result.success:
-            return False
-        if blue.action_type not in {"PatchNode", "Isolate"}:
-            return False
-        if not red.target or red.target != blue.target:
-            return False
-        red_vuln_id = self._extract_vuln_id(red, red_result)
-        blue_vuln_id = self._extract_vuln_id(blue, blue_result)
-        if not red_vuln_id or not blue_vuln_id:
-            return False
-        return red_vuln_id == blue_vuln_id
-
-    def _apply_interception(
-        self,
-        state: WorldState,
-        red: AgentDecision,
-        red_result: ActionResult,
-        blue: AgentDecision,
-        blue_result: ActionResult,
-    ) -> None:
-        target = red.target
-        if not target or target not in state.network_nodes:
-            return
-
-        node = state.network_nodes[target]
-        if blue.action_type == "Isolate":
-            node.status = "Down"
-            return
-
-        previous_status = red_result.metadata.get("previous_status", "Normal")
-        if previous_status in {"Normal", "Compromised", "Down"}:
-            node.status = previous_status
-        else:
-            node.status = "Normal"
-
-    def _build_intercepted_red_result(
-        self,
-        red: AgentDecision,
-        red_result: ActionResult,
-        blue: AgentDecision,
-    ) -> ActionResult:
-        metadata = dict(red_result.metadata)
-        metadata.update(
-            {
-                "intercepted": True,
-                "intercepted_by": blue.action_type,
-                "score_value": 0,
-            }
-        )
-        vuln_id = self._extract_vuln_id(red, red_result) or "unknown"
-        return ActionResult(
-            success=False,
-            effect="blocked",
-            message=(
-                f"{red.target or 'unknown target'} attack on vuln_id={vuln_id} was intercepted by "
-                f"blue {blue.action_type}"
-            ),
-            metadata=metadata,
-        )
-
-    def _rewrite_alerts_for_interception(
-        self,
-        state: WorldState,
-        red: AgentDecision,
-        blue: AgentDecision,
-    ) -> None:
-        red_vuln_id = self._extract_vuln_id(red)
-        for alert in state.security_alerts:
-            if alert.target != red.target or alert.source_action != red.action_type:
-                continue
-            alert.severity = "INFO"
-            alert.message = (
-                f"[INFO] {red.target} 上针对 vuln_id={red_vuln_id or 'unknown'} 的 {red.action_type} "
-                f"已被蓝方 {blue.action_type} 成功拦截。"
-            )
-            alert.metadata["intercepted"] = True
-            alert.metadata["intercepted_by"] = blue.action_type
-            if red_vuln_id:
-                alert.metadata["vuln_id"] = red_vuln_id
-
     def _build_security_alerts(
         self,
         state: WorldState,
@@ -376,7 +378,7 @@ class RefereeEngine:
                 )
             ]
 
-        severity = "CRIT" if red_result.effect in {"compromise", "exfiltration"} else "WARN"
+        severity = "CRIT" if red_result.success and red_result.effect in {"compromise", "exfiltration"} else "WARN"
         vuln_id = self._extract_vuln_id(red, red_result)
         return [
             SecurityAlert(

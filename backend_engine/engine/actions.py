@@ -1,6 +1,4 @@
 from __future__ import annotations
-
-import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, Literal
@@ -346,45 +344,6 @@ class BaseAction(ABC):
         context.decision.vuln_id = vuln_id
         return vuln_id, vulnerability, None
 
-    def _roll_probability(
-        self,
-        context: ActionContext,
-        *,
-        probability: float,
-        success_effect: str,
-        failure_effect: str,
-        success_en: str,
-        success_zh: str,
-        failure_en: str,
-        failure_zh: str,
-        metadata: Dict[str, Any],
-    ) -> ActionResult:
-        roll = random.random()
-        outcome_metadata = dict(metadata)
-        outcome_metadata.update(
-            {
-                "roll": round(roll, 6),
-                "probability": probability,
-            }
-        )
-        if roll <= probability:
-            return context.result(
-                success=True,
-                effect=success_effect,
-                en=success_en,
-                zh=success_zh,
-                metadata=outcome_metadata,
-            )
-
-        return context.result(
-            success=False,
-            effect=failure_effect,
-            en=failure_en,
-            zh=failure_zh,
-            metadata=outcome_metadata,
-        )
-
-
 class ActionRegistry:
     def __init__(self) -> None:
         self._actions: Dict[str, BaseAction] = {}
@@ -563,12 +522,12 @@ class ExploitServiceAction(BaseAction):
         "必须从节点漏洞字典中明确选定一个 vuln_id。",
     )
     judgement_logic_en = (
-        "The engine rolls random.random() against exploit_prob.",
-        "Only a successful roll compromises the node.",
+        "After precondition validation, the referee decides whether the technique is technically feasible.",
+        "If approved, the node is marked as Compromised.",
     )
     judgement_logic_zh = (
-        "引擎会用 random.random() 对 exploit_prob 进行判定。",
-        "只有判定成功才会让节点进入 Compromised。",
+        "通过前置校验后，由语义裁判判断该利用链是否技术可行。",
+        "裁判批准成功后，目标节点进入 Compromised。",
     )
     examples_en = (
         ActionExample(
@@ -585,10 +544,14 @@ class ExploitServiceAction(BaseAction):
         ),
     )
 
-    def execute(self, context: ActionContext) -> ActionResult:
+    def validate(self, context: ActionContext) -> ActionResult | None:
+        base_error = super().validate(context)
+        if base_error is not None:
+            return base_error
+
         target, node, error = self._require_target(context)
         if error is not None or target is None or node is None:
-            return error  # type: ignore[return-value]
+            return error
 
         if not _is_perimeter_target(target):
             return self._reject_wrong_target_family(
@@ -628,26 +591,44 @@ class ExploitServiceAction(BaseAction):
             require_explicit=True,
         )
         if vuln_error is not None or vuln_id is None or vulnerability is None:
-            return vuln_error  # type: ignore[return-value]
+            return vuln_error
 
-        result = self._roll_probability(
-            context,
-            probability=vulnerability.exploit_prob,
-            success_effect="compromise",
-            failure_effect="failed",
-            success_en=f"{target} was successfully compromised via vuln_id={vuln_id}",
-            success_zh=f"{target} 已通过 vuln_id={vuln_id} 被成功攻破",
-            failure_en=f"Exploit against {target} failed for vuln_id={vuln_id}",
-            failure_zh=f"针对 {target} 的 vuln_id={vuln_id} 利用失败",
+        return None
+
+    def execute(self, context: ActionContext) -> ActionResult:
+        target = context.decision.target
+        if not target or target not in context.state.network_nodes:
+            return context.result(
+                success=False,
+                effect="rejected",
+                en="Execution failed: invalid target after validation",
+                zh="执行失败：校验后目标无效",
+            )
+        node = context.state.network_nodes[target]
+        vuln_id = context.decision.vuln_id
+        vulnerability = node.vulnerabilities.get(vuln_id) if vuln_id else None
+        if vuln_id is None or vulnerability is None:
+            return context.result(
+                success=False,
+                effect="failed",
+                en="Execution failed: validated vuln_id is missing",
+                zh="执行失败：已校验漏洞在执行时不存在",
+            )
+
+        previous_status = node.status
+        node.status = "Compromised"
+
+        return context.result(
+            success=True,
+            effect="compromise",
+            en=f"{target} was successfully compromised via vuln_id={vuln_id}",
+            zh=f"{target} 已通过 vuln_id={vuln_id} 被成功攻破",
             metadata={
                 "used_vulnerability": vulnerability_to_dict(vulnerability),
                 "score_value": vulnerability.score,
-                "previous_status": node.status,
+                "previous_status": previous_status,
             },
         )
-        if result.success:
-            node.status = "Compromised"
-        return result
 
 
 @_register
@@ -670,12 +651,12 @@ class LateralMoveAction(BaseAction):
         "目标不能已是 Down 或 Compromised。",
     )
     judgement_logic_en = (
-        "The engine rolls exploit_prob for the selected vulnerability.",
-        "On success, the target becomes Compromised.",
+        "After precondition validation, the referee decides whether pivoting is technically feasible.",
+        "If approved, the target becomes Compromised.",
     )
     judgement_logic_zh = (
-        "引擎会对所选漏洞的 exploit_prob 进行判定。",
-        "成功后目标进入 Compromised。",
+        "通过前置校验后，由语义裁判判断横向移动是否技术可行。",
+        "裁判批准成功后，目标进入 Compromised。",
     )
     examples_en = (
         ActionExample(
@@ -698,10 +679,14 @@ class LateralMoveAction(BaseAction):
         "fw": ("web",),
     }
 
-    def execute(self, context: ActionContext) -> ActionResult:
+    def validate(self, context: ActionContext) -> ActionResult | None:
+        base_error = super().validate(context)
+        if base_error is not None:
+            return base_error
+
         target, node, error = self._require_target(context)
         if error is not None or target is None or node is None:
-            return error  # type: ignore[return-value]
+            return error
 
         if target.lower() == "internet":
             return self._reject_wrong_target_family(
@@ -747,27 +732,45 @@ class LateralMoveAction(BaseAction):
             require_explicit=False,
         )
         if vuln_error is not None or vuln_id is None or vulnerability is None:
-            return vuln_error  # type: ignore[return-value]
+            return vuln_error
 
-        result = self._roll_probability(
-            context,
-            probability=vulnerability.exploit_prob,
-            success_effect="compromise",
-            failure_effect="failed",
-            success_en=f"Lateral movement succeeded via vuln_id={vuln_id}; {target} is now compromised",
-            success_zh=f"已通过 vuln_id={vuln_id} 横移成功，{target} 现已失陷",
-            failure_en=f"Lateral movement toward {target} failed for vuln_id={vuln_id}",
-            failure_zh=f"针对 {target} 的 vuln_id={vuln_id} 横移失败",
+        return None
+
+    def execute(self, context: ActionContext) -> ActionResult:
+        target = context.decision.target
+        if not target or target not in context.state.network_nodes:
+            return context.result(
+                success=False,
+                effect="rejected",
+                en="Execution failed: invalid target after validation",
+                zh="执行失败：校验后目标无效",
+            )
+        node = context.state.network_nodes[target]
+        vuln_id = context.decision.vuln_id
+        vulnerability = node.vulnerabilities.get(vuln_id) if vuln_id else None
+        if vuln_id is None or vulnerability is None:
+            return context.result(
+                success=False,
+                effect="failed",
+                en="Execution failed: validated vuln_id is missing",
+                zh="执行失败：已校验漏洞在执行时不存在",
+            )
+        required_nodes = self.prerequisites.get(target, ())
+        previous_status = node.status
+        node.status = "Compromised"
+
+        return context.result(
+            success=True,
+            effect="compromise",
+            en=f"Lateral movement succeeded via vuln_id={vuln_id}; {target} is now compromised",
+            zh=f"已通过 vuln_id={vuln_id} 横移成功，{target} 现已失陷",
             metadata={
                 "used_vulnerability": vulnerability_to_dict(vulnerability),
                 "score_value": vulnerability.score,
-                "previous_status": node.status,
+                "previous_status": previous_status,
                 "pivot_path": list(required_nodes) or ["any_compromised_node"],
             },
         )
-        if result.success:
-            node.status = "Compromised"
-        return result
 
 
 @_register
@@ -790,12 +793,12 @@ class ExfiltrateDatabaseAction(BaseAction):
         "应用层必须已经是 Compromised。",
     )
     judgement_logic_en = (
-        "The engine rolls exploit_prob for the selected vulnerability.",
-        "On success, the database becomes Compromised if it was not already.",
+        "After precondition validation, the referee decides whether the exfiltration path is technically feasible.",
+        "If approved, the database is marked as Compromised when needed.",
     )
     judgement_logic_zh = (
-        "引擎会对所选漏洞的 exploit_prob 进行判定。",
-        "成功后数据库在必要时会进入 Compromised。",
+        "通过前置校验后，由语义裁判判断数据外传链路是否技术可行。",
+        "裁判批准成功后，数据库在必要时进入 Compromised。",
     )
     examples_en = (
         ActionExample(
@@ -812,10 +815,14 @@ class ExfiltrateDatabaseAction(BaseAction):
         ),
     )
 
-    def execute(self, context: ActionContext) -> ActionResult:
+    def validate(self, context: ActionContext) -> ActionResult | None:
+        base_error = super().validate(context)
+        if base_error is not None:
+            return base_error
+
         target, node, error = self._require_target(context)
         if error is not None or target is None or node is None:
-            return error  # type: ignore[return-value]
+            return error
 
         if not _is_database_target(target):
             return self._reject_wrong_target_family(
@@ -848,27 +855,45 @@ class ExfiltrateDatabaseAction(BaseAction):
             require_explicit=False,
         )
         if vuln_error is not None or vuln_id is None or vulnerability is None:
-            return vuln_error  # type: ignore[return-value]
+            return vuln_error
 
-        result = self._roll_probability(
-            context,
-            probability=vulnerability.exploit_prob,
-            success_effect="exfiltration",
-            failure_effect="failed",
-            success_en=f"Data access and exfiltration through {target} succeeded via vuln_id={vuln_id}",
-            success_zh=f"已通过 vuln_id={vuln_id} 成功完成 {target} 的数据访问与导出",
-            failure_en=f"Exfiltration against {target} failed for vuln_id={vuln_id}",
-            failure_zh=f"针对 {target} 的 vuln_id={vuln_id} 数据导出失败",
+        return None
+
+    def execute(self, context: ActionContext) -> ActionResult:
+        target = context.decision.target
+        if not target or target not in context.state.network_nodes:
+            return context.result(
+                success=False,
+                effect="rejected",
+                en="Execution failed: invalid target after validation",
+                zh="执行失败：校验后目标无效",
+            )
+        node = context.state.network_nodes[target]
+        vuln_id = context.decision.vuln_id
+        vulnerability = node.vulnerabilities.get(vuln_id) if vuln_id else None
+        if vuln_id is None or vulnerability is None:
+            return context.result(
+                success=False,
+                effect="failed",
+                en="Execution failed: validated vuln_id is missing",
+                zh="执行失败：已校验漏洞在执行时不存在",
+            )
+        previous_status = node.status
+        if node.status != "Compromised":
+            node.status = "Compromised"
+
+        return context.result(
+            success=True,
+            effect="exfiltration",
+            en=f"Data access and exfiltration through {target} succeeded via vuln_id={vuln_id}",
+            zh=f"已通过 vuln_id={vuln_id} 成功完成 {target} 的数据访问与导出",
             metadata={
                 "used_vulnerability": vulnerability_to_dict(vulnerability),
                 "score_value": vulnerability.score,
-                "previous_status": node.status,
+                "previous_status": previous_status,
                 "data_access": "granted",
             },
         )
-        if result.success and node.status != "Compromised":
-            node.status = "Compromised"
-        return result
 
 
 @_register
@@ -891,13 +916,13 @@ class PatchNodeAction(BaseAction):
         "当节点存在多个漏洞时，必须明确指定 vuln_id。",
     )
     judgement_logic_en = (
-        "The engine rolls random.random() against patch_prob.",
-        "On success, only the selected vulnerability is removed.",
+        "After precondition validation, the referee decides whether the patch operation is technically effective.",
+        "If approved, only the selected vulnerability is removed.",
         "Exposed ports are preserved.",
     )
     judgement_logic_zh = (
-        "引擎会用 random.random() 对 patch_prob 进行判定。",
-        "成功时只会移除选中的漏洞。",
+        "通过前置校验后，由语义裁判判断修补动作是否技术有效。",
+        "裁判批准成功时只会移除选中的漏洞。",
         "业务暴露端口会被保留。",
     )
     examples_en = (
@@ -915,10 +940,14 @@ class PatchNodeAction(BaseAction):
         ),
     )
 
-    def execute(self, context: ActionContext) -> ActionResult:
+    def validate(self, context: ActionContext) -> ActionResult | None:
+        base_error = super().validate(context)
+        if base_error is not None:
+            return base_error
+
         target, node, error = self._require_target(context)
         if error is not None or target is None or node is None:
-            return error  # type: ignore[return-value]
+            return error
 
         if target.lower() == "internet":
             return self._reject_wrong_target_family(
@@ -942,27 +971,44 @@ class PatchNodeAction(BaseAction):
             require_explicit=True,
         )
         if vuln_error is not None or vuln_id is None or vulnerability is None:
-            return vuln_error  # type: ignore[return-value]
+            return vuln_error
 
-        result = self._roll_probability(
-            context,
-            probability=vulnerability.patch_prob,
-            success_effect="hardening",
-            failure_effect="failed",
-            success_en=f"{target} was successfully patched for vuln_id={vuln_id}",
-            success_zh=f"{target} 已成功完成 vuln_id={vuln_id} 的修补",
-            failure_en=f"Patching {target} failed for vuln_id={vuln_id}",
-            failure_zh=f"{target} 的 vuln_id={vuln_id} 修补失败",
+        return None
+
+    def execute(self, context: ActionContext) -> ActionResult:
+        target = context.decision.target
+        if not target or target not in context.state.network_nodes:
+            return context.result(
+                success=False,
+                effect="rejected",
+                en="Execution failed: invalid target after validation",
+                zh="执行失败：校验后目标无效",
+            )
+        node = context.state.network_nodes[target]
+        vuln_id = context.decision.vuln_id
+        vulnerability = node.vulnerabilities.get(vuln_id) if vuln_id else None
+        if vuln_id is None or vulnerability is None:
+            return context.result(
+                success=False,
+                effect="failed",
+                en="Execution failed: validated vuln_id is missing",
+                zh="执行失败：已校验漏洞在执行时不存在",
+            )
+        previous_status = node.status
+        node.vulnerabilities.pop(vuln_id, None)
+
+        return context.result(
+            success=True,
+            effect="hardening",
+            en=f"{target} was successfully patched for vuln_id={vuln_id}",
+            zh=f"{target} 已成功完成 vuln_id={vuln_id} 的修补",
             metadata={
                 "patched_vulnerability": vulnerability_to_dict(vulnerability),
                 "score_value": vulnerability.score,
-                "previous_status": node.status,
+                "previous_status": previous_status,
                 "preserved_ports": list(node.exposed_ports),
             },
         )
-        if result.success:
-            node.vulnerabilities.pop(vuln_id, None)
-        return result
 
 
 @_register
@@ -1005,10 +1051,14 @@ class RestoreNodeAction(BaseAction):
         ),
     )
 
-    def execute(self, context: ActionContext) -> ActionResult:
+    def validate(self, context: ActionContext) -> ActionResult | None:
+        base_error = super().validate(context)
+        if base_error is not None:
+            return base_error
+
         target, node, error = self._require_target(context)
         if error is not None or target is None or node is None:
-            return error  # type: ignore[return-value]
+            return error
 
         if target.lower() == "internet":
             return self._reject_wrong_target_family(
@@ -1025,6 +1075,29 @@ class RestoreNodeAction(BaseAction):
                 en=f"{target} is not compromised or down; PatchNode is the better choice",
                 zh=f"{target} 当前既未失陷也未下线，优先使用 PatchNode 更合适",
             )
+
+        if node.vulnerabilities:
+            _, _, vuln_error = self._resolve_vulnerability(
+                context,
+                node,
+                require_explicit=False,
+                allow_auto_single=False,
+            )
+            if vuln_error is not None:
+                return vuln_error
+
+        return None
+
+    def execute(self, context: ActionContext) -> ActionResult:
+        target = context.decision.target
+        if not target or target not in context.state.network_nodes:
+            return context.result(
+                success=False,
+                effect="rejected",
+                en="Execution failed: invalid target after validation",
+                zh="执行失败：校验后目标无效",
+            )
+        node = context.state.network_nodes[target]
 
         previous_status = node.status
         removed_vulnerability = None
@@ -1097,10 +1170,14 @@ class IsolateAction(BaseAction):
         ),
     )
 
-    def execute(self, context: ActionContext) -> ActionResult:
+    def validate(self, context: ActionContext) -> ActionResult | None:
+        base_error = super().validate(context)
+        if base_error is not None:
+            return base_error
+
         target, node, error = self._require_target(context)
         if error is not None or target is None or node is None:
-            return error  # type: ignore[return-value]
+            return error
 
         if target.lower() == "internet":
             return self._reject_wrong_target_family(
@@ -1117,6 +1194,27 @@ class IsolateAction(BaseAction):
                 en=f"{target} is already down",
                 zh=f"{target} 当前已经处于 Down 状态",
             )
+
+        if context.decision.vuln_id and context.decision.vuln_id not in node.vulnerabilities:
+            return context.result(
+                success=False,
+                effect="failed",
+                en=f"Selected vuln_id {context.decision.vuln_id} does not exist on the target",
+                zh=f"所选 vuln_id {context.decision.vuln_id} 不存在于目标节点",
+            )
+
+        return None
+
+    def execute(self, context: ActionContext) -> ActionResult:
+        target = context.decision.target
+        if not target or target not in context.state.network_nodes:
+            return context.result(
+                success=False,
+                effect="rejected",
+                en="Execution failed: invalid target after validation",
+                zh="执行失败：校验后目标无效",
+            )
+        node = context.state.network_nodes[target]
 
         score_value = 0
         if context.decision.vuln_id and context.decision.vuln_id in node.vulnerabilities:
