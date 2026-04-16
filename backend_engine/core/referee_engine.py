@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from backend_engine.agents.referee_agent import RefereeAgent
 from backend_engine.core.models import ActionLog, AgentDecision, SecurityAlert, WorldState
-from backend_engine.core.scoring import recalculate_scores
+from backend_engine.core.scoring import apply_round_scores, recalculate_scores
 from backend_engine.engine.actions import ACTION_REGISTRY, ActionResult, PERIMETER_KEYWORDS
 
 
@@ -75,6 +75,8 @@ class RefereeEngine:
             locale="zh",
             opposing_decision=red,
         )
+        score_summary = apply_round_scores(next_state, red_result, blue_result)
+        recalculate_scores(next_state)
 
         next_state.action_logs = [
             ActionLog(
@@ -101,11 +103,12 @@ class RefereeEngine:
                     "red_result": red_result.metadata,
                     "blue_result": blue_result.metadata,
                     "recent_alerts": [alert.model_dump(mode="json") for alert in next_state.security_alerts],
+                    "score_summary": score_summary,
                 },
             ),
         ]
 
-        return recalculate_scores(next_state)
+        return next_state
 
     def resolve_round(self, state: WorldState, red: AgentDecision, blue: AgentDecision) -> WorldState:
         interim_state, red_result, _ = self.resolve_red_phase(state, red)

@@ -28,14 +28,42 @@ class BlueAgent(BaseLLMAgent):
         allowed_targets.update({"network", "all"})
 
         try:
-            return super().decide(
+            decision = super().decide(
                 state,
                 context_markdown,
                 allowed_targets=allowed_targets,
             )
+            self._validate_alert_sop(decision, recent_logs=recent_logs)
+            return decision
         except Exception as exc:
             print(f"[BlueAgent] LLM 决策失败，回退到规则策略：{exc}")
             return self._fallback_decide(state, recent_logs=recent_logs)
+
+    def _find_monitor_only_alert(
+        self,
+        recent_logs: Iterable[SecurityAlert] | None = None,
+    ) -> SecurityAlert | None:
+        if not recent_logs:
+            return None
+
+        for alert in reversed(list(recent_logs)):
+            if alert.source_action == "Recon" or alert.severity == "WARN":
+                return alert
+        return None
+
+    def _validate_alert_sop(
+        self,
+        decision: AgentDecision,
+        recent_logs: Iterable[SecurityAlert] | None = None,
+    ) -> None:
+        alert = self._find_monitor_only_alert(recent_logs)
+        if alert is None:
+            return
+        if decision.action_type != "Monitor":
+            raise LLMDecisionError(
+                "蓝方 SOP 要求：对于 source_action=Recon 或 severity=WARN 的告警，"
+                "必须使用 Monitor，禁止选择 PatchNode 或其他高扰动动作。"
+            )
 
     def _fallback_decide(
         self,
@@ -43,6 +71,20 @@ class BlueAgent(BaseLLMAgent):
         recent_logs: Iterable[SecurityAlert] | None = None,
     ) -> AgentDecision:
         nodes = state.network_nodes
+        monitor_only_alert = self._find_monitor_only_alert(recent_logs)
+
+        if monitor_only_alert is not None:
+            target = monitor_only_alert.target if monitor_only_alert.target in nodes else "network"
+            return AgentDecision(
+                agent_type="Blue",
+                thought=(
+                    "最新告警属于 Recon 或 WARN 级别。根据 SOP，蓝方此时必须执行 "
+                    "Monitor，避免高扰动修补影响业务稳定性。"
+                ),
+                action_type="Monitor",
+                target=target,
+                payload=f"针对 {target} 提升监控与告警灵敏度，保持业务端口持续可用",
+            )
 
         if recent_logs:
             for alert in reversed(list(recent_logs)):
@@ -50,9 +92,7 @@ class BlueAgent(BaseLLMAgent):
                     continue
 
                 target_node = nodes[alert.target]
-                if alert.source_action != "Recon" and (
-                    target_node.vulnerabilities or target_node.status == "Compromised"
-                ):
+                if target_node.vulnerabilities or target_node.status == "Compromised":
                     return AgentDecision(
                         agent_type="Blue",
                         thought=(
@@ -62,15 +102,6 @@ class BlueAgent(BaseLLMAgent):
                         action_type="RestoreNode" if target_node.status == "Compromised" else "PatchNode",
                         target=alert.target,
                         payload=f"根据安全告警优先响应 {alert.target} 的异常活动",
-                    )
-
-                if alert.source_action == "Recon":
-                    return AgentDecision(
-                        agent_type="Blue",
-                        thought=f"{alert.target.upper()} 出现侦察痕迹，先提升对该节点的监控与告警等级。",
-                        action_type="Monitor",
-                        target=alert.target,
-                        payload=f"针对 {alert.target} 的侦察告警执行重点监控",
                     )
 
         for node_name in ("db", "app", "web"):
@@ -95,7 +126,7 @@ class BlueAgent(BaseLLMAgent):
 
         return AgentDecision(
             agent_type="Blue",
-            thought="当前未观察到需要立即处置的严重异常，继续保持全局监控。",
+            thought="当前未观察到需要立刻处置的严重异常，继续保持全局监控。",
             action_type="Monitor",
             target="network",
             payload="审查告警并维持监控覆盖",

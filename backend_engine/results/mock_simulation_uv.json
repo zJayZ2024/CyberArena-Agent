@@ -1,0 +1,851 @@
+{
+  "scenario": "level_1_basic_web",
+  "total_rounds": 4,
+  "frames": [
+    {
+      "turn": 0,
+      "system_health": 100,
+      "exposure_level": 40,
+      "red_score": 0,
+      "blue_score": 0,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": []
+        },
+        "fw": {
+          "status": "Defended",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": []
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": [
+            "CVE-WEB-2026-0001",
+            "WeakFileUpload"
+          ]
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": [
+            "DefaultAdminPassword"
+          ]
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": [
+            "OpenReplicaAccess"
+          ]
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [],
+      "security_alerts": [],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web"
+      ],
+      "red_recon_nodes": [],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {}
+    },
+    {
+      "turn": 1,
+      "system_health": 100,
+      "exposure_level": 33,
+      "red_score": 5,
+      "blue_score": 6,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": []
+        },
+        "fw": {
+          "status": "Defended",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": []
+        },
+        "web": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": [
+            "CVE-WEB-2026-0001",
+            "WeakFileUpload"
+          ]
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": [
+            "DefaultAdminPassword"
+          ]
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": [
+            "OpenReplicaAccess"
+          ]
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "当前回合为 0，尚未控制任何节点。虽然发现了 fw、internet 和 web 节点及其暴露服务，但没有任何已知漏洞。根据原则，不能盲目攻击未知目标，且情报不足（无已知漏洞），应优先对暴露面最大的边界节点进行侦察，以发现潜在漏洞。选择对 'web' 节点进行 Recon，因为它通常是最常见的初始攻击入口。",
+          "action_type": "Recon",
+          "payload": "Scan web node ports 80 and 443 for vulnerabilities and service versions.",
+          "referee_result": "已完成对 web 的侦察；已获得服务暴露信息，但未改变节点控制权",
+          "metadata": {
+            "action_type": "Recon",
+            "agent_type": "Red",
+            "target": "web",
+            "observed_status": "Normal",
+            "observed_ports": [
+              80,
+              443
+            ],
+            "vulnerability_count": 2,
+            "suspected_vulnerabilities": [
+              "CVE-WEB-2026-0001",
+              "WeakFileUpload"
+            ]
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "最新告警显示 web 节点出现侦察扫描痕迹，且告警级别为 WARN。根据 SOP 最高优先级规则，当 severity 为 WARN 或 source_action 为 Recon 时，必须选择 Monitor，严禁选择 PatchNode，以避免高扰动修补影响业务稳定性。",
+          "action_type": "Monitor",
+          "payload": "Monitor web node due to WARN severity recon alert to maintain situational awareness without disruptive patching.",
+          "referee_result": "已持续对 web 保持监控；拓扑控制权未发生变化",
+          "metadata": {
+            "action_type": "Monitor",
+            "agent_type": "Blue",
+            "target": "web",
+            "monitor_scope": "web"
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 Recon，蓝方动作为 Monitor。",
+          "action_type": "ResolveRound",
+          "payload": "web|web",
+          "referee_result": "红方：已完成对 web 的侦察；已获得服务暴露信息，但未改变节点控制权；蓝方：已持续对 web 保持监控；拓扑控制权未发生变化",
+          "metadata": {
+            "red_result": {
+              "action_type": "Recon",
+              "agent_type": "Red",
+              "target": "web",
+              "observed_status": "Normal",
+              "observed_ports": [
+                80,
+                443
+              ],
+              "vulnerability_count": 2,
+              "suspected_vulnerabilities": [
+                "CVE-WEB-2026-0001",
+                "WeakFileUpload"
+              ]
+            },
+            "blue_result": {
+              "action_type": "Monitor",
+              "agent_type": "Blue",
+              "target": "web",
+              "monitor_scope": "web"
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[告警] web 节点出现侦察扫描痕迹。",
+                "target": "web",
+                "source_action": "Recon",
+                "metadata": {
+                  "action_type": "Recon",
+                  "agent_type": "Red",
+                  "target": "web",
+                  "observed_status": "Normal",
+                  "observed_ports": [
+                    80,
+                    443
+                  ],
+                  "vulnerability_count": 2,
+                  "suspected_vulnerabilities": [
+                    "CVE-WEB-2026-0001",
+                    "WeakFileUpload"
+                  ]
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 5,
+              "blue_delta": 6,
+              "red_score": 5,
+              "blue_score": 6
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[告警] web 节点出现侦察扫描痕迹。",
+          "target": "web",
+          "source_action": "Recon",
+          "metadata": {
+            "action_type": "Recon",
+            "agent_type": "Red",
+            "target": "web",
+            "observed_status": "Normal",
+            "observed_ports": [
+              80,
+              443
+            ],
+            "vulnerability_count": 2,
+            "suspected_vulnerabilities": [
+              "CVE-WEB-2026-0001",
+              "WeakFileUpload"
+            ]
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web"
+      ],
+      "red_recon_nodes": [
+        "web"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": [
+          "CVE-WEB-2026-0001",
+          "WeakFileUpload"
+        ]
+      }
+    },
+    {
+      "turn": 2,
+      "system_health": 100,
+      "exposure_level": 29,
+      "red_score": 17,
+      "blue_score": 11,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": []
+        },
+        "fw": {
+          "status": "Defended",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": []
+        },
+        "web": {
+          "status": "Defended",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": [
+            "WeakFileUpload"
+          ]
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": [
+            "DefaultAdminPassword"
+          ]
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": [
+            "OpenReplicaAccess"
+          ]
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "当前未控制任何节点，但已侦察发现 'web' 节点存在已知漏洞 (CVE-WEB-2026-0001, WeakFileUpload)。根据优先利用已知漏洞的原则，应直接对该节点发起攻击以建立初始据点，而非继续侦察或攻击无漏洞信息的防火墙。",
+          "action_type": "ExploitService",
+          "payload": "Exploit CVE-WEB-2026-0001 and WeakFileUpload on port 80/443 to gain initial foothold.",
+          "referee_result": "web 已通过对外服务漏洞被成功攻破",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web",
+            "used_vulnerability": "CVE-WEB-2026-0001"
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "最新告警显示 web 节点状态为 Compromised 且遭受 ExploitService 攻击。根据 SOP 规则，对于已失陷节点应优先执行 RestoreNode 操作以恢复业务，而非修补或仅监控。",
+          "action_type": "RestoreNode",
+          "payload": "Restore web node from clean baseline to recover from Compromised state.",
+          "referee_result": "web 已恢复并进入防御态",
+          "metadata": {
+            "action_type": "RestoreNode",
+            "agent_type": "Blue",
+            "target": "web",
+            "removed_vulnerability": "CVE-WEB-2026-0001"
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 RestoreNode。",
+          "action_type": "ResolveRound",
+          "payload": "web|web",
+          "referee_result": "红方：web 已通过对外服务漏洞被成功攻破；蓝方：web 已恢复并进入防御态",
+          "metadata": {
+            "red_result": {
+              "action_type": "ExploitService",
+              "agent_type": "Red",
+              "target": "web",
+              "used_vulnerability": "CVE-WEB-2026-0001"
+            },
+            "blue_result": {
+              "action_type": "RestoreNode",
+              "agent_type": "Blue",
+              "target": "web",
+              "removed_vulnerability": "CVE-WEB-2026-0001"
+            },
+            "recent_alerts": [
+              {
+                "severity": "CRIT",
+                "message": "[CRIT] web 节点遭到 ExploitService 攻击，当前状态为 Compromised。",
+                "target": "web",
+                "source_action": "ExploitService",
+                "metadata": {
+                  "action_type": "ExploitService",
+                  "agent_type": "Red",
+                  "target": "web",
+                  "used_vulnerability": "CVE-WEB-2026-0001"
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": 12,
+              "blue_delta": 5,
+              "red_score": 17,
+              "blue_score": 11
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "CRIT",
+          "message": "[CRIT] web 节点遭到 ExploitService 攻击，当前状态为 Compromised。",
+          "target": "web",
+          "source_action": "ExploitService",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web",
+            "used_vulnerability": "CVE-WEB-2026-0001"
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": [
+          "CVE-WEB-2026-0001",
+          "WeakFileUpload"
+        ]
+      }
+    },
+    {
+      "turn": 3,
+      "system_health": 100,
+      "exposure_level": 29,
+      "red_score": 13,
+      "blue_score": 21,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": []
+        },
+        "fw": {
+          "status": "Defended",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": []
+        },
+        "web": {
+          "status": "Defended",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": [
+            "WeakFileUpload"
+          ]
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": [
+            "DefaultAdminPassword"
+          ]
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": [
+            "OpenReplicaAccess"
+          ]
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "当前没有已控制节点，无法进行横向移动或数据窃取。在已发现节点中，只有 `web` 节点经过 Recon 并确认存在已知漏洞 (CVE-WEB-2026-0001, WeakFileUpload)。其他节点 (`app`, `fw`, `internet`) 状态未知或无已知漏洞。因此，最佳策略是直接利用 `web` 节点的已知漏洞尝试获取初始据点。",
+          "action_type": "ExploitService",
+          "payload": "Exploit CVE-WEB-2026-0001 and WeakFileUpload on port 80/443 to gain initial foothold.",
+          "referee_result": "针对 web 的攻击被现有防御拦截",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web"
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "最新告警显示 web 节点遭受 ExploitService 攻击，但严重级别为 WARN。根据 SOP 最高优先级规则，当 severity 为 WARN 时，必须选择 Monitor 动作，严禁选择 PatchNode，以避免高扰动修补影响业务稳定性。尽管 web 节点存在 WeakFileUpload 漏洞且状态为 Defended，但必须优先遵守 SOP 约束。",
+          "action_type": "Monitor",
+          "payload": "Monitor web node due to WARN severity alert as per SOP constraints.",
+          "referee_result": "已持续对 web 保持监控；拓扑控制权未发生变化",
+          "metadata": {
+            "action_type": "Monitor",
+            "agent_type": "Blue",
+            "target": "web",
+            "monitor_scope": "web"
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 Monitor。",
+          "action_type": "ResolveRound",
+          "payload": "web|web",
+          "referee_result": "红方：针对 web 的攻击被现有防御拦截；蓝方：已持续对 web 保持监控；拓扑控制权未发生变化",
+          "metadata": {
+            "red_result": {
+              "action_type": "ExploitService",
+              "agent_type": "Red",
+              "target": "web"
+            },
+            "blue_result": {
+              "action_type": "Monitor",
+              "agent_type": "Blue",
+              "target": "web",
+              "monitor_scope": "web"
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] web 节点遭到 ExploitService 攻击，当前状态为 Defended。",
+                "target": "web",
+                "source_action": "ExploitService",
+                "metadata": {
+                  "action_type": "ExploitService",
+                  "agent_type": "Red",
+                  "target": "web"
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": -4,
+              "blue_delta": 10,
+              "red_score": 13,
+              "blue_score": 21
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] web 节点遭到 ExploitService 攻击，当前状态为 Defended。",
+          "target": "web",
+          "source_action": "ExploitService",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web"
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": [
+          "CVE-WEB-2026-0001",
+          "WeakFileUpload"
+        ]
+      }
+    },
+    {
+      "turn": 4,
+      "system_health": 100,
+      "exposure_level": 29,
+      "red_score": 9,
+      "blue_score": 31,
+      "network_nodes": {
+        "internet": {
+          "status": "Normal",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": []
+        },
+        "fw": {
+          "status": "Defended",
+          "exposed_ports": [
+            443
+          ],
+          "vulnerabilities": []
+        },
+        "web": {
+          "status": "Defended",
+          "exposed_ports": [
+            80,
+            443
+          ],
+          "vulnerabilities": [
+            "WeakFileUpload"
+          ]
+        },
+        "app": {
+          "status": "Normal",
+          "exposed_ports": [
+            8080
+          ],
+          "vulnerabilities": [
+            "DefaultAdminPassword"
+          ]
+        },
+        "db": {
+          "status": "Normal",
+          "exposed_ports": [
+            3306
+          ],
+          "vulnerabilities": [
+            "OpenReplicaAccess"
+          ]
+        }
+      },
+      "edges": [
+        {
+          "source": "internet",
+          "target": "fw"
+        },
+        {
+          "source": "fw",
+          "target": "web"
+        },
+        {
+          "source": "web",
+          "target": "app"
+        },
+        {
+          "source": "app",
+          "target": "db"
+        }
+      ],
+      "action_logs": [
+        {
+          "agent_type": "Red",
+          "thought": "当前未控制任何节点，无法进行横向移动或数据窃取。在已发现节点中，只有 `web` 节点经过 Recon 并确认存在已知漏洞 (CVE-WEB-2026-0001, WeakFileUpload)。其他节点 (`app`, `fw`, `internet`) 状态未知或无已知漏洞。因此，最佳策略是利用 `web` 节点的已知漏洞尝试获取初始访问权限。",
+          "action_type": "ExploitService",
+          "payload": "利用 WeakFileUpload 漏洞上传 Webshell 以获取服务器控制权",
+          "referee_result": "针对 web 的攻击被现有防御拦截",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web"
+          }
+        },
+        {
+          "agent_type": "Blue",
+          "thought": "最新告警显示 web 节点遭受 ExploitService 攻击，且严重性为 WARN。根据 SOP 最高优先级规则，当 severity 为 WARN 时，必须选择 Monitor 动作，严禁进行 PatchNode 以避免高扰动影响业务稳定性。虽然 web 节点状态为 Defended 而非 Compromised，但 WARN 级别告警强制要求监控。",
+          "action_type": "Monitor",
+          "payload": "Monitor web node due to WARN severity alert to maintain situational awareness without disruptive changes.",
+          "referee_result": "已持续对 web 保持监控；拓扑控制权未发生变化",
+          "metadata": {
+            "action_type": "Monitor",
+            "agent_type": "Blue",
+            "target": "web",
+            "monitor_scope": "web"
+          }
+        },
+        {
+          "agent_type": "Referee",
+          "thought": "本回合已完成裁定：红方动作为 ExploitService，蓝方动作为 Monitor。",
+          "action_type": "ResolveRound",
+          "payload": "web|web",
+          "referee_result": "红方：针对 web 的攻击被现有防御拦截；蓝方：已持续对 web 保持监控；拓扑控制权未发生变化",
+          "metadata": {
+            "red_result": {
+              "action_type": "ExploitService",
+              "agent_type": "Red",
+              "target": "web"
+            },
+            "blue_result": {
+              "action_type": "Monitor",
+              "agent_type": "Blue",
+              "target": "web",
+              "monitor_scope": "web"
+            },
+            "recent_alerts": [
+              {
+                "severity": "WARN",
+                "message": "[WARN] web 节点遭到 ExploitService 攻击，当前状态为 Defended。",
+                "target": "web",
+                "source_action": "ExploitService",
+                "metadata": {
+                  "action_type": "ExploitService",
+                  "agent_type": "Red",
+                  "target": "web"
+                }
+              }
+            ],
+            "score_summary": {
+              "red_delta": -4,
+              "blue_delta": 10,
+              "red_score": 9,
+              "blue_score": 31
+            }
+          }
+        }
+      ],
+      "security_alerts": [
+        {
+          "severity": "WARN",
+          "message": "[WARN] web 节点遭到 ExploitService 攻击，当前状态为 Defended。",
+          "target": "web",
+          "source_action": "ExploitService",
+          "metadata": {
+            "action_type": "ExploitService",
+            "agent_type": "Red",
+            "target": "web"
+          }
+        }
+      ],
+      "red_visible_nodes": [
+        "internet",
+        "fw",
+        "web",
+        "app"
+      ],
+      "red_recon_nodes": [
+        "web"
+      ],
+      "red_known_services": {
+        "internet": [
+          80,
+          443
+        ],
+        "fw": [
+          443
+        ],
+        "web": [
+          80,
+          443
+        ]
+      },
+      "red_known_vulnerabilities": {
+        "web": [
+          "CVE-WEB-2026-0001",
+          "WeakFileUpload"
+        ]
+      }
+    }
+  ]
+}

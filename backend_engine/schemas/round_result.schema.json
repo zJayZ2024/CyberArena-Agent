@@ -160,6 +160,18 @@
           "title": "Exposure Level",
           "type": "integer"
         },
+        "red_score": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Red Score",
+          "type": "integer"
+        },
+        "blue_score": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Blue Score",
+          "type": "integer"
+        },
         "network_nodes": {
           "additionalProperties": {
             "$ref": "#/$defs/NetworkNode"

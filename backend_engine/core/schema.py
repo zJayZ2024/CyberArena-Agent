@@ -46,6 +46,8 @@ class WorldState(BaseModel):
     turn: int = Field(...)
     system_health: int = Field(..., ge=0, le=100)
     exposure_level: int = Field(..., ge=0, le=100)
+    red_score: int = Field(default=0, ge=0)
+    blue_score: int = Field(default=0, ge=0)
     network_nodes: Dict[str, NetworkNode] = Field(...)
     edges: List[TopologyEdge] = Field(default_factory=list)
     action_logs: List[ActionLog] = Field(default_factory=list)

@@ -151,8 +151,8 @@ function normalizeRound(round, fallbackIndex, totalRounds) {
       round: roundNumber,
       nodes: normalizeNodes(worldStateInput.nodes ?? round?.nodes ?? base.world_state.nodes),
       score: {
-        red: worldStateInput.score?.red ?? round?.redScore ?? base.world_state.score.red,
-        blue: worldStateInput.score?.blue ?? round?.blueScore ?? base.world_state.score.blue,
+        red: worldStateInput.score?.red ?? worldStateInput.red_score ?? round?.redScore ?? round?.red_score ?? base.world_state.score.red,
+        blue: worldStateInput.score?.blue ?? worldStateInput.blue_score ?? round?.blueScore ?? round?.blue_score ?? base.world_state.score.blue,
       },
       red_phase: worldStateInput.red_phase ?? worldStateInput.redPhase ?? base.world_state.red_phase,
       availability: worldStateInput.availability ?? base.world_state.availability,

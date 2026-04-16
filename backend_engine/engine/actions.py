@@ -747,10 +747,10 @@ class PatchNodeAction(BaseAction):
     summary_en = "Patch a node to reduce exposure and harden it."
     summary_zh = "修补节点以降低暴露面并完成加固。"
     description_en = (
-        "Apply defensive remediation to remove at least part of the attack surface. "
-        "Patching is best used before a node is fully lost."
+        "Apply defensive remediation to remove known vulnerabilities while preserving "
+        "business-facing ports. Patching is best used before a node is fully lost."
     )
-    description_zh = "执行防御性修复，削减至少一部分攻击面。补丁更适合在节点完全失陷前使用。"
+    description_zh = "执行防御性修复，清理已知漏洞，但保留业务暴露端口。补丁更适合在节点完全失陷前使用。"
     preconditions_en = (
         "The target must be a real node in the topology.",
         "Patching is most useful on normal or partially exposed assets.",
@@ -762,25 +762,25 @@ class PatchNodeAction(BaseAction):
     judgement_logic_en = (
         "The node is moved into Defended state.",
         "One known vulnerability is removed, if any remain.",
-        "One exposed port is removed, if any remain.",
+        "Exposed ports are preserved so business traffic remains reachable.",
     )
     judgement_logic_zh = (
         "节点会进入 Defended 状态。",
         "若仍有漏洞，则移除一个已知漏洞。",
-        "若仍有暴露端口，则收敛一个暴露端口。",
+        "不会移除 exposed_ports，以保持业务端口持续可用。",
     )
     examples_en = (
         ActionExample(
             target="web",
-            payload="Deploy the urgent web patch and close the weakest exposed service",
-            rationale="Reduce initial-access probability before the next round.",
+            payload="Deploy the urgent web patch while keeping the public service online",
+            rationale="Reduce exploitability without turning the node into a dead end.",
         ),
     )
     examples_zh = (
         ActionExample(
             target="web",
-            payload="下发紧急 Web 补丁并关闭最危险的暴露服务",
-            rationale="在下一回合前降低被初始突破的概率。",
+            payload="下发紧急 Web 补丁，同时保持公网业务端口可用",
+            rationale="在下一回合前降低被初始突破的概率，同时避免节点变成死胡同。",
         ),
     )
 
@@ -806,12 +806,9 @@ class PatchNodeAction(BaseAction):
             )
 
         removed_vulnerability = node.vulnerabilities[0] if node.vulnerabilities else None
-        removed_port = node.exposed_ports[-1] if node.exposed_ports else None
         node.status = "Defended"
         if node.vulnerabilities:
             node.vulnerabilities = node.vulnerabilities[1:]
-        if node.exposed_ports:
-            node.exposed_ports = node.exposed_ports[:-1]
 
         return context.result(
             success=True,
@@ -820,7 +817,7 @@ class PatchNodeAction(BaseAction):
             zh=f"{target} 已完成补丁修复并进入防御态",
             metadata={
                 "removed_vulnerability": removed_vulnerability,
-                "removed_port": removed_port,
+                "preserved_ports": list(node.exposed_ports),
             },
         )
 
