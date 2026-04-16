@@ -31,6 +31,9 @@ class BlueAgent(BaseLLMAgent):
             prompt_path=prompt_path,
             max_retries=3,
         )
+        self._last_pressure_target: str | None = None
+        self._last_pressure_turn: int | None = None
+        self._same_target_pressure_streak = 0
 
     def decide(
         self,
@@ -43,6 +46,10 @@ class BlueAgent(BaseLLMAgent):
 
         allowed_targets = set(state.network_nodes)
         allowed_targets.update({"network", "all"})
+        sop_alert, allow_sop_override = self._evaluate_monitor_sop(
+            state,
+            recent_logs=recent_logs,
+        )
 
         try:
             decision = super().decide(
@@ -50,11 +57,21 @@ class BlueAgent(BaseLLMAgent):
                 context_markdown,
                 allowed_targets=allowed_targets,
             )
-            self._validate_alert_sop(decision, recent_logs=recent_logs)
+            self._validate_alert_sop(
+                state,
+                decision,
+                sop_alert=sop_alert,
+                allow_sop_override=allow_sop_override,
+            )
             return decision
         except Exception as exc:
             print(f"[BlueAgent] LLM 决策失败，回退到规则策略：{exc}")
-            return self._fallback_decide(state, recent_logs=recent_logs)
+            return self._fallback_decide(
+                state,
+                recent_logs=recent_logs,
+                sop_alert=sop_alert,
+                allow_sop_override=allow_sop_override,
+            )
 
     def _find_monitor_only_alert(
         self,
@@ -68,30 +85,84 @@ class BlueAgent(BaseLLMAgent):
                 return alert
         return None
 
+    def _evaluate_monitor_sop(
+        self,
+        state: WorldState,
+        recent_logs: Iterable[SecurityAlert] | None = None,
+    ) -> tuple[SecurityAlert | None, bool]:
+        sop_alert = self._find_monitor_only_alert(recent_logs)
+        if sop_alert is None or not sop_alert.target:
+            self._last_pressure_target = None
+            self._same_target_pressure_streak = 0
+            self._last_pressure_turn = state.turn
+            return sop_alert, False
+
+        if (
+            self._last_pressure_target == sop_alert.target
+            and self._last_pressure_turn is not None
+            and state.turn == self._last_pressure_turn + 1
+        ):
+            self._same_target_pressure_streak += 1
+        else:
+            self._same_target_pressure_streak = 1
+
+        self._last_pressure_target = sop_alert.target
+        self._last_pressure_turn = state.turn
+        return sop_alert, self._same_target_pressure_streak >= 2
+
     def _validate_alert_sop(
         self,
+        state: WorldState,
         decision: AgentDecision,
-        recent_logs: Iterable[SecurityAlert] | None = None,
+        *,
+        sop_alert: SecurityAlert | None,
+        allow_sop_override: bool,
     ) -> None:
-        alert = self._find_monitor_only_alert(recent_logs)
-        if alert is None:
+        if sop_alert is None:
+            return
+        if allow_sop_override:
+            target = sop_alert.target
+            if target and target in state.network_nodes:
+                vuln_id = _pick_best_vuln_id(state.network_nodes[target].vulnerabilities)
+                if vuln_id and decision.action_type == "Monitor":
+                    raise LLMDecisionError(
+                        "同一节点连续两轮及以上触发告警且存在可修补漏洞时，"
+                        "应触发高阶反制例外并优先选择 PatchNode。"
+                    )
             return
         if decision.action_type != "Monitor":
             raise LLMDecisionError(
                 "蓝方 SOP 要求：对于 source_action=Recon 或 severity=WARN 的告警，"
-                "必须使用 Monitor，禁止选择 PatchNode 或其他高扰动动作。"
+                "必须使用 Monitor。若同一节点连续两轮及以上触发告警，才允许升级为 PatchNode。"
             )
 
     def _fallback_decide(
         self,
         state: WorldState,
         recent_logs: Iterable[SecurityAlert] | None = None,
+        *,
+        sop_alert: SecurityAlert | None = None,
+        allow_sop_override: bool = False,
     ) -> AgentDecision:
         nodes = state.network_nodes
-        monitor_only_alert = self._find_monitor_only_alert(recent_logs)
+        monitor_only_alert = sop_alert if sop_alert is not None else self._find_monitor_only_alert(recent_logs)
 
         if monitor_only_alert is not None:
             target = monitor_only_alert.target if monitor_only_alert.target in nodes else "network"
+            if allow_sop_override and target in nodes:
+                vuln_id = _pick_best_vuln_id(nodes[target].vulnerabilities)
+                if vuln_id:
+                    return AgentDecision(
+                        agent_type="Blue",
+                        thought=(
+                            f"{target.upper()} 已连续两轮触发 Recon/WARN 告警，"
+                            "触发高阶反制例外，升级处置并优先修补高价值漏洞。"
+                        ),
+                        action_type="PatchNode",
+                        target=target,
+                        vuln_id=vuln_id,
+                        payload=f"触发连续攻击例外，优先修补 {target} 的 vuln_id={vuln_id}",
+                    )
             return AgentDecision(
                 agent_type="Blue",
                 thought=(

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+
 from backend_engine.agents.referee_agent import RefereeAgent
 from backend_engine.core.models import ActionLog, AgentDecision, SecurityAlert, VulnerabilityInfo, WorldState
 from backend_engine.core.scoring import apply_round_scores, recalculate_scores
@@ -50,14 +52,28 @@ def _coerce_vulnerability_snapshot(payload: dict[str, object]) -> dict[str, Vuln
 class RefereeEngine:
     def __init__(self) -> None:
         self.referee = RefereeAgent()
+        self.blue_previous_state_snapshot: WorldState | None = None
+        self.blue_previous_alerts: list[SecurityAlert] = []
 
     def prepare_state(self, state: WorldState) -> WorldState:
         self._ensure_initial_red_visibility(state)
+        if self.blue_previous_state_snapshot is None:
+            self.blue_previous_state_snapshot = copy.deepcopy(state)
+            self.blue_previous_alerts = copy.deepcopy(state.security_alerts)
         return state
+
+    def get_blue_perceived_state(self) -> WorldState:
+        if self.blue_previous_state_snapshot is None:
+            raise RuntimeError("blue_previous_state_snapshot 尚未初始化。")
+        return copy.deepcopy(self.blue_previous_state_snapshot)
+
+    def get_blue_recent_alerts(self) -> list[SecurityAlert]:
+        return copy.deepcopy(self.blue_previous_alerts)
 
     def resolve_red_phase(self, state: WorldState, red: AgentDecision) -> tuple[WorldState, ActionResult, list[SecurityAlert]]:
         next_state = state.model_copy(deep=True)
         self.prepare_state(next_state)
+        visible_alerts = self.get_blue_recent_alerts()
 
         next_state.turn += 1
         next_state.action_logs = []
@@ -75,7 +91,7 @@ class RefereeEngine:
         recent_alerts = self._build_security_alerts(next_state, red, red_result)
         next_state.security_alerts = recent_alerts
 
-        return next_state, red_result, recent_alerts
+        return next_state, red_result, visible_alerts
 
     def finalize_round(
         self,
@@ -142,6 +158,8 @@ class RefereeEngine:
             ),
         ]
 
+        self.blue_previous_state_snapshot = copy.deepcopy(next_state)
+        self.blue_previous_alerts = copy.deepcopy(next_state.security_alerts)
         return next_state
 
     def resolve_round(self, state: WorldState, red: AgentDecision, blue: AgentDecision) -> WorldState:
@@ -205,7 +223,7 @@ class RefereeEngine:
         red: AgentDecision,
         red_result: ActionResult,
     ) -> None:
-        if red.action_type != "ExploitService":
+        if red.action_type not in {"ExploitService", "LateralMove"}:
             return
 
         target = red.target
@@ -216,9 +234,7 @@ class RefereeEngine:
         if not vuln_id:
             return
 
-        failed_or_rejected = red_result.effect in {"failed", "rejected"}
-        missing_vulnerability_feedback = "不存在于目标节点" in red_result.message
-        if not failed_or_rejected and not missing_vulnerability_feedback:
+        if not self._should_invalidate_red_vuln_intel(red_result):
             return
 
         known_vulnerabilities = state.red_known_vulnerabilities.get(target)
@@ -228,6 +244,27 @@ class RefereeEngine:
         known_vulnerabilities.pop(vuln_id, None)
         if not known_vulnerabilities:
             state.red_known_vulnerabilities.pop(target, None)
+
+    def _should_invalidate_red_vuln_intel(self, red_result: ActionResult) -> bool:
+        if red_result.success:
+            return False
+        if red_result.effect not in {"failed", "rejected"}:
+            return False
+
+        reason = red_result.message.lower()
+        invalidation_signals = (
+            "不存在于目标节点",
+            "不存在该漏洞",
+            "目标当前没有可操作的剩余漏洞",
+            "节点已被防御加固",
+            "已被防御加固",
+            "does not exist on the target",
+            "no remaining vulnerabilities",
+            "already hardened",
+            "hardened",
+            "patched",
+        )
+        return any(signal in reason for signal in invalidation_signals)
 
     def _should_intercept(
         self,

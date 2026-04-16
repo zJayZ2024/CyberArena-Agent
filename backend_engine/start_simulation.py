@@ -33,17 +33,18 @@ def run_simulation(rounds: int, scenario_path: Path, output_path: Path) -> dict:
             red_action = red_agent._fallback_decide(state)
 
         interim_state, red_result, recent_logs = referee.resolve_red_phase(state, red_action)
+        blue_perceived_state = referee.get_blue_perceived_state()
 
-        blue_context = build_blue_context(interim_state, recent_logs)
+        blue_context = build_blue_context(blue_perceived_state, recent_logs)
         try:
             blue_action = blue_agent.decide(
-                interim_state,
+                blue_perceived_state,
                 recent_logs=recent_logs,
                 context_markdown=blue_context,
             )
         except Exception as exc:
             print(f"[Simulation] BlueAgent 决策异常，回退规则策略：{exc}")
-            blue_action = blue_agent._fallback_decide(interim_state, recent_logs=recent_logs)
+            blue_action = blue_agent._fallback_decide(blue_perceived_state, recent_logs=recent_logs)
 
         state = referee.finalize_round(interim_state, red_action, red_result, blue_action)
         frames.append(state.model_dump(mode="json"))
