@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable
 
-from backend_engine.core.models import ActionLog, WorldState
+from backend_engine.core.models import ActionLog, SecurityAlert, WorldState
 from backend_engine.engine.actions import PERIMETER_KEYWORDS, list_legal_actions
 
 
@@ -25,24 +25,16 @@ def _is_internal_node(node_name: str) -> bool:
     return not any(keyword in lowered for keyword in PERIMETER_KEYWORDS)
 
 
-def _extract_recon_targets(action_logs: Iterable[ActionLog]) -> set[str]:
-    recon_targets: set[str] = set()
-    last_red_action: str | None = None
+def _derive_initial_visible_nodes(state: WorldState) -> set[str]:
+    visible_nodes = set(state.red_visible_nodes)
+    if visible_nodes:
+        return visible_nodes
 
-    for log in action_logs:
-        if log.agent_type == "Red":
-            last_red_action = log.action_type
-            continue
-
-        if log.agent_type != "Referee" or last_red_action != "Recon":
-            continue
-
-        red_target, _, _ = log.payload.partition("|")
-        if red_target and red_target != "无目标":
-            recon_targets.add(red_target)
-        last_red_action = None
-
-    return recon_targets
+    for node_name in state.network_nodes:
+        lowered = node_name.lower()
+        if lowered == "internet" or any(keyword in lowered for keyword in PERIMETER_KEYWORDS):
+            visible_nodes.add(node_name)
+    return visible_nodes
 
 
 def _format_action_catalog(agent_type: str) -> list[str]:
@@ -53,6 +45,12 @@ def _format_action_catalog(agent_type: str) -> list[str]:
 
 
 def _format_recent_log_entry(entry: Any) -> str:
+    if isinstance(entry, SecurityAlert):
+        prefix = f"[{entry.severity}]"
+        if entry.target:
+            return f"- {prefix} {entry.target}: {entry.message}"
+        return f"- {prefix} {entry.message}"
+
     if isinstance(entry, ActionLog):
         return f"- [{entry.agent_type}] `{entry.action_type}`: {entry.referee_result}"
 
@@ -75,18 +73,20 @@ def _format_recent_log_entry(entry: Any) -> str:
 
 
 def build_red_context(state: WorldState) -> str:
-    recon_targets = _extract_recon_targets(state.action_logs)
+    visible_nodes = _derive_initial_visible_nodes(state)
+    recon_targets = set(state.red_recon_nodes)
     controlled_nodes = {
         node_name
         for node_name, node in state.network_nodes.items()
         if node.status == "Compromised"
     }
-    visible_nodes = controlled_nodes | recon_targets
+    visible_nodes |= controlled_nodes
+    visible_nodes |= recon_targets
 
     discovered_services = [
-        f"- `{node_name}`: {_format_ports(node.exposed_ports)}"
-        for node_name, node in sorted(state.network_nodes.items())
-        if node_name in visible_nodes and node.exposed_ports
+        f"- `{node_name}`: {_format_ports(state.red_known_services.get(node_name, []))}"
+        for node_name in sorted(visible_nodes)
+        if state.red_known_services.get(node_name)
     ]
 
     hidden_internal_count = sum(
@@ -113,8 +113,8 @@ def build_red_context(state: WorldState) -> str:
                 [
                     f"### `{node_name}`",
                     f"- 状态：{node.status}",
-                    f"- 已发现暴露服务：{_format_ports(node.exposed_ports)}",
-                    f"- 已知漏洞：{_format_vulnerabilities(node.vulnerabilities)}",
+                    f"- 已发现暴露服务：{_format_ports(state.red_known_services.get(node_name, node.exposed_ports))}",
+                    f"- 已知漏洞：{_format_vulnerabilities(state.red_known_vulnerabilities.get(node_name, node.vulnerabilities))}",
                 ]
             )
     else:
@@ -126,13 +126,19 @@ def build_red_context(state: WorldState) -> str:
     if discovered_only:
         for node_name in discovered_only:
             node = state.network_nodes[node_name]
+            status = node.status if node_name in recon_targets else "未知"
+            vulnerabilities = (
+                state.red_known_vulnerabilities.get(node_name, [])
+                if node_name in recon_targets
+                else []
+            )
             lines.extend(
                 [
                     f"### `{node_name}`",
-                    "- 可见来源：Recon",
-                    f"- 状态：{node.status}",
-                    f"- 已发现暴露服务：{_format_ports(node.exposed_ports)}",
-                    f"- 已知漏洞：{_format_vulnerabilities(node.vulnerabilities)}",
+                    f"- 可见来源：{'Recon' if node_name in recon_targets else '边界视野/相邻扩展'}",
+                    f"- 状态：{status}",
+                    f"- 已发现暴露服务：{_format_ports(state.red_known_services.get(node_name, []))}",
+                    f"- 已知漏洞：{_format_vulnerabilities(vulnerabilities)}",
                 ]
             )
     else:

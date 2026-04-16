@@ -1,27 +1,77 @@
-from backend_engine.core.models import AgentDecision, WorldState
+from pathlib import Path
+from typing import Iterable
+
+from backend_engine.agents.llm_agent import BaseLLMAgent, LLMDecisionError
+from backend_engine.core.models import AgentDecision, SecurityAlert, WorldState
 
 
-class BlueAgent:
-    agent_name = "Blue"
+class BlueAgent(BaseLLMAgent):
+    def __init__(self) -> None:
+        prompt_path = Path(__file__).resolve().parent.parent / "prompts" / "blue_defender.md"
+        super().__init__(
+            agent_name="Blue",
+            agent_type="Blue",
+            prompt_path=prompt_path,
+            max_retries=3,
+        )
 
-    def decide(self, state: WorldState, red_action: AgentDecision | None = None) -> AgentDecision:
+    def decide(
+        self,
+        state: WorldState,
+        recent_logs: Iterable[SecurityAlert] | None = None,
+        context_markdown: str | None = None,
+    ) -> AgentDecision:
+        if not context_markdown:
+            raise LLMDecisionError("蓝方缺少 context_markdown，无法进行 LLM 决策。")
+
+        allowed_targets = set(state.network_nodes)
+        allowed_targets.update({"network", "all"})
+
+        try:
+            return super().decide(
+                state,
+                context_markdown,
+                allowed_targets=allowed_targets,
+            )
+        except Exception as exc:
+            print(f"[BlueAgent] LLM 决策失败，回退到规则策略：{exc}")
+            return self._fallback_decide(state, recent_logs=recent_logs)
+
+    def _fallback_decide(
+        self,
+        state: WorldState,
+        recent_logs: Iterable[SecurityAlert] | None = None,
+    ) -> AgentDecision:
         nodes = state.network_nodes
 
-        if red_action and red_action.target and red_action.target in nodes:
-            target_node = nodes[red_action.target]
-            if red_action.action_type != "Recon" and (
-                target_node.vulnerabilities or target_node.status == "Compromised"
-            ):
-                return AgentDecision(
-                    agent_type="Blue",
-                    thought=(
-                        f"红方本回合正在集中施压 {red_action.target.upper()}，"
-                        "应立即围绕该节点做针对性响应。"
-                    ),
-                    action_type="RestoreNode" if target_node.status == "Compromised" else "PatchNode",
-                    target=red_action.target,
-                    payload=f"直接响应红方对 {red_action.target} 的本回合攻势",
-                )
+        if recent_logs:
+            for alert in reversed(list(recent_logs)):
+                if not alert.target or alert.target not in nodes:
+                    continue
+
+                target_node = nodes[alert.target]
+                if alert.source_action != "Recon" and (
+                    target_node.vulnerabilities or target_node.status == "Compromised"
+                ):
+                    return AgentDecision(
+                        agent_type="Blue",
+                        thought=(
+                            f"上一阶段安全告警指向 {alert.target.upper()}，"
+                            "应立刻围绕受击节点进行遏制和修复。"
+                        ),
+                        action_type="RestoreNode" if target_node.status == "Compromised" else "PatchNode",
+                        target=alert.target,
+                        payload=f"根据安全告警优先响应 {alert.target} 的异常活动",
+                    )
+
+                if alert.source_action == "Recon":
+                    return AgentDecision(
+                        agent_type="Blue",
+                        thought=f"{alert.target.upper()} 出现侦察痕迹，先提升对该节点的监控与告警等级。",
+                        action_type="Monitor",
+                        target=alert.target,
+                        payload=f"针对 {alert.target} 的侦察告警执行重点监控",
+                    )
 
         for node_name in ("db", "app", "web"):
             if nodes[node_name].status == "Compromised":
@@ -45,8 +95,8 @@ class BlueAgent:
 
         return AgentDecision(
             agent_type="Blue",
-            thought="关键节点已基本稳定，继续保持边界监控。",
+            thought="当前未观察到需要立即处置的严重异常，继续保持全局监控。",
             action_type="Monitor",
-            target="web",
+            target="network",
             payload="审查告警并维持监控覆盖",
         )

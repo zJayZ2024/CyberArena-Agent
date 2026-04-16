@@ -29,5 +29,11 @@
       "vulnerabilities": ["OpenReplicaAccess"]
     }
   },
+  "edges": [
+    { "source": "internet", "target": "fw" },
+    { "source": "fw", "target": "web" },
+    { "source": "web", "target": "app" },
+    { "source": "app", "target": "db" }
+  ],
   "action_logs": []
 }

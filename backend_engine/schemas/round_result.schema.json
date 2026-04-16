@@ -1,0 +1,260 @@
+{
+  "$defs": {
+    "ActionLog": {
+      "properties": {
+        "agent_type": {
+          "enum": [
+            "Red",
+            "Blue",
+            "Referee"
+          ],
+          "title": "Agent Type",
+          "type": "string"
+        },
+        "thought": {
+          "title": "Thought",
+          "type": "string"
+        },
+        "action_type": {
+          "title": "Action Type",
+          "type": "string"
+        },
+        "payload": {
+          "title": "Payload",
+          "type": "string"
+        },
+        "referee_result": {
+          "title": "Referee Result",
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        }
+      },
+      "required": [
+        "agent_type",
+        "thought",
+        "action_type",
+        "payload",
+        "referee_result"
+      ],
+      "title": "ActionLog",
+      "type": "object"
+    },
+    "NetworkNode": {
+      "properties": {
+        "status": {
+          "description": "Current node status.",
+          "enum": [
+            "Normal",
+            "Compromised",
+            "Defended",
+            "Down"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "exposed_ports": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Exposed Ports",
+          "type": "array"
+        },
+        "vulnerabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Vulnerabilities",
+          "type": "array"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "NetworkNode",
+      "type": "object"
+    },
+    "SecurityAlert": {
+      "properties": {
+        "severity": {
+          "default": "INFO",
+          "enum": [
+            "INFO",
+            "WARN",
+            "CRIT"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        },
+        "source_action": {
+          "default": "",
+          "title": "Source Action",
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "SecurityAlert",
+      "type": "object"
+    },
+    "TopologyEdge": {
+      "properties": {
+        "source": {
+          "description": "The source node id.",
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "description": "The target node id.",
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "target"
+      ],
+      "title": "TopologyEdge",
+      "type": "object"
+    },
+    "WorldState": {
+      "properties": {
+        "turn": {
+          "title": "Turn",
+          "type": "integer"
+        },
+        "system_health": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "System Health",
+          "type": "integer"
+        },
+        "exposure_level": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Exposure Level",
+          "type": "integer"
+        },
+        "network_nodes": {
+          "additionalProperties": {
+            "$ref": "#/$defs/NetworkNode"
+          },
+          "title": "Network Nodes",
+          "type": "object"
+        },
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/TopologyEdge"
+          },
+          "title": "Edges",
+          "type": "array"
+        },
+        "action_logs": {
+          "items": {
+            "$ref": "#/$defs/ActionLog"
+          },
+          "title": "Action Logs",
+          "type": "array"
+        },
+        "security_alerts": {
+          "items": {
+            "$ref": "#/$defs/SecurityAlert"
+          },
+          "title": "Security Alerts",
+          "type": "array"
+        },
+        "red_visible_nodes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Red Visible Nodes",
+          "type": "array"
+        },
+        "red_recon_nodes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Red Recon Nodes",
+          "type": "array"
+        },
+        "red_known_services": {
+          "additionalProperties": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "title": "Red Known Services",
+          "type": "object"
+        },
+        "red_known_vulnerabilities": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Red Known Vulnerabilities",
+          "type": "object"
+        }
+      },
+      "required": [
+        "turn",
+        "system_health",
+        "exposure_level",
+        "network_nodes"
+      ],
+      "title": "WorldState",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "scenario": {
+      "title": "Scenario",
+      "type": "string"
+    },
+    "total_rounds": {
+      "minimum": 0,
+      "title": "Total Rounds",
+      "type": "integer"
+    },
+    "frames": {
+      "items": {
+        "$ref": "#/$defs/WorldState"
+      },
+      "title": "Frames",
+      "type": "array"
+    }
+  },
+  "required": [
+    "scenario",
+    "total_rounds"
+  ],
+  "title": "SimulationReplay",
+  "type": "object"
+}
