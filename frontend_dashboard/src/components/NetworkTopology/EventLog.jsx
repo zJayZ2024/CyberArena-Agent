@@ -1,0 +1,159 @@
+import { T } from "./constants";
+
+function EventLog({ rounds, idx }) {
+  const visibleRounds = rounds.slice(0, idx + 1);
+
+  const events = [];
+  visibleRounds.forEach((r) => {
+    const red = r.red_action;
+    const blue = r.blue_action;
+    const judge = r.judge_result;
+
+    // ATK event
+    const redLog = judge?.logs?.[0] || "";
+    const redText = redLog
+      ? `${red.technique_id} ${red.technique} → ${red.target_node} ${redLog}`
+      : `${red.technique_id} ${red.technique} → ${red.target_node}`;
+    events.push({
+      round: r.round,
+      type: "ATK",
+      text: redText,
+      rightBadge: red.technique_id,
+      color: T.red,
+      bg: T.redBg,
+      dim: T.redDim,
+    });
+
+    // DEF event
+    const target = blue.target || blue.target_node || "System";
+    events.push({
+      round: r.round,
+      type: "DEF",
+      text: `${target}: ${blue.reasoning}`,
+      rightBadge: null,
+      color: T.blue,
+      bg: T.blueBg,
+      dim: T.blueDim,
+    });
+  });
+
+  return (
+    <div
+      style={{
+        background: T.bgPanel,
+        border: `1px solid ${T.border}`,
+        borderRadius: 6,
+        padding: "12px 14px",
+        marginTop: 12,
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 10,
+        }}
+      >
+        <div
+          style={{
+            fontFamily: T.fontMono,
+            fontSize: 10,
+            letterSpacing: 1.2,
+            color: T.grayText,
+            textTransform: "uppercase",
+          }}
+        >
+          Event Log
+        </div>
+        <div style={{ fontFamily: T.fontMono, fontSize: 9, color: T.grayDim }}>
+          {events.length} events
+        </div>
+      </div>
+
+      {/* List */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+          maxHeight: 200,
+          overflowY: "auto",
+        }}
+      >
+        {events.map((e, i) => (
+          <div
+            key={i}
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 8,
+              padding: "6px 8px",
+              background: T.bg,
+              border: `1px solid ${T.border}`,
+              borderRadius: 4,
+            }}
+          >
+            <span
+              style={{
+                fontFamily: T.fontMono,
+                fontSize: 9,
+                color: T.grayDim,
+                minWidth: 20,
+                paddingTop: 2,
+              }}
+            >
+              R{e.round}
+            </span>
+            <span
+              style={{
+                fontFamily: T.fontMono,
+                fontSize: 8,
+                fontWeight: 600,
+                color: e.color,
+                background: e.bg,
+                border: `1px solid ${e.dim}`,
+                borderRadius: 2,
+                padding: "1px 4px",
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+                marginTop: 2,
+              }}
+            >
+              {e.type}
+            </span>
+            <span
+              style={{
+                flex: 1,
+                fontFamily: T.fontMono,
+                fontSize: 10,
+                color: e.type === "ATK" ? "#fca5a5" : "#93c5fd",
+                lineHeight: 1.4,
+                paddingTop: 2,
+              }}
+            >
+              {e.text}
+            </span>
+            {e.rightBadge ? (
+              <span
+                style={{
+                  fontFamily: T.fontMono,
+                  fontSize: 9,
+                  color: e.color,
+                  paddingTop: 2,
+                  minWidth: 36,
+                  textAlign: "right",
+                }}
+              >
+                {e.rightBadge}
+              </span>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default EventLog;
