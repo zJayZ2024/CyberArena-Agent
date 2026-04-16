@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
+import EventLog from "./EventLog";
 import HeaderHUD from "./HeaderHUD";
 import LegendBar from "./LegendBar";
+import ScoreCurve from "./ScoreCurve";
 import SvgGraph from "./SvgGraph";
 import { DEFAULT_ROUNDS, normalizeRoundsPayload } from "./data";
 import { PAGE_STYLES, T } from "./constants";
@@ -99,6 +101,9 @@ function NetworkTopology({ initialRounds = DEFAULT_ROUNDS }) {
       />
 
       <LegendBar phase={ws.red_phase} />
+
+      <ScoreCurve rounds={rounds} idx={idx} />
+      <EventLog rounds={rounds} idx={idx} />
 
       <div className="controls">
         <button type="button" className={`ctrl-btn${playing ? " active" : ""}`} onClick={() => setPlaying((current) => !current)}>{playing ? "PAUSE" : "PLAY"}</button>
