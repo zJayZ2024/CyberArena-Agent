@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import copy
+import random
 from typing import Any
 
 from backend_engine.agents.referee_agent import RefereeAgent
 from backend_engine.core.models import ActionLog, AgentDecision, SecurityAlert, VulnerabilityInfo, WorldState
-from backend_engine.core.scoring import recalculate_scores
+from backend_engine.core.scoring import ROUND_SCORE_BUDGET, apply_round_scores, recalculate_scores
 from backend_engine.engine.actions import ACTION_REGISTRY, ActionContext, ActionResult, PERIMETER_KEYWORDS
+
+RED_ATTACK_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase"}
 
 
 def _is_perimeter_node(node_name: str) -> bool:
@@ -42,10 +45,24 @@ def _coerce_vulnerability_snapshot(payload: dict[str, object]) -> dict[str, Vuln
 
 
 class RefereeEngine:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        use_probability: bool = False,
+        random_seed: int | None = None,
+        recon_lookback_turns: int = 3,
+    ) -> None:
         self.referee = RefereeAgent()
+        self.use_probability = use_probability
+        self._rng = random.Random(random_seed)
+        self._recon_lookback_turns = max(1, recon_lookback_turns)
         self.blue_previous_state_snapshot: WorldState | None = None
         self.blue_previous_alerts: list[SecurityAlert] = []
+        self.red_recon_history: dict[str, list[int]] = {}
+        self.score_repeat_tracker: dict[str, dict[str, Any]] = {
+            "Red": {"action_type": None, "target": None, "streak": 0},
+            "Blue": {"action_type": None, "target": None, "streak": 0},
+        }
 
     def prepare_state(self, state: WorldState) -> WorldState:
         self._ensure_initial_red_visibility(state)
@@ -79,6 +96,7 @@ class RefereeEngine:
         )
         self._purge_invalid_red_intel(next_state, red, red_result)
         self._update_red_perception(next_state, red, red_result)
+        self._record_red_recon(next_state, red, red_result)
         next_state.security_alerts = self._build_security_alerts(next_state, red, red_result)
         return next_state, red_result, visible_alerts
 
@@ -107,10 +125,25 @@ class RefereeEngine:
         blue: AgentDecision,
     ) -> WorldState:
         next_state, blue_result = self.resolve_blue_phase(state, blue, opposing_decision=red)
+        red_result, blue_result, interaction_meta = self._apply_same_turn_interaction(
+            next_state,
+            red=red,
+            red_result=red_result,
+            blue=blue,
+            blue_result=blue_result,
+        )
+        next_state.security_alerts = self._build_security_alerts(next_state, red, red_result)
         recalculate_scores(next_state)
-
-        red_delta = int(red_result.metadata.get("score_awarded", 0)) if red_result.success else 0
-        blue_delta = int(blue_result.metadata.get("score_awarded", 0)) if blue_result.success else 0
+        score_summary = apply_round_scores(
+            next_state,
+            red_decision=red,
+            red_result=red_result,
+            blue_decision=blue,
+            blue_result=blue_result,
+            repeat_tracker=self.score_repeat_tracker,
+        )
+        red_delta = int(score_summary["red_delta"])
+        blue_delta = int(score_summary["blue_delta"])
 
         next_state.action_logs = [
             ActionLog(
@@ -136,12 +169,15 @@ class RefereeEngine:
                 metadata={
                     "red_result": red_result.metadata,
                     "blue_result": blue_result.metadata,
+                    "interaction": interaction_meta,
                     "recent_alerts": [alert.model_dump(mode="json") for alert in next_state.security_alerts],
                     "score_summary": {
                         "red_delta": red_delta,
                         "blue_delta": blue_delta,
                         "red_score": next_state.red_score,
                         "blue_score": next_state.blue_score,
+                        "red_breakdown": score_summary.get("red_breakdown", {}),
+                        "blue_breakdown": score_summary.get("blue_breakdown", {}),
                     },
                 },
             ),
@@ -175,6 +211,7 @@ class RefereeEngine:
                     "target": decision.target,
                     "vuln_id": decision.vuln_id,
                     "score_awarded": 0,
+                    "llm_score_suggest": 0,
                     "validation": "failed",
                 },
             )
@@ -188,7 +225,7 @@ class RefereeEngine:
         validation_error = action.validate(context)
         if validation_error is not None:
             metadata = dict(validation_error.metadata)
-            metadata.update({"score_awarded": 0, "validation": "failed"})
+            metadata.update({"score_awarded": 0, "llm_score_suggest": 0, "validation": "failed"})
             return ActionResult(
                 success=False,
                 effect=validation_error.effect,
@@ -219,16 +256,47 @@ class RefereeEngine:
                     "target": decision.target,
                     "vuln_id": decision.vuln_id,
                     "score_awarded": 0,
+                    "llm_score_suggest": max(0, int(judgement.llm_score_suggest)),
                     "referee_effect": judgement.effect,
                     "referee_rationale": judgement.rationale,
                     "validation": "passed",
                 },
             )
 
+        probability_gate = self._evaluate_probability_gate(state, decision)
+        if probability_gate is not None and not probability_gate["passed"]:
+            return ActionResult(
+                success=False,
+                effect="failed",
+                message=(
+                    f"动作因概率门控失败：{probability_gate['probability']:.2f} 未命中。"
+                    if locale == "zh"
+                    else f"Action failed probability gate: probability={probability_gate['probability']:.2f}."
+                ),
+                metadata={
+                    "action_type": decision.action_type,
+                    "agent_type": decision.agent_type,
+                    "target": decision.target,
+                    "vuln_id": decision.vuln_id,
+                    "score_awarded": 0,
+                    "llm_score_suggest": max(0, int(judgement.llm_score_suggest)),
+                    "referee_effect": "probability_failed",
+                    "referee_rationale": judgement.rationale,
+                    "validation": "passed",
+                    "probability_gate": probability_gate,
+                },
+            )
+
         execute_result = action.execute(context)
         if not execute_result.success:
             metadata = dict(execute_result.metadata)
-            metadata.update({"score_awarded": 0, "execution": "failed_after_judgement"})
+            metadata.update(
+                {
+                    "score_awarded": 0,
+                    "llm_score_suggest": max(0, int(judgement.llm_score_suggest)),
+                    "execution": "failed_after_judgement",
+                }
+            )
             return ActionResult(
                 success=False,
                 effect=execute_result.effect,
@@ -236,16 +304,13 @@ class RefereeEngine:
                 metadata=metadata,
             )
 
-        score_awarded = max(0, int(judgement.score_awarded))
-        if decision.agent_type == "Red":
-            state.red_score += score_awarded
-        else:
-            state.blue_score += score_awarded
-
         metadata = dict(execute_result.metadata)
+        if probability_gate is not None:
+            metadata["probability_gate"] = probability_gate
         metadata.update(
             {
-                "score_awarded": score_awarded,
+                "score_awarded": 0,
+                "llm_score_suggest": max(0, int(judgement.llm_score_suggest)),
                 "referee_effect": judgement.effect,
                 "referee_rationale": judgement.rationale,
                 "validation": "passed",
@@ -257,6 +322,44 @@ class RefereeEngine:
             message=judgement.rationale,
             metadata=metadata,
         )
+
+    def _evaluate_probability_gate(
+        self,
+        state: WorldState,
+        decision: AgentDecision,
+    ) -> dict[str, Any] | None:
+        if not self.use_probability:
+            return None
+        target = decision.target
+        vuln_id = decision.vuln_id
+        if not target or not vuln_id:
+            return None
+        node = state.network_nodes.get(target)
+        if node is None:
+            return None
+        vulnerability = node.vulnerabilities.get(vuln_id)
+        if vulnerability is None:
+            return None
+
+        probability: float | None = None
+        reason = ""
+        if decision.action_type in RED_ATTACK_ACTIONS:
+            probability = float(vulnerability.exploit_prob)
+            reason = "exploit_prob"
+        elif decision.action_type == "PatchNode":
+            probability = float(vulnerability.patch_prob)
+            reason = "patch_prob"
+        if probability is None:
+            return None
+
+        roll = self._rng.random()
+        return {
+            "used": True,
+            "probability": max(0.0, min(1.0, probability)),
+            "roll": round(roll, 6),
+            "passed": roll <= probability,
+            "reason": reason,
+        }
 
     def _ensure_initial_red_visibility(self, state: WorldState) -> None:
         if state.red_visible_nodes:
@@ -277,6 +380,9 @@ class RefereeEngine:
         _append_unique(state.red_visible_nodes, target)
 
         if red.action_type == "Recon" and red_result.success:
+            was_recon_before = target in state.red_recon_nodes
+            known_services_before = set(state.red_known_services.get(target, []))
+            known_vulnerabilities_before = set(state.red_known_vulnerabilities.get(target, {}).keys())
             _append_unique(state.red_recon_nodes, target)
             observed_ports = red_result.metadata.get("observed_ports", [])
             if observed_ports:
@@ -284,6 +390,20 @@ class RefereeEngine:
             suspected_vulnerabilities = red_result.metadata.get("suspected_vulnerabilities", {})
             if suspected_vulnerabilities:
                 state.red_known_vulnerabilities[target] = _coerce_vulnerability_snapshot(suspected_vulnerabilities)
+            observed_ports_set = set(observed_ports)
+            observed_vulnerabilities_set = set(suspected_vulnerabilities.keys())
+            intel_gain = bool(
+                observed_ports_set - known_services_before
+                or observed_vulnerabilities_set - known_vulnerabilities_before
+                or not was_recon_before
+            )
+            red_result.metadata.update(
+                {
+                    "intel_gain": intel_gain,
+                    "intel_new_ports": sorted(observed_ports_set - known_services_before),
+                    "intel_new_vulnerabilities": sorted(observed_vulnerabilities_set - known_vulnerabilities_before),
+                }
+            )
 
         target_node = state.network_nodes[target]
         if target_node.status == "Compromised":
@@ -354,6 +474,156 @@ class RefereeEngine:
             "patched",
         )
         return any(signal in reason for signal in invalidation_signals)
+
+    def _record_red_recon(self, state: WorldState, red: AgentDecision, red_result: ActionResult) -> None:
+        if red.action_type != "Recon" or not red_result.success:
+            return
+        target = red.target
+        if not target:
+            return
+        turns = self.red_recon_history.setdefault(target, [])
+        turns.append(int(state.turn))
+        self.red_recon_history[target] = sorted(set(turns))[-20:]
+
+    def _apply_same_turn_interaction(
+        self,
+        state: WorldState,
+        *,
+        red: AgentDecision,
+        red_result: ActionResult,
+        blue: AgentDecision,
+        blue_result: ActionResult,
+    ) -> tuple[ActionResult, ActionResult, dict[str, Any]]:
+        interaction_meta: dict[str, Any] = {
+            "type": "independent",
+            "perfect_intercept": False,
+            "proactive_patch": False,
+        }
+        if self._is_perfect_intercept(red, red_result, blue, blue_result):
+            self._rollback_red_attack_effect(state, red_result)
+            red_result.success = False
+            red_result.effect = "blocked"
+            red_result.message = (
+                "同回合完美拦截：蓝方 PatchNode 命中同目标同漏洞，红方攻击被即时打断。"
+            )
+            red_result.metadata.update(
+                {
+                    "execution": "intercepted",
+                    "referee_effect": "blocked",
+                    "intercepted_by": "PatchNode",
+                    "score_awarded": 0,
+                }
+            )
+            base_value = int(blue_result.metadata.get("score_value", 0) or 0)
+            boosted = int(round(base_value * 1.5))
+            blue_result.metadata.update(
+                {
+                    "interaction_bonus": "perfect_intercept",
+                    "score_multiplier": 1.5,
+                    "score_multiplier_reason": "same_round_patch_intercept",
+                    "score_budget_override": max(ROUND_SCORE_BUDGET, boosted),
+                }
+            )
+            interaction_meta.update(
+                {
+                    "type": "perfect_intercept",
+                    "perfect_intercept": True,
+                    "target": blue.target,
+                    "vuln_id": blue.vuln_id,
+                }
+            )
+            return red_result, blue_result, interaction_meta
+
+        if (
+            red.action_type in RED_ATTACK_ACTIONS
+            and blue.action_type == "PatchNode"
+            and red.target
+            and blue.target
+            and red.target == blue.target
+            and red_result.success
+            and blue_result.success
+        ):
+            red_vuln_id = red.vuln_id or str(red_result.metadata.get("vuln_id", ""))
+            blue_vuln_id = blue.vuln_id or str(blue_result.metadata.get("vuln_id", ""))
+            if red_vuln_id and blue_vuln_id and red_vuln_id != blue_vuln_id:
+                interaction_meta.update(
+                    {
+                        "type": "bypass",
+                        "bypass_reason": "same_target_different_vulnerability",
+                        "target": red.target,
+                        "red_vuln_id": red_vuln_id,
+                        "blue_vuln_id": blue_vuln_id,
+                    }
+                )
+
+        if self._is_proactive_patch(state, red, blue, blue_result):
+            blue_result.metadata.update(
+                {
+                    "interaction_bonus": "proactive_patch",
+                    "score_multiplier": 0.5,
+                    "score_multiplier_reason": "recent_red_recon_on_target",
+                }
+            )
+            interaction_meta.update(
+                {
+                    "type": "proactive_patch",
+                    "proactive_patch": True,
+                    "target": blue.target,
+                    "vuln_id": blue.vuln_id,
+                }
+            )
+
+        return red_result, blue_result, interaction_meta
+
+    def _is_perfect_intercept(
+        self,
+        red: AgentDecision,
+        red_result: ActionResult,
+        blue: AgentDecision,
+        blue_result: ActionResult,
+    ) -> bool:
+        if not (red_result.success and blue_result.success):
+            return False
+        if blue.action_type != "PatchNode":
+            return False
+        if red.action_type not in RED_ATTACK_ACTIONS:
+            return False
+        if not red.target or not blue.target or red.target != blue.target:
+            return False
+        red_vuln_id = red.vuln_id or str(red_result.metadata.get("vuln_id", ""))
+        blue_vuln_id = blue.vuln_id or str(blue_result.metadata.get("vuln_id", ""))
+        if not red_vuln_id or not blue_vuln_id:
+            return False
+        return red_vuln_id == blue_vuln_id
+
+    def _is_proactive_patch(
+        self,
+        state: WorldState,
+        red: AgentDecision,
+        blue: AgentDecision,
+        blue_result: ActionResult,
+    ) -> bool:
+        if blue.action_type != "PatchNode" or not blue_result.success:
+            return False
+        if not blue.target:
+            return False
+        if red.action_type in RED_ATTACK_ACTIONS and red.target == blue.target:
+            return False
+        turns = self.red_recon_history.get(blue.target, [])
+        if not turns:
+            return False
+        current_turn = int(state.turn)
+        return any(0 < current_turn - turn <= self._recon_lookback_turns for turn in turns)
+
+    def _rollback_red_attack_effect(self, state: WorldState, red_result: ActionResult) -> None:
+        metadata = red_result.metadata if isinstance(red_result.metadata, dict) else {}
+        target = metadata.get("target")
+        previous_status = metadata.get("previous_status")
+        if not isinstance(target, str) or target not in state.network_nodes:
+            return
+        if not isinstance(previous_status, str):
+            return
+        state.network_nodes[target].status = previous_status
 
     def _build_security_alerts(
         self,

@@ -7,12 +7,12 @@
 {
   "is_success": true/false,
   "rationale": "解释动作成功或失败的技术原因",
-  "score_awarded": 0 或正整数,
+  "llm_score_suggest": 0 或正整数（仅建议分，不用于最终计分）,
   "effect": "intel|compromise|exfiltration|hardening|restoration|isolation|monitoring|failed"
 }
 
 约束：
 - 不要输出 Markdown，不要输出代码块，不要输出多余字段。
-- `score_awarded` 必须是整数且 >= 0。
+- `llm_score_suggest` 必须是整数且 >= 0（仅供审计）。
 - 当动作前置条件在输入中明显不满足时，`is_success` 必须为 false。
 - 当动作技术上成立时，`is_success` 为 true，`effect` 需与动作语义一致。

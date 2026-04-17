@@ -496,6 +496,7 @@ class ReconAction(BaseAction):
                 "observed_ports": list(node.exposed_ports),
                 "vulnerability_count": len(node.vulnerabilities),
                 "suspected_vulnerabilities": vulnerability_map_to_dict(node.vulnerabilities),
+                "score_value": 0,
             },
         )
 

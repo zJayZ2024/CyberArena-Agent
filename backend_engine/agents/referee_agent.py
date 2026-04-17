@@ -20,7 +20,7 @@ DEFAULT_REFEREE_PROMPT = """你是 CyberArena 的技术裁判（Referee）。
 2. 不要使用随机数；不要输出概率推测。
 3. 若动作从技术上可成立，is_success=true；否则 false。
 4. rationale 必须解释动作生效或失效的技术原因（网络路径、前置条件、漏洞匹配、目标状态）。
-5. score_awarded 必须是整数，且 >= 0。
+5. llm_score_suggest 必须是整数，且 >= 0（仅为建议分，不直接用于最终计分）。
 6. effect 必须是短标签（如 intel/compromise/exfiltration/hardening/restoration/isolation/monitoring/failed）。
 
 输出必须是严格 JSON，不要输出 Markdown。
@@ -117,7 +117,7 @@ class RefereeAgent:
                         "content": (
                             "上一条输出不是合法 JSON 或字段不完整。"
                             "请仅输出 RefereeJudgement JSON："
-                            '{"is_success": bool, "rationale": str, "score_awarded": int, "effect": str}'
+                            '{"is_success": bool, "rationale": str, "llm_score_suggest": int, "effect": str}'
                         ),
                     }
                 )
@@ -146,7 +146,7 @@ class RefereeAgent:
         return RefereeJudgement(
             is_success=False,
             rationale=reason,
-            score_awarded=0,
+            llm_score_suggest=0,
             effect="failed",
         )
 

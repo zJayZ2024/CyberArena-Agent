@@ -1,25 +1,20 @@
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Iterable
 
 from backend_engine.agents.llm_agent import BaseLLMAgent, LLMDecisionError
-from backend_engine.core.models import AgentDecision, SecurityAlert, VulnerabilityInfo, WorldState
-
-
-def _vulnerability_score(value: VulnerabilityInfo | dict[str, Any]) -> int:
-    if isinstance(value, VulnerabilityInfo):
-        return value.score
-    if isinstance(value, dict):
-        raw_score = value.get("score", 0)
-        if isinstance(raw_score, (int, float)):
-            return int(raw_score)
-    return 0
-
-
-def _pick_best_vuln_id(vulnerabilities: Mapping[str, VulnerabilityInfo | dict[str, Any]] | None) -> str | None:
-    if not vulnerabilities:
-        return None
-    vuln_id, _ = max(vulnerabilities.items(), key=lambda item: (_vulnerability_score(item[1]), item[0]))
-    return vuln_id
+from backend_engine.core.models import AgentDecision, SecurityAlert, WorldState
+from backend_engine.engine.actions import ACTION_REGISTRY, ActionContext
+from backend_engine.engine.decision_framework import (
+    ActionSpaceBuilder,
+    AntiStagnationController,
+    FallbackPlanner,
+    LLMPlanner,
+    OpponentModeler,
+    ReflectionEngine,
+    build_battle_state,
+)
 
 
 class BlueAgent(BaseLLMAgent):
@@ -32,9 +27,16 @@ class BlueAgent(BaseLLMAgent):
             max_retries=3,
         )
         self.strict_llm = strict_llm
-        self._last_pressure_target: str | None = None
-        self._last_pressure_turn: int | None = None
-        self._same_target_pressure_streak = 0
+        self._action_space_builder = ActionSpaceBuilder(max_candidates=24)
+        self._llm_planner = LLMPlanner(max_retries=3)
+        self._opponent_modeler = OpponentModeler(self_agent_type="Blue")
+        self._reflection_engine = ReflectionEngine(self_agent_type="Blue")
+        self._anti_stagnation = AntiStagnationController(
+            self_agent_type="Blue",
+            max_monitor_streak=2,
+            no_progress_threshold=3,
+        )
+        self._fallback_planner = FallbackPlanner()
 
     def decide(
         self,
@@ -45,190 +47,156 @@ class BlueAgent(BaseLLMAgent):
         if not context_markdown:
             raise LLMDecisionError("蓝方缺少 context_markdown，无法进行 LLM 决策。")
 
-        allowed_targets = set(state.network_nodes)
-        allowed_targets.update({"network", "all"})
-        sop_alert, allow_sop_override = self._evaluate_monitor_sop(
+        recent_alerts = list(recent_logs or [])
+        self._opponent_modeler.observe(state)
+        self._reflection_engine.observe(state)
+        self._anti_stagnation.observe_state(state)
+
+        opponent_model = self._opponent_modeler.build()
+        reflections = self._reflection_engine.recent(limit=3)
+        battle_state = build_battle_state(
             state,
-            recent_logs=recent_logs,
+            agent_type="Blue",
+            failure_streak=self._reflection_engine.failure_streak(limit=4),
+            no_progress_rounds=self._anti_stagnation.no_progress_rounds(),
+            recent_alerts=recent_alerts,
         )
+        candidates = self._action_space_builder.build_candidates(
+            state,
+            agent_type="Blue",
+            recent_alerts=recent_alerts,
+            battle_state=battle_state,
+            opponent_model=opponent_model,
+        )
+        candidates = self._anti_stagnation.apply(candidates, battle_state=battle_state)
+        if not candidates:
+            raise LLMDecisionError("蓝方当前没有可执行候选动作。")
 
         try:
-            decision = super().decide(
-                state,
-                context_markdown,
-                allowed_targets=allowed_targets,
+            decision, candidate_id, thought = self._choose_with_llm(
+                state=state,
+                context_markdown=context_markdown,
+                battle_state=battle_state,
+                opponent_model=opponent_model,
+                reflections=reflections,
+                candidates=candidates,
             )
-            self._validate_alert_sop(
-                state,
-                decision,
-                sop_alert=sop_alert,
-                allow_sop_override=allow_sop_override,
-            )
-            return decision
         except Exception as exc:
             if self.strict_llm:
                 raise LLMDecisionError(f"BlueAgent 严格 LLM 模式下决策失败：{exc}") from exc
-            print(f"[BlueAgent] LLM 决策失败，回退到规则策略：{exc}")
-            return self._fallback_decide(
-                state,
-                recent_logs=recent_logs,
-                sop_alert=sop_alert,
-                allow_sop_override=allow_sop_override,
+            print(f"[BlueAgent] LLM 决策失败，回退到候选集兜底规划：{exc}")
+            fallback = self._fallback_planner.choose(
+                candidates=candidates,
+                agent_type="Blue",
+                opponent_model=opponent_model,
+                reflections=reflections,
             )
+            decision = fallback.decision.model_copy(deep=True)
+            thought = f"LLM 决策失败，启用候选集兜底：{fallback.reason}"
+            candidate_id = fallback.candidate_id
 
-    def _find_monitor_only_alert(
+        decision.thought = thought
+        self._anti_stagnation.observe_decision(decision.action_type)
+        self._reflection_engine.set_expected(decision=decision, candidate_id=candidate_id, thought=thought)
+        return decision
+
+    def _choose_with_llm(
         self,
-        recent_logs: Iterable[SecurityAlert] | None = None,
-    ) -> SecurityAlert | None:
-        if not recent_logs:
-            return None
-
-        for alert in reversed(list(recent_logs)):
-            if alert.source_action == "Recon" or alert.severity == "WARN":
-                return alert
-        return None
-
-    def _evaluate_monitor_sop(
-        self,
-        state: WorldState,
-        recent_logs: Iterable[SecurityAlert] | None = None,
-    ) -> tuple[SecurityAlert | None, bool]:
-        sop_alert = self._find_monitor_only_alert(recent_logs)
-        if sop_alert is None or not sop_alert.target:
-            self._last_pressure_target = None
-            self._same_target_pressure_streak = 0
-            self._last_pressure_turn = state.turn
-            return sop_alert, False
-
-        if (
-            self._last_pressure_target == sop_alert.target
-            and self._last_pressure_turn is not None
-            and state.turn == self._last_pressure_turn + 1
-        ):
-            self._same_target_pressure_streak += 1
-        else:
-            self._same_target_pressure_streak = 1
-
-        self._last_pressure_target = sop_alert.target
-        self._last_pressure_turn = state.turn
-        return sop_alert, self._same_target_pressure_streak >= 2
-
-    def _validate_alert_sop(
-        self,
-        state: WorldState,
-        decision: AgentDecision,
         *,
-        sop_alert: SecurityAlert | None,
-        allow_sop_override: bool,
-    ) -> None:
-        if sop_alert is None:
-            return
-        if allow_sop_override:
-            target = sop_alert.target
-            if target and target in state.network_nodes:
-                vuln_id = _pick_best_vuln_id(state.network_nodes[target].vulnerabilities)
-                if vuln_id and decision.action_type == "Monitor":
-                    raise LLMDecisionError(
-                        "同一节点连续两轮及以上触发告警且存在可修补漏洞时，"
-                        "应触发高阶反制例外并优先选择 PatchNode。"
-                    )
-            return
-        if decision.action_type != "Monitor":
-            raise LLMDecisionError(
-                "蓝方 SOP 要求：对于 source_action=Recon 或 severity=WARN 的告警，"
-                "必须使用 Monitor。若同一节点连续两轮及以上触发告警，才允许升级为 PatchNode。"
+        state: WorldState,
+        context_markdown: str,
+        battle_state: dict,
+        opponent_model: dict,
+        reflections: list[dict],
+        candidates: list,
+    ) -> tuple[AgentDecision, str, str]:
+        rejected_ids: set[str] = set()
+        last_error: Exception | None = None
+        for _ in range(2):
+            available = [row for row in candidates if row.candidate_id not in rejected_ids]
+            if not available:
+                break
+            plan = self._llm_planner.plan(
+                client=self.client,
+                model_name=self.model_name,
+                agent_type="Blue",
+                background_prompt=self.system_prompt,
+                context_markdown=context_markdown,
+                battle_state=battle_state,
+                opponent_model=opponent_model,
+                reflections=reflections,
+                candidates=available,
             )
+            chosen = next((row for row in available if row.candidate_id == plan.chosen_candidate_id), None)
+            if chosen is None and plan.backup_candidate_id:
+                chosen = next((row for row in available if row.candidate_id == plan.backup_candidate_id), None)
+            if chosen is None:
+                last_error = LLMDecisionError("LLM 输出的候选动作不在候选池中。")
+                continue
+
+            decision = chosen.decision.model_copy(deep=True)
+            validation_error = self._validate_selected_decision(state, decision)
+            if validation_error is not None:
+                rejected_ids.add(chosen.candidate_id)
+                last_error = validation_error
+                continue
+
+            return decision, chosen.candidate_id, plan.thought
+
+        raise LLMDecisionError(f"蓝方候选决策在纠错阶段仍失败：{last_error}")
+
+    def _validate_selected_decision(self, state: WorldState, decision: AgentDecision) -> Exception | None:
+        action = ACTION_REGISTRY.get(decision.action_type)
+        if action is None:
+            return LLMDecisionError(f"动作不存在：{decision.action_type}")
+        validation_error = action.validate(
+            ActionContext(
+                state=state,
+                decision=decision,
+                locale="zh",
+                opposing_decision=None,
+            )
+        )
+        if validation_error is not None:
+            return LLMDecisionError(validation_error.message)
+        return None
 
     def _fallback_decide(
         self,
         state: WorldState,
         recent_logs: Iterable[SecurityAlert] | None = None,
-        *,
-        sop_alert: SecurityAlert | None = None,
-        allow_sop_override: bool = False,
     ) -> AgentDecision:
-        nodes = state.network_nodes
-        monitor_only_alert = sop_alert if sop_alert is not None else self._find_monitor_only_alert(recent_logs)
-
-        if monitor_only_alert is not None:
-            target = monitor_only_alert.target if monitor_only_alert.target in nodes else "network"
-            if allow_sop_override and target in nodes:
-                vuln_id = _pick_best_vuln_id(nodes[target].vulnerabilities)
-                if vuln_id:
-                    return AgentDecision(
-                        agent_type="Blue",
-                        thought=(
-                            f"{target.upper()} 已连续两轮触发 Recon/WARN 告警，"
-                            "触发高阶反制例外，升级处置并优先修补高价值漏洞。"
-                        ),
-                        action_type="PatchNode",
-                        target=target,
-                        vuln_id=vuln_id,
-                        payload=f"触发连续攻击例外，优先修补 {target} 的 vuln_id={vuln_id}",
-                    )
-            return AgentDecision(
-                agent_type="Blue",
-                thought=(
-                    "最新告警属于 Recon 或 WARN 级别。根据 SOP，蓝方此时必须执行 "
-                    "Monitor，避免高扰动修补影响业务稳定性。"
-                ),
-                action_type="Monitor",
-                target=target,
-                payload=f"针对 {target} 提升监控与告警灵敏度，保持业务端口持续可用",
-            )
-
-        if recent_logs:
-            for alert in reversed(list(recent_logs)):
-                if not alert.target or alert.target not in nodes:
-                    continue
-
-                target_node = nodes[alert.target]
-                if target_node.status == "Compromised":
-                    return AgentDecision(
-                        agent_type="Blue",
-                        thought=f"{alert.target.upper()} 已失陷，必须优先恢复。",
-                        action_type="RestoreNode",
-                        target=alert.target,
-                        payload=f"恢复 {alert.target} 到干净基线",
-                    )
-
-                vuln_id = _pick_best_vuln_id(target_node.vulnerabilities)
-                if vuln_id:
-                    return AgentDecision(
-                        agent_type="Blue",
-                        thought=f"上一阶段安全告警指向 {alert.target.upper()}，优先修补高价值漏洞。",
-                        action_type="PatchNode",
-                        target=alert.target,
-                        vuln_id=vuln_id,
-                        payload=f"修补 {alert.target} 的 vuln_id={vuln_id}",
-                    )
-
-        for node_name in ("db", "app", "web"):
-            if nodes[node_name].status == "Compromised":
-                return AgentDecision(
-                    agent_type="Blue",
-                    thought=f"{node_name.upper()} 已失陷，必须优先隔离并恢复。",
-                    action_type="RestoreNode",
-                    target=node_name,
-                    payload=f"隔离 {node_name} 并从干净快照恢复",
-                )
-
-        for node_name in ("app", "web", "db"):
-            vuln_id = _pick_best_vuln_id(nodes[node_name].vulnerabilities)
-            if nodes[node_name].status == "Normal" and vuln_id:
-                return AgentDecision(
-                    agent_type="Blue",
-                    thought=f"{node_name.upper()} 仍存在已知高价值漏洞，应立即修补。",
-                    action_type="PatchNode",
-                    target=node_name,
-                    vuln_id=vuln_id,
-                    payload=f"修补 {node_name} 上的 vuln_id={vuln_id}",
-                )
-
-        return AgentDecision(
+        recent_alerts = list(recent_logs or [])
+        self._opponent_modeler.observe(state)
+        self._reflection_engine.observe(state)
+        self._anti_stagnation.observe_state(state)
+        opponent_model = self._opponent_modeler.build()
+        reflections = self._reflection_engine.recent(limit=3)
+        battle_state = build_battle_state(
+            state,
             agent_type="Blue",
-            thought="当前未观察到需要立刻处置的严重异常，继续保持全局监控。",
-            action_type="Monitor",
-            target="network",
-            payload="审查告警并维持监控覆盖",
+            failure_streak=self._reflection_engine.failure_streak(limit=4),
+            no_progress_rounds=self._anti_stagnation.no_progress_rounds(),
+            recent_alerts=recent_alerts,
         )
+        candidates = self._action_space_builder.build_candidates(
+            state,
+            agent_type="Blue",
+            recent_alerts=recent_alerts,
+            battle_state=battle_state,
+            opponent_model=opponent_model,
+        )
+        candidates = self._anti_stagnation.apply(candidates, battle_state=battle_state)
+        if not candidates:
+            raise LLMDecisionError("蓝方 fallback 阶段没有可执行动作。")
+        chosen = self._fallback_planner.choose(
+            candidates=candidates,
+            agent_type="Blue",
+            opponent_model=opponent_model,
+            reflections=reflections,
+        )
+        decision = chosen.decision.model_copy(deep=True)
+        decision.thought = f"蓝方候选集兜底规划：{chosen.reason}"
+        self._anti_stagnation.observe_decision(decision.action_type)
+        self._reflection_engine.set_expected(decision=decision, candidate_id=chosen.candidate_id, thought=decision.thought)
+        return decision

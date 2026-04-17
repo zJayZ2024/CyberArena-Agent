@@ -9,7 +9,9 @@ function ScoreCurve({ rounds, idx }) {
 
   const redScores = rounds.map((r) => r.world_state?.score?.red ?? 0);
   const blueScores = rounds.map((r) => r.world_state?.score?.blue ?? 0);
-  const maxScore = 100;
+
+  const rawMax = Math.max(100, ...redScores, ...blueScores);
+  const maxScore = Math.ceil(rawMax / 25) * 25;
 
   const round = rounds[idx] ?? rounds[rounds.length - 1];
   const currentRed = round?.world_state?.score?.red ?? 0;
@@ -34,6 +36,12 @@ function ScoreCurve({ rounds, idx }) {
   };
 
   const xTicks = [1, Math.ceil(rounds.length / 2), rounds.length];
+
+  const yTicks = [];
+  const step = maxScore <= 100 ? 25 : 50;
+  for (let v = 0; v <= maxScore; v += step) {
+    yTicks.push(v);
+  }
 
   return (
     <div
@@ -90,7 +98,7 @@ function ScoreCurve({ rounds, idx }) {
         </defs>
 
         {/* Grid lines */}
-        {[0, 25, 50, 75, 100].map((v, i) => {
+        {yTicks.map((v, i) => {
           const y = getY(v);
           return (
             <line
@@ -108,7 +116,7 @@ function ScoreCurve({ rounds, idx }) {
         })}
 
         {/* Y-axis labels */}
-        {[0, 25, 50, 75, 100].map((v, i) => {
+        {yTicks.map((v, i) => {
           const y = getY(v);
           return (
             <text key={i} x={padding.left - 10} y={y + 5} textAnchor="end" fill={T.grayText} fontFamily={T.fontMono} fontSize={11}>
