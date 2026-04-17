@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class VulnerabilityInfo(BaseModel):
@@ -98,8 +98,18 @@ class AgentDecision(BaseModel):
 class RefereeJudgement(BaseModel):
     is_success: bool = Field(..., description="Whether the action succeeds from a technical perspective.")
     rationale: str = Field(..., description="Detailed reason why the action succeeds or fails.")
-    score_awarded: int = Field(..., ge=0, description="Score granted by the referee for this action.")
+    llm_score_suggest: int = Field(default=0, ge=0, description="Optional score suggested by the referee model.")
     effect: str = Field(..., description="Referee-assigned action effect label, such as compromise/hardening/failed.")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_legacy_score_field(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        payload = dict(value)
+        if "llm_score_suggest" not in payload and "score_awarded" in payload:
+            payload["llm_score_suggest"] = payload.pop("score_awarded")
+        return payload
 
 
 class SecurityAlert(BaseModel):

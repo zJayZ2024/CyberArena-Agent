@@ -5,7 +5,7 @@ from typing import Any
 
 from backend_engine.agents.referee_agent import RefereeAgent
 from backend_engine.core.models import ActionLog, AgentDecision, SecurityAlert, VulnerabilityInfo, WorldState
-from backend_engine.core.scoring import recalculate_scores
+from backend_engine.core.scoring import apply_round_scores, recalculate_scores
 from backend_engine.engine.actions import ACTION_REGISTRY, ActionContext, ActionResult, PERIMETER_KEYWORDS
 
 
@@ -46,6 +46,10 @@ class RefereeEngine:
         self.referee = RefereeAgent()
         self.blue_previous_state_snapshot: WorldState | None = None
         self.blue_previous_alerts: list[SecurityAlert] = []
+        self.score_repeat_tracker: dict[str, dict[str, Any]] = {
+            "Red": {"action_type": None, "target": None, "streak": 0},
+            "Blue": {"action_type": None, "target": None, "streak": 0},
+        }
 
     def prepare_state(self, state: WorldState) -> WorldState:
         self._ensure_initial_red_visibility(state)
@@ -108,9 +112,16 @@ class RefereeEngine:
     ) -> WorldState:
         next_state, blue_result = self.resolve_blue_phase(state, blue, opposing_decision=red)
         recalculate_scores(next_state)
-
-        red_delta = int(red_result.metadata.get("score_awarded", 0)) if red_result.success else 0
-        blue_delta = int(blue_result.metadata.get("score_awarded", 0)) if blue_result.success else 0
+        score_summary = apply_round_scores(
+            next_state,
+            red_decision=red,
+            red_result=red_result,
+            blue_decision=blue,
+            blue_result=blue_result,
+            repeat_tracker=self.score_repeat_tracker,
+        )
+        red_delta = int(score_summary["red_delta"])
+        blue_delta = int(score_summary["blue_delta"])
 
         next_state.action_logs = [
             ActionLog(
@@ -142,6 +153,8 @@ class RefereeEngine:
                         "blue_delta": blue_delta,
                         "red_score": next_state.red_score,
                         "blue_score": next_state.blue_score,
+                        "red_breakdown": score_summary.get("red_breakdown", {}),
+                        "blue_breakdown": score_summary.get("blue_breakdown", {}),
                     },
                 },
             ),
@@ -175,6 +188,7 @@ class RefereeEngine:
                     "target": decision.target,
                     "vuln_id": decision.vuln_id,
                     "score_awarded": 0,
+                    "llm_score_suggest": 0,
                     "validation": "failed",
                 },
             )
@@ -188,7 +202,7 @@ class RefereeEngine:
         validation_error = action.validate(context)
         if validation_error is not None:
             metadata = dict(validation_error.metadata)
-            metadata.update({"score_awarded": 0, "validation": "failed"})
+            metadata.update({"score_awarded": 0, "llm_score_suggest": 0, "validation": "failed"})
             return ActionResult(
                 success=False,
                 effect=validation_error.effect,
@@ -219,6 +233,7 @@ class RefereeEngine:
                     "target": decision.target,
                     "vuln_id": decision.vuln_id,
                     "score_awarded": 0,
+                    "llm_score_suggest": max(0, int(judgement.llm_score_suggest)),
                     "referee_effect": judgement.effect,
                     "referee_rationale": judgement.rationale,
                     "validation": "passed",
@@ -228,7 +243,13 @@ class RefereeEngine:
         execute_result = action.execute(context)
         if not execute_result.success:
             metadata = dict(execute_result.metadata)
-            metadata.update({"score_awarded": 0, "execution": "failed_after_judgement"})
+            metadata.update(
+                {
+                    "score_awarded": 0,
+                    "llm_score_suggest": max(0, int(judgement.llm_score_suggest)),
+                    "execution": "failed_after_judgement",
+                }
+            )
             return ActionResult(
                 success=False,
                 effect=execute_result.effect,
@@ -236,16 +257,11 @@ class RefereeEngine:
                 metadata=metadata,
             )
 
-        score_awarded = max(0, int(judgement.score_awarded))
-        if decision.agent_type == "Red":
-            state.red_score += score_awarded
-        else:
-            state.blue_score += score_awarded
-
         metadata = dict(execute_result.metadata)
         metadata.update(
             {
-                "score_awarded": score_awarded,
+                "score_awarded": 0,
+                "llm_score_suggest": max(0, int(judgement.llm_score_suggest)),
                 "referee_effect": judgement.effect,
                 "referee_rationale": judgement.rationale,
                 "validation": "passed",
@@ -277,6 +293,9 @@ class RefereeEngine:
         _append_unique(state.red_visible_nodes, target)
 
         if red.action_type == "Recon" and red_result.success:
+            was_recon_before = target in state.red_recon_nodes
+            known_services_before = set(state.red_known_services.get(target, []))
+            known_vulnerabilities_before = set(state.red_known_vulnerabilities.get(target, {}).keys())
             _append_unique(state.red_recon_nodes, target)
             observed_ports = red_result.metadata.get("observed_ports", [])
             if observed_ports:
@@ -284,6 +303,20 @@ class RefereeEngine:
             suspected_vulnerabilities = red_result.metadata.get("suspected_vulnerabilities", {})
             if suspected_vulnerabilities:
                 state.red_known_vulnerabilities[target] = _coerce_vulnerability_snapshot(suspected_vulnerabilities)
+            observed_ports_set = set(observed_ports)
+            observed_vulnerabilities_set = set(suspected_vulnerabilities.keys())
+            intel_gain = bool(
+                observed_ports_set - known_services_before
+                or observed_vulnerabilities_set - known_vulnerabilities_before
+                or not was_recon_before
+            )
+            red_result.metadata.update(
+                {
+                    "intel_gain": intel_gain,
+                    "intel_new_ports": sorted(observed_ports_set - known_services_before),
+                    "intel_new_vulnerabilities": sorted(observed_vulnerabilities_set - known_vulnerabilities_before),
+                }
+            )
 
         target_node = state.network_nodes[target]
         if target_node.status == "Compromised":
