@@ -14,6 +14,7 @@ from backend_engine.engine.decision_framework import (
     OpponentModeler,
     ReflectionEngine,
     build_battle_state,
+    build_blue_intel_package,
 )
 
 
@@ -27,13 +28,14 @@ class BlueAgent(BaseLLMAgent):
             max_retries=3,
         )
         self.strict_llm = strict_llm
-        self._action_space_builder = ActionSpaceBuilder(max_candidates=24)
-        self._llm_planner = LLMPlanner(max_retries=3)
+        self._action_space_builder = ActionSpaceBuilder(max_candidates=12)
+        self._llm_planner = LLMPlanner(max_retries=1, max_candidate_rows=6)
         self._opponent_modeler = OpponentModeler(self_agent_type="Blue")
         self._reflection_engine = ReflectionEngine(self_agent_type="Blue")
         self._anti_stagnation = AntiStagnationController(
             self_agent_type="Blue",
             max_monitor_streak=2,
+            max_monitor_no_gain_streak=2,
             no_progress_threshold=3,
         )
         self._fallback_planner = FallbackPlanner()
@@ -54,12 +56,14 @@ class BlueAgent(BaseLLMAgent):
 
         opponent_model = self._opponent_modeler.build()
         reflections = self._reflection_engine.recent(limit=3)
+        intel_package = build_blue_intel_package(state)
         battle_state = build_battle_state(
             state,
             agent_type="Blue",
             failure_streak=self._reflection_engine.failure_streak(limit=4),
             no_progress_rounds=self._anti_stagnation.no_progress_rounds(),
             recent_alerts=recent_alerts,
+            monitor_no_gain_streak=self._anti_stagnation.monitor_no_gain_streak(),
         )
         candidates = self._action_space_builder.build_candidates(
             state,
@@ -80,6 +84,7 @@ class BlueAgent(BaseLLMAgent):
                 opponent_model=opponent_model,
                 reflections=reflections,
                 candidates=candidates,
+                intel_package=intel_package,
             )
         except Exception as exc:
             if self.strict_llm:
@@ -109,6 +114,7 @@ class BlueAgent(BaseLLMAgent):
         opponent_model: dict,
         reflections: list[dict],
         candidates: list,
+        intel_package: dict[str, object] | None = None,
     ) -> tuple[AgentDecision, str, str]:
         rejected_ids: set[str] = set()
         last_error: Exception | None = None
@@ -126,6 +132,7 @@ class BlueAgent(BaseLLMAgent):
                 opponent_model=opponent_model,
                 reflections=reflections,
                 candidates=available,
+                intel_package=intel_package,
             )
             chosen = next((row for row in available if row.candidate_id == plan.chosen_candidate_id), None)
             if chosen is None and plan.backup_candidate_id:
@@ -178,6 +185,7 @@ class BlueAgent(BaseLLMAgent):
             failure_streak=self._reflection_engine.failure_streak(limit=4),
             no_progress_rounds=self._anti_stagnation.no_progress_rounds(),
             recent_alerts=recent_alerts,
+            monitor_no_gain_streak=self._anti_stagnation.monitor_no_gain_streak(),
         )
         candidates = self._action_space_builder.build_candidates(
             state,

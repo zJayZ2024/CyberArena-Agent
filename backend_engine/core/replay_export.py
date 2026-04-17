@@ -137,6 +137,8 @@ def build_replay_lite(replay: dict[str, Any]) -> dict[str, Any]:
                     "exposure_level": current.get("exposure_level"),
                     "red_score": current.get("red_score"),
                     "blue_score": current.get("blue_score"),
+                    "winner_locked": current.get("winner_locked"),
+                    "winner_side": current.get("winner_side"),
                 },
             }
         )
@@ -156,6 +158,9 @@ def build_replay_lite(replay: dict[str, Any]) -> dict[str, Any]:
             "exposure_level": final_frame.get("exposure_level"),
             "red_score": final_frame.get("red_score"),
             "blue_score": final_frame.get("blue_score"),
+            "winner_locked": final_frame.get("winner_locked"),
+            "winner_side": final_frame.get("winner_side"),
+            "winner_reason": final_frame.get("winner_reason"),
         },
     }
 

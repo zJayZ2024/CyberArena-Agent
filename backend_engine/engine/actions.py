@@ -898,6 +898,195 @@ class ExfiltrateDatabaseAction(BaseAction):
 
 
 @_register
+class AnchorFootholdAction(BaseAction):
+    action_type = "AnchorFoothold"
+    agent_type = "Red"
+    summary_en = "Establish persistence on a compromised pivot node."
+    summary_zh = "在已控制的跳板节点上建立持久化扎根。"
+    description_en = (
+        "Use persistence techniques on an already compromised node so temporary restoration "
+        "cannot fully remove re-entry capability."
+    )
+    description_zh = "在已失陷跳板上植入持久化机制，避免普通恢复动作完全切断后续再进入能力。"
+    preconditions_en = (
+        "The target must already be Compromised.",
+        "Core objective nodes are not valid persistence targets.",
+    )
+    preconditions_zh = (
+        "目标必须已经处于 Compromised 状态。",
+        "核心目标节点不作为扎根目标。",
+    )
+    judgement_logic_en = (
+        "Successful anchoring records persistence metadata on the target node.",
+    )
+    judgement_logic_zh = (
+        "扎根成功后会在目标节点记录持久化标记。",
+    )
+    examples_zh = (
+        ActionExample(
+            target="app",
+            payload="在 app 部署持久化后门并建立再进入触发器",
+            rationale="防止蓝方普通恢复后立刻失去推进链路。",
+        ),
+    )
+
+    def validate(self, context: ActionContext) -> ActionResult | None:
+        base_error = super().validate(context)
+        if base_error is not None:
+            return base_error
+
+        target, node, error = self._require_target(context)
+        if error is not None or target is None or node is None:
+            return error
+
+        if target.lower() == "internet":
+            return self._reject_wrong_target_family(
+                context,
+                target=target,
+                en="Anchor persistence on an internal foothold instead of internet.",
+                zh="应在内部跳板节点扎根，而不是 internet。",
+            )
+
+        if target in context.state.core_assets:
+            return context.result(
+                success=False,
+                effect="failed",
+                en=f"{target} is a core objective node and is not suitable for foothold anchoring",
+                zh=f"{target} 是核心目标节点，不适合作为扎根跳板",
+            )
+
+        if node.status != "Compromised":
+            return context.result(
+                success=False,
+                effect="failed",
+                en=f"{target} is not compromised yet; anchoring requires existing control",
+                zh=f"{target} 尚未失陷，无法执行扎根",
+            )
+
+        if target in context.state.red_anchored_nodes:
+            return context.result(
+                success=False,
+                effect="failed",
+                en=f"{target} is already anchored",
+                zh=f"{target} 已存在扎根标记",
+            )
+
+        return None
+
+    def execute(self, context: ActionContext) -> ActionResult:
+        target = context.decision.target
+        if not target or target not in context.state.network_nodes:
+            return context.result(
+                success=False,
+                effect="rejected",
+                en="Execution failed: invalid target after validation",
+                zh="执行失败：校验后目标无效",
+            )
+        if target not in context.state.red_anchored_nodes:
+            context.state.red_anchored_nodes.append(target)
+        return context.result(
+            success=True,
+            effect="persistence",
+            en=f"Persistence foothold anchored on {target}",
+            zh=f"已在 {target} 建立持久化扎根",
+            metadata={
+                "anchored": True,
+                "score_value": 8,
+            },
+        )
+
+
+@_register
+class ReactivateFootholdAction(BaseAction):
+    action_type = "ReactivateFoothold"
+    agent_type = "Red"
+    summary_en = "Reactivate control through an anchored foothold."
+    summary_zh = "通过已扎根跳板重新激活控制权。"
+    description_en = "Recover control at low cost when a previously anchored node has been cleaned but not deeply restored."
+    description_zh = "当蓝方仅做普通恢复时，通过保留扎根低成本恢复控制权。"
+    preconditions_en = (
+        "The target must have an anchored foothold.",
+        "The node cannot be Down.",
+    )
+    preconditions_zh = (
+        "目标必须存在扎根标记。",
+        "目标不能处于 Down。",
+    )
+    judgement_logic_en = (
+        "Successful reactivation moves the target back to Compromised.",
+    )
+    judgement_logic_zh = (
+        "重激活成功后目标恢复为 Compromised。",
+    )
+    examples_zh = (
+        ActionExample(
+            target="app",
+            payload="触发 app 扎根后门恢复会话控制",
+            rationale="在被普通恢复后快速重返关键跳板。",
+        ),
+    )
+
+    def validate(self, context: ActionContext) -> ActionResult | None:
+        base_error = super().validate(context)
+        if base_error is not None:
+            return base_error
+
+        target, node, error = self._require_target(context)
+        if error is not None or target is None or node is None:
+            return error
+
+        if target not in context.state.red_anchored_nodes:
+            return context.result(
+                success=False,
+                effect="failed",
+                en=f"{target} has no anchored foothold",
+                zh=f"{target} 不存在可重激活的扎根",
+            )
+
+        if node.status == "Down":
+            return context.result(
+                success=False,
+                effect="failed",
+                en=f"{target} is down and cannot reactivate foothold",
+                zh=f"{target} 当前下线，无法重激活扎根",
+            )
+
+        if node.status == "Compromised":
+            return context.result(
+                success=False,
+                effect="failed",
+                en=f"{target} is already compromised",
+                zh=f"{target} 已处于失陷状态，无需重激活",
+            )
+
+        return None
+
+    def execute(self, context: ActionContext) -> ActionResult:
+        target = context.decision.target
+        if not target or target not in context.state.network_nodes:
+            return context.result(
+                success=False,
+                effect="rejected",
+                en="Execution failed: invalid target after validation",
+                zh="执行失败：校验后目标无效",
+            )
+        node = context.state.network_nodes[target]
+        previous_status = node.status
+        node.status = "Compromised"
+        return context.result(
+            success=True,
+            effect="compromise",
+            en=f"Anchored foothold on {target} was reactivated",
+            zh=f"{target} 扎根已重激活，控制权恢复",
+            metadata={
+                "previous_status": previous_status,
+                "anchored_reactivation": True,
+                "score_value": 10,
+            },
+        )
+
+
+@_register
 class PatchNodeAction(BaseAction):
     action_type = "PatchNode"
     agent_type = "Blue"
@@ -966,13 +1155,32 @@ class PatchNodeAction(BaseAction):
                 zh=f"{target} 当前处于下线状态，请先恢复再修补",
             )
 
-        vuln_id, vulnerability, vuln_error = self._resolve_vulnerability(
-            context,
-            node,
-            require_explicit=True,
-        )
-        if vuln_error is not None or vuln_id is None or vulnerability is None:
-            return vuln_error
+        known_vuln_map = context.state.blue_known_vulnerabilities.get(target, {})
+        if not isinstance(known_vuln_map, dict):
+            known_vuln_map = {}
+        known_vuln_ids = [vuln_id for vuln_id in known_vuln_map.keys() if vuln_id in node.vulnerabilities]
+        if not known_vuln_ids:
+            return context.result(
+                success=False,
+                effect="failed",
+                en=f"No confirmed vulnerabilities on {target}; use Monitor or PreventivePatch first",
+                zh=f"{target} 暂无已确认漏洞，请先 Monitor 或改用 PreventivePatch",
+            )
+
+        if context.decision.vuln_id:
+            if context.decision.vuln_id not in known_vuln_ids:
+                return context.result(
+                    success=False,
+                    effect="failed",
+                    en=f"vuln_id {context.decision.vuln_id} is not confirmed for {target}",
+                    zh=f"vuln_id={context.decision.vuln_id} 尚未在 {target} 被蓝方确认",
+                )
+        else:
+            chosen_vuln_id = max(
+                known_vuln_ids,
+                key=lambda vuln_id: (node.vulnerabilities[vuln_id].score, vuln_id),
+            )
+            context.decision.vuln_id = chosen_vuln_id
 
         return None
 
@@ -1008,6 +1216,125 @@ class PatchNodeAction(BaseAction):
                 "score_value": vulnerability.score,
                 "previous_status": previous_status,
                 "preserved_ports": list(node.exposed_ports),
+                "patch_mode": "confirmed",
+            },
+        )
+
+
+@_register
+class PreventivePatchAction(BaseAction):
+    action_type = "PreventivePatch"
+    agent_type = "Blue"
+    summary_en = "Perform preventive hardening when no active critical threat exists."
+    summary_zh = "在平静窗口执行预防性修补与加固。"
+    description_en = "Proactive hardening on a node without relying on confirmed vuln intelligence."
+    description_zh = "在无活跃高危威胁时，对未完全确认漏洞细节的节点执行预防性加固。"
+    preconditions_en = (
+        "The target must be a real node and not Down.",
+        "The node must still have vulnerabilities to harden.",
+    )
+    preconditions_zh = (
+        "目标必须是有效节点且不能处于 Down。",
+        "目标仍需存在可加固漏洞。",
+    )
+    judgement_logic_en = (
+        "Preventive patch removes one vulnerability and applies lower score efficiency.",
+    )
+    judgement_logic_zh = (
+        "预防性修补会移除一个漏洞，但记分效率较低。",
+    )
+    examples_zh = (
+        ActionExample(
+            target="storage",
+            payload="在低威胁窗口对 storage 做预防性加固",
+            rationale="降低潜在暴露面，但成本高于精准修补。",
+        ),
+    )
+
+    def validate(self, context: ActionContext) -> ActionResult | None:
+        base_error = super().validate(context)
+        if base_error is not None:
+            return base_error
+
+        target, node, error = self._require_target(context)
+        if error is not None or target is None or node is None:
+            return error
+
+        if target.lower() == "internet":
+            return self._reject_wrong_target_family(
+                context,
+                target=target,
+                en="Preventively patch concrete infrastructure nodes instead of internet.",
+                zh="预防性修补应作用于具体基础设施节点，而非 internet。",
+            )
+
+        if node.status == "Down":
+            return context.result(
+                success=False,
+                effect="failed",
+                en=f"{target} is down; restore first before preventive patching",
+                zh=f"{target} 当前下线，请先恢复后再执行预防性修补",
+            )
+
+        if not node.vulnerabilities:
+            return context.result(
+                success=False,
+                effect="failed",
+                en=f"{target} has no remaining vulnerabilities",
+                zh=f"{target} 当前没有可处理的剩余漏洞",
+            )
+
+        if context.decision.vuln_id and context.decision.vuln_id not in node.vulnerabilities:
+            return context.result(
+                success=False,
+                effect="failed",
+                en=f"Selected vuln_id {context.decision.vuln_id} does not exist on the target",
+                zh=f"所选 vuln_id {context.decision.vuln_id} 不存在于目标节点",
+            )
+        return None
+
+    def execute(self, context: ActionContext) -> ActionResult:
+        target = context.decision.target
+        if not target or target not in context.state.network_nodes:
+            return context.result(
+                success=False,
+                effect="rejected",
+                en="Execution failed: invalid target after validation",
+                zh="执行失败：校验后目标无效",
+            )
+        node = context.state.network_nodes[target]
+        if not node.vulnerabilities:
+            return context.result(
+                success=False,
+                effect="failed",
+                en=f"{target} has no remaining vulnerabilities",
+                zh=f"{target} 当前没有可处理的剩余漏洞",
+            )
+
+        if context.decision.vuln_id and context.decision.vuln_id in node.vulnerabilities:
+            vuln_id = context.decision.vuln_id
+            vulnerability = node.vulnerabilities[vuln_id]
+        else:
+            vuln_id, vulnerability = max(
+                node.vulnerabilities.items(),
+                key=lambda item: (item[1].score, item[0]),
+            )
+            context.decision.vuln_id = vuln_id
+
+        previous_status = node.status
+        node.vulnerabilities.pop(vuln_id, None)
+        return context.result(
+            success=True,
+            effect="hardening",
+            en=f"Preventive patch executed on {target} for vuln_id={vuln_id}",
+            zh=f"已在 {target} 执行预防性修补，处理 vuln_id={vuln_id}",
+            metadata={
+                "patched_vulnerability": vulnerability_to_dict(vulnerability),
+                "score_value": vulnerability.score,
+                "previous_status": previous_status,
+                "patch_mode": "preventive",
+                "score_multiplier": 0.5,
+                "score_multiplier_reason": "preventive_patch_low_yield",
             },
         )
 
@@ -1116,6 +1443,7 @@ class RestoreNodeAction(BaseAction):
                 node.vulnerabilities.pop(vuln_id, None)
 
         node.status = "Normal"
+        anchor_persisted = target in context.state.red_anchored_nodes
         return context.result(
             success=True,
             effect="restoration",
@@ -1123,6 +1451,115 @@ class RestoreNodeAction(BaseAction):
             zh=f"{target} 已恢复并回到 Normal 状态",
             metadata={
                 "removed_vulnerability": removed_vulnerability,
+                "score_value": score_value,
+                "previous_status": previous_status,
+                "anchor_persisted": anchor_persisted,
+            },
+        )
+
+
+@_register
+class DeepRestoreAction(BaseAction):
+    action_type = "DeepRestore"
+    agent_type = "Blue"
+    summary_en = "Perform heavy recovery to remove persistence and restore node integrity."
+    summary_zh = "执行重度恢复，清除持久化并恢复节点完整性。"
+    description_en = "High-cost remediation that clears anchored footholds and performs deeper cleanup."
+    description_zh = "高成本处置动作，可清除红方扎根并完成深度恢复。"
+    preconditions_en = (
+        "The target must be a real infrastructure node.",
+        "Use this action when compromise, downtime, or persistence risk exists.",
+    )
+    preconditions_zh = (
+        "目标必须是有效基础设施节点。",
+        "适用于存在失陷、下线或扎根残留风险的场景。",
+    )
+    judgement_logic_en = (
+        "Node returns to Normal.",
+        "Anchored foothold on target is removed when present.",
+    )
+    judgement_logic_zh = (
+        "节点回到 Normal。",
+        "若目标存在扎根，则会被彻底清除。",
+    )
+    examples_zh = (
+        ActionExample(
+            target="app",
+            payload="对 app 执行深度恢复并轮换关键凭据",
+            rationale="针对重复入侵风险进行彻底清理。",
+        ),
+    )
+
+    def validate(self, context: ActionContext) -> ActionResult | None:
+        base_error = super().validate(context)
+        if base_error is not None:
+            return base_error
+
+        target, node, error = self._require_target(context)
+        if error is not None or target is None or node is None:
+            return error
+
+        if target.lower() == "internet":
+            return self._reject_wrong_target_family(
+                context,
+                target=target,
+                en="DeepRestore applies to concrete infrastructure nodes.",
+                zh="DeepRestore 仅适用于具体基础设施节点。",
+            )
+
+        has_anchor = target in context.state.red_anchored_nodes
+        if node.status == "Normal" and not has_anchor:
+            return context.result(
+                success=False,
+                effect="failed",
+                en=f"{target} has no compromise or persistence risk requiring DeepRestore",
+                zh=f"{target} 当前无失陷或扎根风险，不需要 DeepRestore",
+            )
+
+        return None
+
+    def execute(self, context: ActionContext) -> ActionResult:
+        target = context.decision.target
+        if not target or target not in context.state.network_nodes:
+            return context.result(
+                success=False,
+                effect="rejected",
+                en="Execution failed: invalid target after validation",
+                zh="执行失败：校验后目标无效",
+            )
+        node = context.state.network_nodes[target]
+        previous_status = node.status
+
+        removed_vulnerabilities: list[dict[str, Any]] = []
+        score_value = 0
+        if node.vulnerabilities:
+            ranked = sorted(
+                node.vulnerabilities.items(),
+                key=lambda item: (item[1].score, item[0]),
+                reverse=True,
+            )[:2]
+            for vuln_id, vulnerability in ranked:
+                removed_vulnerabilities.append(vulnerability_to_dict(vulnerability))
+                score_value += int(vulnerability.score)
+                node.vulnerabilities.pop(vuln_id, None)
+
+        removed_anchor = False
+        if target in context.state.red_anchored_nodes:
+            context.state.red_anchored_nodes = [
+                node_name for node_name in context.state.red_anchored_nodes if node_name != target
+            ]
+            removed_anchor = True
+            score_value += 10
+
+        node.status = "Normal"
+        return context.result(
+            success=True,
+            effect="restoration",
+            en=f"DeepRestore completed on {target}; persistence removed={removed_anchor}",
+            zh=f"{target} 深度恢复完成；扎根清除={removed_anchor}",
+            metadata={
+                "removed_vulnerabilities": removed_vulnerabilities,
+                "removed_anchor": removed_anchor,
                 "score_value": score_value,
                 "previous_status": previous_status,
             },
@@ -1300,5 +1737,5 @@ class MonitorAction(BaseAction):
             effect="monitoring",
             en=f"Monitoring remained active for {target}; topology ownership was unchanged",
             zh=f"已持续对 {target} 保持监控；拓扑状态未发生变化",
-            metadata={"monitor_scope": target, "score_value": 0},
+            metadata={"monitor_scope": target, "score_value": 0, "intel_gain": False},
         )

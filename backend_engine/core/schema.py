@@ -134,6 +134,15 @@ class WorldState(BaseModel):
     red_recon_nodes: List[str] = Field(default_factory=list)
     red_known_services: Dict[str, List[int]] = Field(default_factory=dict)
     red_known_vulnerabilities: Dict[str, Dict[str, VulnerabilityInfo]] = Field(default_factory=dict)
+    red_anchored_nodes: List[str] = Field(default_factory=list)
+    blue_known_vulnerabilities: Dict[str, Dict[str, float]] = Field(default_factory=dict)
+    blue_monitored_nodes: List[str] = Field(default_factory=list)
+    blue_last_preventive_patch_turn: int = Field(default=-99)
+    blue_preventive_patch_cooldowns: Dict[str, int] = Field(default_factory=dict)
+    core_assets: List[str] = Field(default_factory=lambda: ["db"])
+    winner_locked: bool = Field(default=False)
+    winner_side: Optional[Literal["Red", "Blue"]] = Field(default=None)
+    winner_reason: str = Field(default="")
 
     @field_validator("red_known_vulnerabilities", mode="before")
     @classmethod
@@ -146,6 +155,55 @@ class WorldState(BaseModel):
             node_name: _coerce_vulnerability_map(vulnerabilities)
             for node_name, vulnerabilities in value.items()
         }
+
+    @field_validator("blue_known_vulnerabilities", mode="before")
+    @classmethod
+    def _coerce_blue_known_vulnerabilities(cls, value: Any) -> Dict[str, Dict[str, float]]:
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise TypeError("blue_known_vulnerabilities must be a dictionary")
+
+        normalized: Dict[str, Dict[str, float]] = {}
+        for node_name, payload in value.items():
+            if payload is None:
+                normalized[node_name] = {}
+                continue
+            if isinstance(payload, list):
+                normalized[node_name] = {
+                    str(vuln_id): 1.0
+                    for vuln_id in payload
+                    if isinstance(vuln_id, str) and vuln_id
+                }
+                continue
+            if not isinstance(payload, dict):
+                raise TypeError("blue_known_vulnerabilities[node] must be a dict or list")
+            node_map: Dict[str, float] = {}
+            for vuln_id, confidence in payload.items():
+                if not isinstance(vuln_id, str) or not vuln_id:
+                    continue
+                if isinstance(confidence, bool):
+                    numeric = 1.0 if confidence else 0.0
+                elif isinstance(confidence, (int, float)):
+                    numeric = float(confidence)
+                else:
+                    numeric = 0.0
+                node_map[vuln_id] = max(0.0, min(1.0, numeric))
+            normalized[node_name] = node_map
+        return normalized
+
+    @field_validator("core_assets", mode="before")
+    @classmethod
+    def _coerce_core_assets(cls, value: Any) -> List[str]:
+        if value is None:
+            return ["db"]
+        if not isinstance(value, list):
+            raise TypeError("core_assets must be a list")
+        dedup: List[str] = []
+        for node_name in value:
+            if isinstance(node_name, str) and node_name and node_name not in dedup:
+                dedup.append(node_name)
+        return dedup or ["db"]
 
 
 class SimulationReplay(BaseModel):

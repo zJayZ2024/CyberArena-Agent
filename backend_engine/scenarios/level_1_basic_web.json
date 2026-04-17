@@ -2,6 +2,15 @@
   "turn": 0,
   "system_health": 100,
   "exposure_level": 40,
+  "core_assets": ["db"],
+  "winner_locked": false,
+  "winner_side": null,
+  "winner_reason": "",
+  "red_anchored_nodes": [],
+  "blue_known_vulnerabilities": {},
+  "blue_monitored_nodes": [],
+  "blue_last_preventive_patch_turn": -99,
+  "blue_preventive_patch_cooldowns": {},
   "network_nodes": {
     "internet": {
       "status": "Normal",

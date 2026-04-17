@@ -15,7 +15,9 @@ REPEAT_DECAY_FACTORS = (1.0, 0.7, 0.4, 0.25)
 # Optional fallback constants for remediation actions when score_value is unavailable.
 DEFENSE_POLICY_CONSTANTS = {
     "PatchNode": 0,
+    "PreventivePatch": 0,
     "RestoreNode": 0,
+    "DeepRestore": 0,
     "Isolate": 0,
 }
 

@@ -25,6 +25,7 @@ def run_simulation(
     strict_llm: bool = True,
     use_probability: bool = False,
     output_lite_path: Path | None = None,
+    continue_after_winner_locked: bool = True,
 ) -> dict:
     state = load_scenario(scenario_path)
     red_agent = RedAgent(strict_llm=strict_llm)
@@ -62,10 +63,22 @@ def run_simulation(
 
         state = referee.resolve_round(state, red_action, blue_action)
         frames.append(state.model_dump(mode="json"))
+        if state.winner_locked and not continue_after_winner_locked:
+            break
+
+    if not state.winner_locked:
+        executed_rounds = len(frames) - 1
+        state.winner_locked = True
+        state.winner_side = "Blue"
+        state.winner_reason = (
+            f"{executed_rounds}轮结束红方未占领核心资产；综合指标 health={state.system_health}, "
+            f"exposure={state.exposure_level}, red_score={state.red_score}, blue_score={state.blue_score}"
+        )
+        frames[-1] = state.model_dump(mode="json")
 
     replay = {
         "scenario": scenario_path.stem,
-        "total_rounds": rounds,
+        "total_rounds": len(frames) - 1,
         "frames": frames,
     }
 
@@ -81,7 +94,7 @@ def run_simulation(
 def main() -> None:
     parser = argparse.ArgumentParser(description="运行一个中文入口的 CyberArena 对抗模拟（红蓝决策默认强制 LLM）。")
     parser.add_argument("--scenario", default="backend_engine/scenarios/level_1_basic_web.json")
-    parser.add_argument("--rounds", type=int, default=3)
+    parser.add_argument("--rounds", type=int, default=20)
     parser.add_argument("--output", default="backend_engine/results/mock_simulation_zh.json")
     parser.add_argument(
         "--output_lite",
@@ -98,6 +111,11 @@ def main() -> None:
         action="store_true",
         help="允许红蓝在 LLM 决策失败时回退规则策略（默认关闭，严格走 LLM）。",
     )
+    parser.add_argument(
+        "--stop_on_winner",
+        action="store_true",
+        help="命中胜利锁定后立即停止（默认继续跑满回合用于回放）。",
+    )
     args = parser.parse_args()
 
     replay = run_simulation(
@@ -107,6 +125,7 @@ def main() -> None:
         strict_llm=not args.allow_fallback,
         use_probability=args.use_probability,
         output_lite_path=Path(args.output_lite) if args.output_lite else None,
+        continue_after_winner_locked=not args.stop_on_winner,
     )
 
     final_frame = replay["frames"][-1]

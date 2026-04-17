@@ -9,7 +9,12 @@ from backend_engine.core.models import ActionLog, AgentDecision, SecurityAlert, 
 from backend_engine.core.scoring import ROUND_SCORE_BUDGET, apply_round_scores, recalculate_scores
 from backend_engine.engine.actions import ACTION_REGISTRY, ActionContext, ActionResult, PERIMETER_KEYWORDS
 
-RED_ATTACK_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase"}
+RED_ATTACK_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase", "ReactivateFoothold"}
+RED_HIGH_IMPACT_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase", "ReactivateFoothold"}
+PREVENTIVE_PATCH_INTERVAL = 2
+PREVENTIVE_PATCH_NODE_COOLDOWN = 2
+TIER0_PROACTIVE_LOCK_ROUNDS = 2
+MONITOR_DISCOVERY_PER_TURN = 2
 
 
 def _is_perimeter_node(node_name: str) -> bool:
@@ -65,6 +70,18 @@ class RefereeEngine:
         }
 
     def prepare_state(self, state: WorldState) -> WorldState:
+        if not state.core_assets:
+            state.core_assets = ["db"]
+        state.red_anchored_nodes = [node for node in state.red_anchored_nodes if node in state.network_nodes]
+        if not isinstance(state.blue_known_vulnerabilities, dict):
+            state.blue_known_vulnerabilities = {}
+        if not isinstance(state.blue_monitored_nodes, list):
+            state.blue_monitored_nodes = []
+        if not isinstance(state.blue_preventive_patch_cooldowns, dict):
+            state.blue_preventive_patch_cooldowns = {}
+        if not isinstance(state.winner_locked, bool):
+            state.winner_locked = False
+
         self._ensure_initial_red_visibility(state)
         if self.blue_previous_state_snapshot is None:
             self.blue_previous_state_snapshot = copy.deepcopy(state)
@@ -96,6 +113,7 @@ class RefereeEngine:
         )
         self._purge_invalid_red_intel(next_state, red, red_result)
         self._update_red_perception(next_state, red, red_result)
+        self._update_blue_intel_from_red(next_state, red, red_result)
         self._record_red_recon(next_state, red, red_result)
         next_state.security_alerts = self._build_security_alerts(next_state, red, red_result)
         return next_state, red_result, visible_alerts
@@ -132,6 +150,9 @@ class RefereeEngine:
             blue=blue,
             blue_result=blue_result,
         )
+        self._apply_blue_post_action_updates(next_state, blue, blue_result)
+        self._synchronize_known_vulnerability_maps(next_state)
+        self._update_winner_lock(next_state)
         next_state.security_alerts = self._build_security_alerts(next_state, red, red_result)
         recalculate_scores(next_state)
         score_summary = apply_round_scores(
@@ -230,6 +251,17 @@ class RefereeEngine:
                 success=False,
                 effect=validation_error.effect,
                 message=validation_error.message,
+                metadata=metadata,
+            )
+
+        policy_error = self._apply_runtime_policy(state, decision, locale=locale)
+        if policy_error is not None:
+            metadata = dict(policy_error.metadata)
+            metadata.update({"score_awarded": 0, "llm_score_suggest": 0, "validation": "failed"})
+            return ActionResult(
+                success=False,
+                effect=policy_error.effect,
+                message=policy_error.message,
                 metadata=metadata,
             )
 
@@ -361,6 +393,104 @@ class RefereeEngine:
             "reason": reason,
         }
 
+    def _apply_runtime_policy(
+        self,
+        state: WorldState,
+        decision: AgentDecision,
+        *,
+        locale: str = "zh",
+    ) -> ActionResult | None:
+        if decision.action_type != "PreventivePatch":
+            return None
+        target = decision.target
+        if not target:
+            return None
+
+        active_crit = any(alert.severity == "CRIT" for alert in state.security_alerts)
+        if active_crit:
+            return ActionResult(
+                success=False,
+                effect="failed",
+                message=(
+                    "当前存在 CRIT 活跃威胁，禁止执行预防性修补。"
+                    if locale == "zh"
+                    else "PreventivePatch blocked: active CRIT threat exists."
+                ),
+                metadata={
+                    "action_type": decision.action_type,
+                    "agent_type": decision.agent_type,
+                    "target": decision.target,
+                    "vuln_id": decision.vuln_id,
+                    "policy_block": "preventive_patch_blocked_by_crit",
+                },
+            )
+
+        if state.turn - int(state.blue_last_preventive_patch_turn) < PREVENTIVE_PATCH_INTERVAL:
+            return ActionResult(
+                success=False,
+                effect="failed",
+                message=(
+                    "预防性修补触发回合节流：每 2 回合最多 1 次。"
+                    if locale == "zh"
+                    else "PreventivePatch throttled: at most once every 2 turns."
+                ),
+                metadata={
+                    "action_type": decision.action_type,
+                    "agent_type": decision.agent_type,
+                    "target": decision.target,
+                    "vuln_id": decision.vuln_id,
+                    "policy_block": "preventive_patch_interval_limit",
+                },
+            )
+
+        available_turn = int(state.blue_preventive_patch_cooldowns.get(target, -999))
+        if state.turn < available_turn:
+            return ActionResult(
+                success=False,
+                effect="failed",
+                message=(
+                    f"{target} 节点仍在预防性修补冷却期内。"
+                    if locale == "zh"
+                    else f"{target} is still in preventive patch cooldown."
+                ),
+                metadata={
+                    "action_type": decision.action_type,
+                    "agent_type": decision.agent_type,
+                    "target": decision.target,
+                    "vuln_id": decision.vuln_id,
+                    "policy_block": "preventive_patch_node_cooldown",
+                },
+            )
+
+        if state.turn <= TIER0_PROACTIVE_LOCK_ROUNDS and target in state.core_assets:
+            has_evidence = self._has_core_risk_evidence(state, target)
+            if not has_evidence:
+                return ActionResult(
+                    success=False,
+                    effect="failed",
+                    message=(
+                        "开局前 2 回合禁止无证据对核心资产执行预防性修补。"
+                        if locale == "zh"
+                        else "Tier-0 preventive patch blocked in opening rounds without evidence."
+                    ),
+                    metadata={
+                        "action_type": decision.action_type,
+                        "agent_type": decision.agent_type,
+                        "target": decision.target,
+                        "vuln_id": decision.vuln_id,
+                        "policy_block": "tier0_opening_lock",
+                    },
+                )
+        return None
+
+    def _has_core_risk_evidence(self, state: WorldState, target: str) -> bool:
+        if target in state.red_recon_nodes:
+            return True
+        recent_recon_turns = self.red_recon_history.get(target, [])
+        if any(0 <= state.turn - turn <= self._recon_lookback_turns for turn in recent_recon_turns):
+            return True
+        return any(alert.target == target for alert in state.security_alerts)
+
     def _ensure_initial_red_visibility(self, state: WorldState) -> None:
         if state.red_visible_nodes:
             return
@@ -411,6 +541,149 @@ class RefereeEngine:
             state.red_known_services[target] = list(target_node.exposed_ports)
             state.red_known_vulnerabilities[target] = dict(target_node.vulnerabilities)
             self._expand_visibility_from_compromise(state, target)
+
+    def _update_blue_intel_from_red(self, state: WorldState, red: AgentDecision, red_result: ActionResult) -> None:
+        target = red.target
+        if not target or target not in state.network_nodes:
+            return
+        vuln_id = self._extract_vuln_id(red, red_result)
+        if vuln_id:
+            confidence = 1.0 if red_result.success else 0.8
+            self._confirm_blue_vulnerability(state, target=target, vuln_id=vuln_id, confidence=confidence)
+
+    def _apply_blue_post_action_updates(
+        self,
+        state: WorldState,
+        blue: AgentDecision,
+        blue_result: ActionResult,
+    ) -> None:
+        if not blue_result.success:
+            if blue.action_type == "Monitor":
+                blue_result.metadata["intel_gain"] = False
+            return
+
+        if blue.action_type == "Monitor":
+            self._apply_monitor_discovery(state, blue, blue_result)
+            return
+
+        if blue.action_type in {"PatchNode", "PreventivePatch"}:
+            target = blue.target or str(blue_result.metadata.get("target") or "")
+            vuln_id = self._extract_vuln_id(blue, blue_result)
+            if target and vuln_id:
+                self._confirm_blue_vulnerability(state, target=target, vuln_id=vuln_id, confidence=1.0)
+            if blue.action_type == "PreventivePatch" and target:
+                state.blue_last_preventive_patch_turn = int(state.turn)
+                state.blue_preventive_patch_cooldowns[target] = int(state.turn + PREVENTIVE_PATCH_NODE_COOLDOWN)
+            return
+
+        if blue.action_type == "DeepRestore":
+            target = blue.target or str(blue_result.metadata.get("target") or "")
+            removed_vulns = blue_result.metadata.get("removed_vulnerabilities", [])
+            if target and isinstance(removed_vulns, list):
+                for row in removed_vulns:
+                    if not isinstance(row, dict):
+                        continue
+                    vuln_id = str(row.get("vuln_id", "")).strip()
+                    if vuln_id:
+                        self._confirm_blue_vulnerability(state, target=target, vuln_id=vuln_id, confidence=1.0)
+
+    def _apply_monitor_discovery(self, state: WorldState, blue: AgentDecision, blue_result: ActionResult) -> None:
+        scope = blue.target or "network"
+        if scope in {"network", "all"}:
+            candidate_nodes = list(state.network_nodes.keys())
+        elif scope in state.network_nodes:
+            candidate_nodes = [scope]
+        else:
+            candidate_nodes = []
+
+        for node_name in candidate_nodes:
+            _append_unique(state.blue_monitored_nodes, node_name)
+
+        discoveries: list[tuple[int, str, str]] = []
+        for node_name in candidate_nodes:
+            node = state.network_nodes[node_name]
+            known_map = state.blue_known_vulnerabilities.get(node_name, {})
+            if not isinstance(known_map, dict):
+                known_map = {}
+            for vuln_id, vuln in node.vulnerabilities.items():
+                if vuln_id in known_map:
+                    continue
+                discoveries.append((int(vuln.score), node_name, vuln_id))
+
+        discoveries.sort(reverse=True)
+        selected = discoveries[:MONITOR_DISCOVERY_PER_TURN]
+        for _, node_name, vuln_id in selected:
+            self._confirm_blue_vulnerability(state, target=node_name, vuln_id=vuln_id, confidence=0.7)
+
+        intel_rows = [{"target": node_name, "vuln_id": vuln_id} for _, node_name, vuln_id in selected]
+        blue_result.metadata.update(
+            {
+                "intel_gain": bool(selected),
+                "intel_new_vulnerabilities": intel_rows,
+                "monitor_scope": scope,
+            }
+        )
+
+    def _confirm_blue_vulnerability(
+        self,
+        state: WorldState,
+        *,
+        target: str,
+        vuln_id: str,
+        confidence: float,
+    ) -> None:
+        if target not in state.network_nodes:
+            return
+        node = state.network_nodes[target]
+        if vuln_id not in node.vulnerabilities:
+            return
+        confidence = max(0.0, min(1.0, float(confidence)))
+        node_map = state.blue_known_vulnerabilities.setdefault(target, {})
+        existing = float(node_map.get(vuln_id, 0.0))
+        node_map[vuln_id] = max(existing, confidence)
+
+    def _update_winner_lock(self, state: WorldState) -> None:
+        if state.winner_locked:
+            return
+        core_assets = [node_name for node_name in state.core_assets if node_name in state.network_nodes] or ["db"]
+        for node_name in core_assets:
+            node = state.network_nodes.get(node_name)
+            if node is not None and node.status == "Compromised":
+                state.winner_locked = True
+                state.winner_side = "Red"
+                state.winner_reason = f"Red controlled core asset: {node_name}"
+                return
+
+    def _synchronize_known_vulnerability_maps(self, state: WorldState) -> None:
+        for node_name in list(state.red_known_vulnerabilities.keys()):
+            node = state.network_nodes.get(node_name)
+            if node is None:
+                state.red_known_vulnerabilities.pop(node_name, None)
+                continue
+            known_map = state.red_known_vulnerabilities.get(node_name, {})
+            if not isinstance(known_map, dict):
+                state.red_known_vulnerabilities.pop(node_name, None)
+                continue
+            for vuln_id in list(known_map.keys()):
+                if vuln_id not in node.vulnerabilities:
+                    known_map.pop(vuln_id, None)
+            if not known_map:
+                state.red_known_vulnerabilities.pop(node_name, None)
+
+        for node_name in list(state.blue_known_vulnerabilities.keys()):
+            node = state.network_nodes.get(node_name)
+            if node is None:
+                state.blue_known_vulnerabilities.pop(node_name, None)
+                continue
+            known_map = state.blue_known_vulnerabilities.get(node_name, {})
+            if not isinstance(known_map, dict):
+                state.blue_known_vulnerabilities.pop(node_name, None)
+                continue
+            for vuln_id in list(known_map.keys()):
+                if vuln_id not in node.vulnerabilities:
+                    known_map.pop(vuln_id, None)
+            if not known_map:
+                state.blue_known_vulnerabilities.pop(node_name, None)
 
     def _expand_visibility_from_compromise(self, state: WorldState, compromised_node: str) -> None:
         adjacency = _build_adjacency_map(state)
@@ -504,13 +777,13 @@ class RefereeEngine:
             red_result.success = False
             red_result.effect = "blocked"
             red_result.message = (
-                "同回合完美拦截：蓝方 PatchNode 命中同目标同漏洞，红方攻击被即时打断。"
+                "同回合完美拦截：蓝方修补命中同目标同漏洞，红方攻击被即时打断。"
             )
             red_result.metadata.update(
                 {
                     "execution": "intercepted",
                     "referee_effect": "blocked",
-                    "intercepted_by": "PatchNode",
+                    "intercepted_by": blue.action_type,
                     "score_awarded": 0,
                 }
             )
@@ -530,13 +803,14 @@ class RefereeEngine:
                     "perfect_intercept": True,
                     "target": blue.target,
                     "vuln_id": blue.vuln_id,
+                    "intercept_by": blue.action_type,
                 }
             )
             return red_result, blue_result, interaction_meta
 
         if (
             red.action_type in RED_ATTACK_ACTIONS
-            and blue.action_type == "PatchNode"
+            and blue.action_type in {"PatchNode", "PreventivePatch"}
             and red.target
             and blue.target
             and red.target == blue.target
@@ -584,7 +858,7 @@ class RefereeEngine:
     ) -> bool:
         if not (red_result.success and blue_result.success):
             return False
-        if blue.action_type != "PatchNode":
+        if blue.action_type not in {"PatchNode", "PreventivePatch"}:
             return False
         if red.action_type not in RED_ATTACK_ACTIONS:
             return False

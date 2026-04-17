@@ -27,8 +27,8 @@ class RedAgent(BaseLLMAgent):
             max_retries=3,
         )
         self.strict_llm = strict_llm
-        self._action_space_builder = ActionSpaceBuilder(max_candidates=24)
-        self._llm_planner = LLMPlanner(max_retries=3)
+        self._action_space_builder = ActionSpaceBuilder(max_candidates=12)
+        self._llm_planner = LLMPlanner(max_retries=1, max_candidate_rows=6)
         self._opponent_modeler = OpponentModeler(self_agent_type="Red")
         self._reflection_engine = ReflectionEngine(self_agent_type="Red")
         self._anti_stagnation = AntiStagnationController(
