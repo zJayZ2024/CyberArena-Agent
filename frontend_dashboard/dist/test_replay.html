@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Replay Test</title>
+  <script>
+    async function loadData() {
+      try {
+        const res = await fetch('./simulation_20_rounds_eval.json');
+        const data = await res.json();
+        const iframe = document.getElementById('appFrame');
+        const win = iframe?.contentWindow;
+
+        if (win && win.loadFrame) {
+          win.loadFrame(data);
+          document.getElementById('status').textContent = 'Loaded ' + data.frames.length + ' frames';
+        } else {
+          document.getElementById('status').textContent = 'loadFrame not ready, retrying...';
+          setTimeout(() => {
+            const win2 = iframe?.contentWindow;
+            if (win2 && win2.loadFrame) {
+              win2.loadFrame(data);
+              document.getElementById('status').textContent = 'Loaded ' + data.frames.length + ' frames (retry)';
+            } else {
+              document.getElementById('status').textContent = 'loadFrame not available in iframe';
+            }
+          }, 1500);
+        }
+      } catch (e) {
+        document.getElementById('status').textContent = 'Error: ' + e.message;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const iframe = document.getElementById('appFrame');
+      if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+        loadData();
+      } else {
+        iframe.addEventListener('load', loadData);
+      }
+    });
+  </script>
+</head>
+<body>
+  <div id="status" style="padding: 10px; font-family: monospace;">Loading...</div>
+  <iframe id="appFrame" src="/" width="100%" height="900" style="border: none;"></iframe>
+</body>
+</html>

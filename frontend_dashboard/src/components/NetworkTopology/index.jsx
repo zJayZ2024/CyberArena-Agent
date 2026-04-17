@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
+import AgentThoughtsPanel from "./AgentThoughtsPanel";
 import EventLog from "./EventLog";
 import HeaderHUD from "./HeaderHUD";
 import LegendBar from "./LegendBar";
+import RedIntelPanel from "./RedIntelPanel";
+import RoundMetricsPanel from "./RoundMetricsPanel";
 import ScoreCurve from "./ScoreCurve";
 import SvgGraph from "./SvgGraph";
 import { DEFAULT_ROUNDS, normalizeRoundsPayload } from "./data";
@@ -14,7 +17,6 @@ function NetworkTopology({ initialRounds = DEFAULT_ROUNDS }) {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [hoveredNode, setHoveredNode] = useState(null);
-  const [showThought, setShowThought] = useState(false);
   const [toast, setToast] = useState({ visible: false, text: "", color: T.red });
   const intervalRef = useRef(null);
 
@@ -33,18 +35,21 @@ function NetworkTopology({ initialRounds = DEFAULT_ROUNDS }) {
       setRounds(nextRounds);
       setIdx(0);
       setPlaying(false);
-      setShowThought(false);
       setHoveredNode(null);
     };
 
-    window.loadFrame = loadReplay;
-    window.loadReplay = loadReplay;
-    window.setTopologyRounds = loadReplay;
+    window.__topologyCallbacks = window.__topologyCallbacks || {};
+    window.__topologyCallbacks.loadFrame = loadReplay;
+
+    if (window.__pendingTopologyPayload) {
+      loadReplay(window.__pendingTopologyPayload);
+      window.__pendingTopologyPayload = null;
+    }
 
     return () => {
-      delete window.loadFrame;
-      delete window.loadReplay;
-      delete window.setTopologyRounds;
+      if (window.__topologyCallbacks?.loadFrame === loadReplay) {
+        delete window.__topologyCallbacks.loadFrame;
+      }
     };
   }, []);
 
@@ -88,7 +93,7 @@ function NetworkTopology({ initialRounds = DEFAULT_ROUNDS }) {
       <style>{PAGE_STYLES}</style>
       <HeaderHUD />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 24, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 520px", gap: 32, alignItems: "start" }}>
         <div>
           <SvgGraph
             round={round}
@@ -96,9 +101,6 @@ function NetworkTopology({ initialRounds = DEFAULT_ROUNDS }) {
             idx={idx}
             hoveredNode={hoveredNode}
             onHoverNode={setHoveredNode}
-            showThought={showThought}
-            onCloseThought={() => setShowThought(false)}
-            onOpenThought={() => setShowThought(true)}
             toast={toast}
           />
 
@@ -108,11 +110,14 @@ function NetworkTopology({ initialRounds = DEFAULT_ROUNDS }) {
             <button type="button" className="ctrl-btn" onClick={() => setIdx((current) => Math.max(0, current - 1))} disabled={idx === 0}>PREV</button>
             <button type="button" className="ctrl-btn" onClick={() => setIdx((current) => Math.min(rounds.length - 1, current + 1))} disabled={idx === rounds.length - 1}>NEXT</button>
             {[0.5, 1, 2].map((value) => <button type="button" key={value} className={`ctrl-btn${speed === value ? " active" : ""}`} onClick={() => setSpeed(value)}>{value}x</button>)}
-            <button type="button" className="ctrl-btn" onClick={() => setShowThought((current) => !current)}>{showThought ? "CLOSE THOUGHTS" : "AGENT THOUGHTS"}</button>
           </div>
 
           <div className="info-row">
             {rounds.map((item, i) => <div key={`${item.round}-${i}`} className="info-chip" style={{ cursor: "pointer", borderColor: i === idx ? T.blue : undefined, color: i === idx ? T.blue : undefined }} onClick={() => { setPlaying(false); setIdx(i); }}>R{item.round} {item.judge_result.success ? "OK" : "NO"} {item.red_action.technique_id}</div>)}
+          </div>
+
+          <div style={{ marginTop: 16 }}>
+            <ScoreCurve rounds={rounds} idx={idx} />
           </div>
 
           <div style={{ marginTop: 16 }}>
@@ -125,7 +130,9 @@ function NetworkTopology({ initialRounds = DEFAULT_ROUNDS }) {
         </div>
 
         <div>
-          <ScoreCurve rounds={rounds} idx={idx} />
+          <AgentThoughtsPanel round={round} />
+          <RoundMetricsPanel round={round} />
+          <RedIntelPanel round={round} />
           <EventLog rounds={rounds} idx={idx} />
         </div>
       </div>
