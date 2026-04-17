@@ -13,6 +13,7 @@ from backend_engine.engine.decision_framework import (
     OpponentModeler,
     ReflectionEngine,
     build_battle_state,
+    build_red_intel_package,
 )
 
 
@@ -47,6 +48,7 @@ class RedAgent(BaseLLMAgent):
 
         opponent_model = self._opponent_modeler.build()
         reflections = self._reflection_engine.recent(limit=3)
+        intel_package = build_red_intel_package(state).as_dict()
         battle_state = build_battle_state(
             state,
             agent_type="Red",
@@ -73,6 +75,7 @@ class RedAgent(BaseLLMAgent):
                 opponent_model=opponent_model,
                 reflections=reflections,
                 candidates=candidates,
+                intel_package=intel_package,
             )
         except Exception as exc:
             if self.strict_llm:
@@ -102,6 +105,7 @@ class RedAgent(BaseLLMAgent):
         opponent_model: dict,
         reflections: list[dict],
         candidates: list,
+        intel_package: dict[str, object] | None = None,
     ) -> tuple[AgentDecision, str, str]:
         rejected_ids: set[str] = set()
         last_error: Exception | None = None
@@ -119,6 +123,7 @@ class RedAgent(BaseLLMAgent):
                 opponent_model=opponent_model,
                 reflections=reflections,
                 candidates=available,
+                intel_package=intel_package,
             )
             chosen = next((row for row in available if row.candidate_id == plan.chosen_candidate_id), None)
             if chosen is None and plan.backup_candidate_id:

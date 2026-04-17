@@ -28,6 +28,16 @@ def _coerce_non_negative_int(value: Any, *, default: int = 0) -> int:
     return default
 
 
+def _coerce_positive_float(value: Any, *, default: float = 1.0) -> float:
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, (int, float)):
+        numeric = float(value)
+        if numeric > 0:
+            return numeric
+    return default
+
+
 def _normalize_target(target: str | None) -> str:
     return target or "__none__"
 
@@ -76,6 +86,24 @@ def _compute_repeat_streak(
     return 1
 
 
+def _resolve_score_multiplier(result: ActionResult) -> tuple[float, str]:
+    multiplier = _coerce_positive_float(result.metadata.get("score_multiplier", 1.0), default=1.0)
+    multiplier = max(0.1, min(3.0, multiplier))
+    reason = str(result.metadata.get("score_multiplier_reason", "default_multiplier"))
+    return multiplier, reason
+
+
+def _resolve_budget_cap(result: ActionResult, *, round_score_budget: int) -> tuple[int, bool]:
+    budget_cap = max(0, int(round_score_budget))
+    override = result.metadata.get("score_budget_override")
+    if isinstance(override, bool):
+        return budget_cap, False
+    if isinstance(override, (int, float)) and int(override) > 0:
+        budget_cap = max(budget_cap, int(override))
+        return budget_cap, True
+    return budget_cap, False
+
+
 def _apply_single_score(
     state: WorldState,
     *,
@@ -89,9 +117,11 @@ def _apply_single_score(
     repeat_streak = _compute_repeat_streak(decision, tracker_entry=entry)
     decay_factor = _repeat_decay(repeat_streak)
 
-    base_score, score_reason = _compute_base_score(decision, result)
-    decayed_score = int(base_score * decay_factor)
-    budget_cap = max(0, int(round_score_budget))
+    raw_base_score, score_reason = _compute_base_score(decision, result)
+    score_multiplier, multiplier_reason = _resolve_score_multiplier(result)
+    adjusted_base_score = int(round(raw_base_score * score_multiplier))
+    decayed_score = int(adjusted_base_score * decay_factor)
+    budget_cap, budget_overridden = _resolve_budget_cap(result, round_score_budget=round_score_budget)
     score_awarded = min(decayed_score, budget_cap)
 
     if side == "Red":
@@ -110,11 +140,15 @@ def _apply_single_score(
     result.metadata.update(
         {
             "score_awarded": score_awarded,
-            "score_base": base_score,
+            "score_base_raw": raw_base_score,
+            "score_base": adjusted_base_score,
             "score_reason": score_reason,
+            "score_multiplier": score_multiplier,
+            "score_multiplier_reason": multiplier_reason,
             "score_repeat_streak": repeat_streak,
             "score_decay_factor": decay_factor,
             "round_score_budget": budget_cap,
+            "round_score_budget_overridden": budget_overridden,
             "score_source": "scoring_engine",
         }
     )
@@ -126,11 +160,15 @@ def _apply_single_score(
 
     return {
         "delta": score_awarded,
-        "base": base_score,
+        "base": adjusted_base_score,
+        "base_raw": raw_base_score,
         "reason": score_reason,
+        "multiplier": score_multiplier,
+        "multiplier_reason": multiplier_reason,
         "repeat_streak": repeat_streak,
         "decay_factor": decay_factor,
         "budget_cap": budget_cap,
+        "budget_overridden": budget_overridden,
     }
 
 

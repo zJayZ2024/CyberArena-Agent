@@ -51,6 +51,57 @@ class PlannerDecision:
     raw_payload: dict[str, Any]
 
 
+@dataclass(slots=True)
+class IntelPackage:
+    visible_nodes: tuple[str, ...]
+    known_services: dict[str, tuple[int, ...]]
+    known_vulnerabilities: dict[str, tuple[str, ...]]
+    compromised_footholds: tuple[str, ...]
+    recon_nodes: tuple[str, ...]
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "visible_nodes": list(self.visible_nodes),
+            "known_services": {node: list(ports) for node, ports in self.known_services.items()},
+            "known_vulnerabilities": {node: list(vulns) for node, vulns in self.known_vulnerabilities.items()},
+            "compromised_footholds": list(self.compromised_footholds),
+            "recon_nodes": list(self.recon_nodes),
+        }
+
+
+def build_red_intel_package(state: WorldState) -> IntelPackage:
+    visible = set(state.red_visible_nodes)
+    if not visible:
+        visible.update({"internet", "fw", "web"} & set(state.network_nodes))
+    visible.update(node_name for node_name, node in state.network_nodes.items() if node.status == "Compromised")
+
+    known_services: dict[str, tuple[int, ...]] = {}
+    for node_name, ports in state.red_known_services.items():
+        if node_name in visible:
+            known_services[node_name] = tuple(sorted(set(int(port) for port in ports)))
+
+    known_vulnerabilities: dict[str, tuple[str, ...]] = {}
+    for node_name, vuln_map in state.red_known_vulnerabilities.items():
+        if node_name not in visible:
+            continue
+        if isinstance(vuln_map, dict):
+            vuln_ids = sorted(vuln_map.keys())
+            if vuln_ids:
+                known_vulnerabilities[node_name] = tuple(vuln_ids)
+
+    compromised_footholds = tuple(
+        sorted(node_name for node_name, node in state.network_nodes.items() if node.status == "Compromised")
+    )
+    recon_nodes = tuple(sorted(set(state.red_recon_nodes)))
+    return IntelPackage(
+        visible_nodes=tuple(sorted(visible)),
+        known_services=known_services,
+        known_vulnerabilities=known_vulnerabilities,
+        compromised_footholds=compromised_footholds,
+        recon_nodes=recon_nodes,
+    )
+
+
 class ActionSpaceBuilder:
     def __init__(self, *, max_candidates: int = 24) -> None:
         self.max_candidates = max(8, max_candidates)
@@ -67,7 +118,8 @@ class ActionSpaceBuilder:
         del battle_state
         candidates: list[CandidateAction] = []
         seen: set[tuple[str, str | None, str | None]] = set()
-        target_pool = self._target_pool(state, agent_type=agent_type)
+        intel_package = build_red_intel_package(state) if agent_type == "Red" else None
+        target_pool = self._target_pool(state, agent_type=agent_type, intel_package=intel_package)
 
         for action in ACTION_REGISTRY.all():
             if action.agent_type != agent_type:
@@ -83,7 +135,12 @@ class ActionSpaceBuilder:
                 proposed_targets.extend(action.virtual_targets)
 
             for target in proposed_targets:
-                vuln_candidates = self._vuln_candidates(state, target=target)
+                vuln_candidates = self._vuln_candidates(
+                    state,
+                    target=target,
+                    agent_type=agent_type,
+                    intel_package=intel_package,
+                )
                 if action.action_type in {"Recon", "RestoreNode", "Monitor"}:
                     vuln_candidates = [None]
 
@@ -128,22 +185,44 @@ class ActionSpaceBuilder:
         candidates.sort(key=lambda row: (row.heuristic_score, row.expected_impact), reverse=True)
         return candidates[: self.max_candidates]
 
-    def _target_pool(self, state: WorldState, *, agent_type: AgentType) -> list[str]:
+    def _target_pool(
+        self,
+        state: WorldState,
+        *,
+        agent_type: AgentType,
+        intel_package: IntelPackage | None = None,
+    ) -> list[str]:
         if agent_type == "Blue":
             return sorted(state.network_nodes)
 
+        if intel_package is not None:
+            return sorted(intel_package.visible_nodes)
+
         visible = set(state.red_visible_nodes)
         if not visible:
-            perimeter_defaults = {"internet", "fw", "web"} & set(state.network_nodes)
-            visible.update(perimeter_defaults)
-        visible.update(
-            node_name for node_name, node in state.network_nodes.items() if node.status == "Compromised"
-        )
+            visible.update({"internet", "fw", "web"} & set(state.network_nodes))
+        visible.update(node_name for node_name, node in state.network_nodes.items() if node.status == "Compromised")
         return sorted(visible)
 
-    def _vuln_candidates(self, state: WorldState, *, target: str | None) -> list[str | None]:
+    def _vuln_candidates(
+        self,
+        state: WorldState,
+        *,
+        target: str | None,
+        agent_type: AgentType,
+        intel_package: IntelPackage | None = None,
+    ) -> list[str | None]:
         if not target or target not in state.network_nodes:
             return [None]
+
+        if agent_type == "Red":
+            if intel_package is None:
+                intel_package = build_red_intel_package(state)
+            known_vulns = intel_package.known_vulnerabilities.get(target, ())
+            if not known_vulns:
+                return [None]
+            return [None, *list(known_vulns[:3])]
+
         node = state.network_nodes[target]
         vuln_rows = sorted(node.vulnerabilities.items(), key=lambda item: item[1].score, reverse=True)
         vuln_ids = [vuln_id for vuln_id, _ in vuln_rows[:3]]
@@ -312,6 +391,7 @@ class LLMPlanner:
         opponent_model: dict[str, Any],
         reflections: list[dict[str, Any]],
         candidates: list[CandidateAction],
+        intel_package: dict[str, Any] | None = None,
     ) -> PlannerDecision:
         if client is None:
             raise LLMDecisionError("缺少可用的 LLM 客户端。")
@@ -331,6 +411,7 @@ class LLMPlanner:
             "battle_state": battle_state,
             "opponent_model": opponent_model,
             "recent_reflections": reflections[-3:],
+            "intel_package": intel_package or {},
             "context_markdown": context_markdown,
             "candidates": candidate_rows,
             "output_schema": {
