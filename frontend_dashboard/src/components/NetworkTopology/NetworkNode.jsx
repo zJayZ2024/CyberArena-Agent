@@ -1,13 +1,14 @@
 import { ICONS, STATUS_STYLES, T } from "./constants";
 
 function NetworkNode({ cfg, status, atkCnt = 0, defCnt = 0, isTarget, isDefended, hovered, onHover, onClick }) {
-  const st = STATUS_STYLES[status] || STATUS_STYLES.normal;
+  const normalizedStatus = typeof status === "string" ? status.toLowerCase() : "normal";
+  const st = STATUS_STYLES[normalizedStatus] || STATUS_STYLES.normal;
   const Icon = ICONS[cfg.id];
-  const pulseAnim = status === "scanning" ? "cyberPulseAmber" : status === "compromised" ? "cyberPulseRed" : status === "defended" ? "cyberPulseGreen" : "none";
+  const pulseAnim = normalizedStatus === "scanning" ? "cyberPulseAmber" : normalizedStatus === "compromised" ? "cyberPulseRed" : normalizedStatus === "defended" || normalizedStatus === "patched" ? "cyberPulseGreen" : "none";
 
   return (
     <g transform={`translate(${cfg.x},${cfg.y})`} onClick={onClick} onMouseEnter={() => onHover(cfg.id)} onMouseLeave={() => onHover(null)} style={{ cursor: "pointer" }}>
-      {status !== "normal" && <circle r={32} cx={0} cy={0} fill="none" stroke={st.border} strokeWidth="0.7" strokeDasharray="3 3" opacity="0.45" style={{ animation: "cyberSpin 8s linear infinite", transformOrigin: "0 0" }} />}
+      {normalizedStatus !== "normal" && normalizedStatus !== "isolated" && <circle r={32} cx={0} cy={0} fill="none" stroke={st.border} strokeWidth="0.7" strokeDasharray="3 3" opacity="0.45" style={{ animation: "cyberSpin 8s linear infinite", transformOrigin: "0 0" }} />}
       <circle r={24} cx={0} cy={0} fill={st.bg} stroke={st.border} strokeWidth={isTarget ? 2.5 : 1.8} style={{ filter: st.glow !== "none" ? `drop-shadow(${st.glow})` : "none", animation: pulseAnim !== "none" ? `${pulseAnim} 1.8s ease-in-out infinite` : "none" }} />
       {hovered && <circle r={24} cx={0} cy={0} fill="white" opacity="0.04" />}
       <foreignObject x={-9} y={-19} width={18} height={18} style={{ pointerEvents: "none", overflow: "visible" }}>

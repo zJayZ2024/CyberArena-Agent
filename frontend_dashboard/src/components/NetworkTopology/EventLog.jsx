@@ -35,6 +35,19 @@ function EventLog({ rounds, idx }) {
       bg: T.blueBg,
       dim: T.blueDim,
     });
+
+    // Security alerts from this round
+    (r.security_alerts || []).forEach((alert) => {
+      events.push({
+        round: r.round,
+        type: alert.severity || "ALERT",
+        text: alert.message,
+        rightBadge: alert.target,
+        color: alert.severity === "CRIT" ? T.red : alert.severity === "WARN" ? T.amber : T.grayText,
+        bg: alert.severity === "CRIT" ? T.redBg : alert.severity === "WARN" ? T.amberBg : T.bg,
+        dim: alert.severity === "CRIT" ? T.redDim : alert.severity === "WARN" ? T.amber : T.border,
+      });
+    });
   });
 
   return (
@@ -78,7 +91,7 @@ function EventLog({ rounds, idx }) {
           display: "flex",
           flexDirection: "column",
           gap: 6,
-          maxHeight: 200,
+          maxHeight: 280,
           overflowY: "auto",
         }}
       >
@@ -128,7 +141,7 @@ function EventLog({ rounds, idx }) {
                 flex: 1,
                 fontFamily: T.fontMono,
                 fontSize: 10,
-                color: e.type === "ATK" ? "#fca5a5" : "#93c5fd",
+                color: e.type === "ATK" ? "#fca5a5" : e.type === "DEF" ? "#93c5fd" : e.type === "CRIT" ? "#fca5a5" : e.type === "WARN" ? "#fcd34d" : "#9ca3af",
                 lineHeight: 1.4,
                 paddingTop: 2,
               }}
