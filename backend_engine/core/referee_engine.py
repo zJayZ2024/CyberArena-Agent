@@ -7,6 +7,7 @@ from typing import Any
 from backend_engine.agents.referee_agent import RefereeAgent
 from backend_engine.core.models import ActionLog, AgentDecision, SecurityAlert, VulnerabilityInfo, WorldState
 from backend_engine.core.scoring import ROUND_SCORE_BUDGET, apply_round_scores, recalculate_scores
+from backend_engine.engine.command_protocol import is_blue_rule_from_library, is_red_command_from_library
 from backend_engine.engine.actions import ACTION_REGISTRY, ActionContext, ActionResult, PERIMETER_KEYWORDS
 
 RED_ATTACK_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase", "ReactivateFoothold"}
@@ -127,11 +128,18 @@ class RefereeEngine:
     ) -> tuple[WorldState, ActionResult]:
         next_state = state.model_copy(deep=True)
         self.prepare_state(next_state)
+        effective_opposing = opposing_decision
+        if effective_opposing is not None and not self._is_decision_duel_eligible(
+            next_state,
+            effective_opposing,
+            locale="zh",
+        ):
+            effective_opposing = None
         blue_result = self._adjudicate_action(
             next_state,
             blue,
             locale="zh",
-            opposing_decision=opposing_decision,
+            opposing_decision=effective_opposing,
         )
         return next_state, blue_result
 
@@ -171,7 +179,7 @@ class RefereeEngine:
                 agent_type="Red",
                 thought=red.thought,
                 action_type=red.action_type,
-                payload=red.payload,
+                payload=red.raw_command or red.payload,
                 referee_result=red_result.message,
                 metadata=red_result.metadata,
             ),
@@ -179,7 +187,7 @@ class RefereeEngine:
                 agent_type="Blue",
                 thought=blue.thought,
                 action_type=blue.action_type,
-                payload=blue.payload,
+                payload=blue.defense_rule or blue.payload,
                 referee_result=blue_result.message,
                 metadata=blue_result.metadata,
             ),
@@ -216,19 +224,22 @@ class RefereeEngine:
         round_state.security_alerts = []
         common_snapshot = round_state.model_copy(deep=True)
 
+        red_duel_eligible = self._is_decision_duel_eligible(common_snapshot, red, locale="zh")
+        blue_duel_eligible = self._is_decision_duel_eligible(common_snapshot, blue, locale="zh")
+
         red_eval_state = common_snapshot.model_copy(deep=True)
         blue_eval_state = common_snapshot.model_copy(deep=True)
         red_result = self._adjudicate_action(
             red_eval_state,
             red,
             locale="zh",
-            opposing_decision=blue,
+            opposing_decision=blue if blue_duel_eligible else None,
         )
         blue_result = self._adjudicate_action(
             blue_eval_state,
             blue,
             locale="zh",
-            opposing_decision=red,
+            opposing_decision=red if red_duel_eligible else None,
         )
 
         settlement_state = common_snapshot.model_copy(deep=True)
@@ -266,7 +277,7 @@ class RefereeEngine:
                 agent_type="Red",
                 thought=red.thought,
                 action_type=red.action_type,
-                payload=red.payload,
+                payload=red.raw_command or red.payload,
                 referee_result=red_result.message,
                 metadata=red_result.metadata,
             ),
@@ -274,7 +285,7 @@ class RefereeEngine:
                 agent_type="Blue",
                 thought=blue.thought,
                 action_type=blue.action_type,
-                payload=blue.payload,
+                payload=blue.defense_rule or blue.payload,
                 referee_result=blue_result.message,
                 metadata=blue_result.metadata,
             ),
@@ -322,6 +333,8 @@ class RefereeEngine:
                     "agent_type": decision.agent_type,
                     "target": decision.target,
                     "vuln_id": decision.vuln_id,
+                    "raw_command": decision.raw_command,
+                    "defense_rule": decision.defense_rule,
                     "score_awarded": 0,
                     "llm_score_suggest": 0,
                     "validation": "failed",
@@ -337,7 +350,15 @@ class RefereeEngine:
         validation_error = action.validate(context)
         if validation_error is not None:
             metadata = dict(validation_error.metadata)
-            metadata.update({"score_awarded": 0, "llm_score_suggest": 0, "validation": "failed"})
+            metadata.update(
+                {
+                    "score_awarded": 0,
+                    "llm_score_suggest": 0,
+                    "validation": "failed",
+                    "raw_command": decision.raw_command,
+                    "defense_rule": decision.defense_rule,
+                }
+            )
             return ActionResult(
                 success=False,
                 effect=validation_error.effect,
@@ -348,7 +369,15 @@ class RefereeEngine:
         policy_error = self._apply_runtime_policy(state, decision, locale=locale)
         if policy_error is not None:
             metadata = dict(policy_error.metadata)
-            metadata.update({"score_awarded": 0, "llm_score_suggest": 0, "validation": "failed"})
+            metadata.update(
+                {
+                    "score_awarded": 0,
+                    "llm_score_suggest": 0,
+                    "validation": "failed",
+                    "raw_command": decision.raw_command,
+                    "defense_rule": decision.defense_rule,
+                }
+            )
             return ActionResult(
                 success=False,
                 effect=policy_error.effect,
@@ -360,6 +389,7 @@ class RefereeEngine:
         judgement = self.referee.judge_action(
             state,
             decision,
+            opposing_decision=opposing_decision,
             action_descriptor=descriptor,
             validation_summary={
                 "validated": True,
@@ -378,10 +408,23 @@ class RefereeEngine:
                     "agent_type": decision.agent_type,
                     "target": decision.target,
                     "vuln_id": decision.vuln_id,
+                    "raw_command": decision.raw_command,
+                    "defense_rule": decision.defense_rule,
                     "score_awarded": 0,
                     "llm_score_suggest": max(0, int(judgement.llm_score_suggest)),
                     "referee_effect": judgement.effect,
                     "referee_rationale": judgement.rationale,
+                    "referee_command_duel": bool(
+                        decision.agent_type == "Red"
+                        and opposing_decision is not None
+                        and opposing_decision.agent_type == "Blue"
+                    ),
+                    "command_duel_outcome": self._resolve_command_duel_outcome(
+                        decision=decision,
+                        opposing_decision=opposing_decision,
+                        judgement_effect=judgement.effect,
+                        judgement_success=judgement.is_success,
+                    ),
                     "validation": "passed",
                 },
             )
@@ -401,10 +444,23 @@ class RefereeEngine:
                     "agent_type": decision.agent_type,
                     "target": decision.target,
                     "vuln_id": decision.vuln_id,
+                    "raw_command": decision.raw_command,
+                    "defense_rule": decision.defense_rule,
                     "score_awarded": 0,
                     "llm_score_suggest": max(0, int(judgement.llm_score_suggest)),
                     "referee_effect": "probability_failed",
                     "referee_rationale": judgement.rationale,
+                    "referee_command_duel": bool(
+                        decision.agent_type == "Red"
+                        and opposing_decision is not None
+                        and opposing_decision.agent_type == "Blue"
+                    ),
+                    "command_duel_outcome": self._resolve_command_duel_outcome(
+                        decision=decision,
+                        opposing_decision=opposing_decision,
+                        judgement_effect=judgement.effect,
+                        judgement_success=False,
+                    ),
                     "validation": "passed",
                     "probability_gate": probability_gate,
                 },
@@ -418,6 +474,19 @@ class RefereeEngine:
                     "score_awarded": 0,
                     "llm_score_suggest": max(0, int(judgement.llm_score_suggest)),
                     "execution": "failed_after_judgement",
+                    "raw_command": decision.raw_command,
+                    "defense_rule": decision.defense_rule,
+                    "referee_command_duel": bool(
+                        decision.agent_type == "Red"
+                        and opposing_decision is not None
+                        and opposing_decision.agent_type == "Blue"
+                    ),
+                    "command_duel_outcome": self._resolve_command_duel_outcome(
+                        decision=decision,
+                        opposing_decision=opposing_decision,
+                        judgement_effect=judgement.effect,
+                        judgement_success=False,
+                    ),
                 }
             )
             return ActionResult(
@@ -436,6 +505,19 @@ class RefereeEngine:
                 "llm_score_suggest": max(0, int(judgement.llm_score_suggest)),
                 "referee_effect": judgement.effect,
                 "referee_rationale": judgement.rationale,
+                "raw_command": decision.raw_command,
+                "defense_rule": decision.defense_rule,
+                "referee_command_duel": bool(
+                    decision.agent_type == "Red"
+                    and opposing_decision is not None
+                    and opposing_decision.agent_type == "Blue"
+                ),
+                "command_duel_outcome": self._resolve_command_duel_outcome(
+                    decision=decision,
+                    opposing_decision=opposing_decision,
+                    judgement_effect=judgement.effect,
+                    judgement_success=judgement.is_success,
+                ),
                 "validation": "passed",
             }
         )
@@ -491,6 +573,10 @@ class RefereeEngine:
         *,
         locale: str = "zh",
     ) -> ActionResult | None:
+        protocol_error = self._validate_command_rule_protocol(decision, locale=locale)
+        if protocol_error is not None:
+            return protocol_error
+
         if decision.action_type != "PreventivePatch":
             return None
         target = decision.target
@@ -573,6 +659,144 @@ class RefereeEngine:
                     },
                 )
         return None
+
+    def _validate_command_rule_protocol(
+        self,
+        decision: AgentDecision,
+        *,
+        locale: str,
+    ) -> ActionResult | None:
+        if decision.agent_type == "Red":
+            raw_command = (decision.raw_command or "").strip()
+            if not raw_command:
+                return ActionResult(
+                    success=False,
+                    effect="failed",
+                    message=(
+                        "红方动作缺少 raw_command，违反命令对抗协议。"
+                        if locale == "zh"
+                        else "Red action rejected: missing raw_command."
+                    ),
+                    metadata={
+                        "action_type": decision.action_type,
+                        "agent_type": decision.agent_type,
+                        "target": decision.target,
+                        "vuln_id": decision.vuln_id,
+                        "policy_block": "missing_raw_command",
+                    },
+                )
+            if not is_red_command_from_library(
+                action_type=decision.action_type,
+                target=decision.target,
+                vuln_id=decision.vuln_id,
+                raw_command=raw_command,
+            ):
+                return ActionResult(
+                    success=False,
+                    effect="failed",
+                    message=(
+                        "红方 raw_command 不在标准命令库中，拒绝执行。"
+                        if locale == "zh"
+                        else "Red action rejected: raw_command not in command library."
+                    ),
+                    metadata={
+                        "action_type": decision.action_type,
+                        "agent_type": decision.agent_type,
+                        "target": decision.target,
+                        "vuln_id": decision.vuln_id,
+                        "policy_block": "raw_command_not_in_library",
+                        "raw_command": raw_command,
+                    },
+                )
+            return None
+
+        defense_rule = (decision.defense_rule or "").strip()
+        if not defense_rule:
+            return ActionResult(
+                success=False,
+                effect="failed",
+                message=(
+                    "蓝方动作缺少 defense_rule，违反命令对抗协议。"
+                    if locale == "zh"
+                    else "Blue action rejected: missing defense_rule."
+                ),
+                metadata={
+                    "action_type": decision.action_type,
+                    "agent_type": decision.agent_type,
+                    "target": decision.target,
+                    "vuln_id": decision.vuln_id,
+                    "policy_block": "missing_defense_rule",
+                },
+            )
+        if not is_blue_rule_from_library(
+            action_type=decision.action_type,
+            target=decision.target,
+            vuln_id=decision.vuln_id,
+            defense_rule=defense_rule,
+        ):
+            return ActionResult(
+                success=False,
+                effect="failed",
+                message=(
+                    "蓝方 defense_rule 不在标准防守规则库中，拒绝执行。"
+                    if locale == "zh"
+                    else "Blue action rejected: defense_rule not in defense library."
+                ),
+                metadata={
+                    "action_type": decision.action_type,
+                    "agent_type": decision.agent_type,
+                    "target": decision.target,
+                    "vuln_id": decision.vuln_id,
+                    "policy_block": "defense_rule_not_in_library",
+                    "defense_rule": defense_rule,
+                },
+            )
+        return None
+
+    def _resolve_command_duel_outcome(
+        self,
+        *,
+        decision: AgentDecision,
+        opposing_decision: AgentDecision | None,
+        judgement_effect: str,
+        judgement_success: bool,
+    ) -> str:
+        if decision.agent_type != "Red" or opposing_decision is None or opposing_decision.agent_type != "Blue":
+            return "none"
+        normalized = (judgement_effect or "").strip().lower()
+        if normalized in {"blocked", "intercept", "intercepted", "rule_blocked"}:
+            return "blocked"
+        if normalized in {"bypass", "evaded", "rule_bypass"}:
+            return "bypass"
+        if judgement_success and decision.target and opposing_decision.target and decision.target == opposing_decision.target:
+            if opposing_decision.action_type in {"PatchNode", "PreventivePatch", "Isolate", "DeepRestore", "RestoreNode"}:
+                return "bypass"
+        return "none"
+
+    def _is_decision_duel_eligible(
+        self,
+        state: WorldState,
+        decision: AgentDecision,
+        *,
+        locale: str,
+    ) -> bool:
+        action = ACTION_REGISTRY.get(decision.action_type)
+        if action is None:
+            return False
+        draft = decision.model_copy(deep=True)
+        context = ActionContext(
+            state=state,
+            decision=draft,
+            locale="zh" if locale == "zh" else "en",
+            opposing_decision=None,
+        )
+        validation_error = action.validate(context)
+        if validation_error is not None:
+            return False
+        policy_error = self._apply_runtime_policy(state, draft, locale=locale)
+        if policy_error is not None:
+            return False
+        return True
 
     def _has_core_risk_evidence(self, state: WorldState, target: str) -> bool:
         if target in state.red_recon_nodes:
@@ -910,8 +1134,52 @@ class RefereeEngine:
             "perfect_intercept": False,
             "proactive_patch": False,
             "hard_interrupt": False,
+            "command_rule_duel": "none",
         }
         red_blocked = False
+
+        command_duel_outcome = str(red_result.metadata.get("command_duel_outcome", "none") or "none")
+        interaction_meta["command_rule_duel"] = command_duel_outcome
+        if command_duel_outcome == "blocked" and blue_result.success:
+            red_blocked = True
+            red_result.success = False
+            red_result.effect = "blocked"
+            red_result.message = "同回合命令-规则拦截：蓝方防守规则拦截了红方攻击命令。"
+            red_result.metadata.update(
+                {
+                    "execution": "intercepted",
+                    "referee_effect": "blocked",
+                    "intercepted_by": blue.action_type,
+                    "score_awarded": 0,
+                }
+            )
+            base_value = int(blue_result.metadata.get("score_value", 0) or 0)
+            boosted = int(round(base_value * 1.5))
+            blue_result.metadata.update(
+                {
+                    "interaction_bonus": "command_rule_intercept",
+                    "score_multiplier": 1.5,
+                    "score_multiplier_reason": "same_round_command_rule_intercept",
+                    "score_budget_override": max(ROUND_SCORE_BUDGET, boosted),
+                }
+            )
+            interaction_meta.update(
+                {
+                    "type": "command_intercept",
+                    "target": red.target,
+                    "intercept_by": blue.action_type,
+                }
+            )
+            return red_result, blue_result, interaction_meta, red_blocked
+
+        if command_duel_outcome == "bypass" and red_result.success and blue_result.success:
+            interaction_meta.update(
+                {
+                    "type": "command_bypass",
+                    "target": red.target,
+                    "bypass_against": blue.action_type,
+                }
+            )
 
         if self._is_perfect_intercept(red, red_result, blue, blue_result):
             red_blocked = True
@@ -1188,7 +1456,51 @@ class RefereeEngine:
             "type": "independent",
             "perfect_intercept": False,
             "proactive_patch": False,
+            "command_rule_duel": "none",
         }
+        command_duel_outcome = str(red_result.metadata.get("command_duel_outcome", "none") or "none")
+        interaction_meta["command_rule_duel"] = command_duel_outcome
+        if command_duel_outcome == "blocked" and blue_result.success:
+            self._rollback_red_attack_effect(state, red_result)
+            red_result.success = False
+            red_result.effect = "blocked"
+            red_result.message = "同回合命令-规则拦截：蓝方防守规则拦截了红方攻击命令。"
+            red_result.metadata.update(
+                {
+                    "execution": "intercepted",
+                    "referee_effect": "blocked",
+                    "intercepted_by": blue.action_type,
+                    "score_awarded": 0,
+                }
+            )
+            base_value = int(blue_result.metadata.get("score_value", 0) or 0)
+            boosted = int(round(base_value * 1.5))
+            blue_result.metadata.update(
+                {
+                    "interaction_bonus": "command_rule_intercept",
+                    "score_multiplier": 1.5,
+                    "score_multiplier_reason": "same_round_command_rule_intercept",
+                    "score_budget_override": max(ROUND_SCORE_BUDGET, boosted),
+                }
+            )
+            interaction_meta.update(
+                {
+                    "type": "command_intercept",
+                    "target": red.target,
+                    "intercept_by": blue.action_type,
+                }
+            )
+            return red_result, blue_result, interaction_meta
+
+        if command_duel_outcome == "bypass" and red_result.success and blue_result.success:
+            interaction_meta.update(
+                {
+                    "type": "command_bypass",
+                    "target": red.target,
+                    "bypass_against": blue.action_type,
+                }
+            )
+
         if self._is_perfect_intercept(red, red_result, blue, blue_result):
             self._rollback_red_attack_effect(state, red_result)
             red_result.success = False
@@ -1275,6 +1587,8 @@ class RefereeEngine:
     ) -> bool:
         if not (red_result.success and blue_result.success):
             return False
+        if bool(red_result.metadata.get("referee_command_duel", False)):
+            return False
         if blue.action_type not in {"PatchNode", "PreventivePatch"}:
             return False
         if red.action_type not in RED_ATTACK_ACTIONS:
@@ -1353,3 +1667,4 @@ class RefereeEngine:
                 metadata=red_result.metadata,
             )
         ]
+

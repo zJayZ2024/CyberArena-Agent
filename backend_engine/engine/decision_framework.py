@@ -8,6 +8,7 @@ from typing import Any, Iterable, Literal
 
 from backend_engine.agents.llm_agent import LLMDecisionError
 from backend_engine.core.models import AgentDecision, SecurityAlert, WorldState
+from backend_engine.engine.command_protocol import build_blue_defense_rule, build_red_raw_command
 from backend_engine.engine.actions import ACTION_REGISTRY, ActionContext
 
 AgentType = Literal["Red", "Blue"]
@@ -17,6 +18,8 @@ BLUE_PASSIVE_ACTIONS = {"Monitor"}
 RED_OBJECTIVE_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase", "AnchorFoothold", "ReactivateFoothold"}
 BLUE_RESPONSE_ACTIONS = {"PatchNode", "RestoreNode", "DeepRestore", "Isolate"}
 CORE_DEFAULT = ("db",)
+PREVENTIVE_PATCH_INTERVAL = 2
+TIER0_PROACTIVE_LOCK_ROUNDS = 2
 
 ASSET_STRATEGIC_VALUE = {
     "db": 100,
@@ -63,6 +66,8 @@ class CandidateAction:
             "target": self.decision.target,
             "vuln_id": self.decision.vuln_id,
             "payload": self.decision.payload,
+            "raw_command": self.decision.raw_command,
+            "defense_rule": self.decision.defense_rule,
             "expected_impact": round(self.expected_impact, 2),
             "expected_risk": round(self.expected_risk, 2),
             "progress_value": round(self.progress_value, 2),
@@ -205,6 +210,18 @@ class ActionSpaceBuilder:
                 proposed_targets = list(target_pool)
                 proposed_targets.extend(action.virtual_targets)
 
+            if agent_type == "Blue" and action.action_type == "PreventivePatch":
+                proposed_targets = [
+                    target
+                    for target in proposed_targets
+                    if self._allow_preventive_patch(
+                        state,
+                        target=target,
+                        battle_state=battle_state,
+                        recent_alerts=recent_alerts,
+                    )
+                ]
+
             for target in proposed_targets:
                 vuln_candidates = self._vuln_candidates(
                     state,
@@ -237,6 +254,18 @@ class ActionSpaceBuilder:
                             vuln_id=vuln_id,
                             agent_type=agent_type,
                         ),
+                        raw_command=self._build_raw_command(
+                            action_type=action.action_type,
+                            target=target,
+                            vuln_id=vuln_id,
+                            agent_type=agent_type,
+                        ),
+                        defense_rule=self._build_defense_rule(
+                            action_type=action.action_type,
+                            target=target,
+                            vuln_id=vuln_id,
+                            agent_type=agent_type,
+                        ),
                     )
 
                     validation_error = action.validate(
@@ -252,6 +281,18 @@ class ActionSpaceBuilder:
 
                     # Some actions auto-resolve vuln_id during validation; sync payload to avoid semantic drift.
                     draft.payload = self._build_payload(
+                        action_type=draft.action_type,
+                        target=draft.target,
+                        vuln_id=draft.vuln_id,
+                        agent_type=agent_type,
+                    )
+                    draft.raw_command = self._build_raw_command(
+                        action_type=draft.action_type,
+                        target=draft.target,
+                        vuln_id=draft.vuln_id,
+                        agent_type=agent_type,
+                    )
+                    draft.defense_rule = self._build_defense_rule(
                         action_type=draft.action_type,
                         target=draft.target,
                         vuln_id=draft.vuln_id,
@@ -313,7 +354,7 @@ class ActionSpaceBuilder:
             known_vulns = intel_package.known_vulnerabilities.get(target, ())
             if not known_vulns:
                 return [None]
-            return [None, *list(known_vulns[:3])]
+            return [None, *list(known_vulns[:5])]
 
         if action_type not in {"PatchNode", "Isolate"}:
             return [None]
@@ -378,6 +419,56 @@ class ActionSpaceBuilder:
                 return f"监控 {scope} 并确认可处置漏洞线索"
             return f"监控 {scope}"
         return f"执行 {action_type} 于 {scope}"
+
+    def _build_raw_command(
+        self,
+        *,
+        action_type: str,
+        target: str | None,
+        vuln_id: str | None,
+        agent_type: AgentType,
+    ) -> str:
+        if agent_type != "Red":
+            return ""
+        return build_red_raw_command(action_type=action_type, target=target, vuln_id=vuln_id)
+
+    def _build_defense_rule(
+        self,
+        *,
+        action_type: str,
+        target: str | None,
+        vuln_id: str | None,
+        agent_type: AgentType,
+    ) -> str:
+        if agent_type != "Blue":
+            return ""
+        return build_blue_defense_rule(action_type=action_type, target=target, vuln_id=vuln_id)
+
+    def _allow_preventive_patch(
+        self,
+        state: WorldState,
+        *,
+        target: str | None,
+        battle_state: dict[str, Any],
+        recent_alerts: Iterable[SecurityAlert] | None,
+    ) -> bool:
+        if not target or target not in state.network_nodes:
+            return False
+        if str(battle_state.get("blue_priority_stage", "P2")) != "P2":
+            return False
+        if state.turn - int(state.blue_last_preventive_patch_turn) < PREVENTIVE_PATCH_INTERVAL:
+            return False
+        available_turn = int(state.blue_preventive_patch_cooldowns.get(target, -999))
+        if state.turn < available_turn:
+            return False
+        if state.turn <= TIER0_PROACTIVE_LOCK_ROUNDS and target in _core_assets(state):
+            known_vuln_map = state.blue_known_vulnerabilities.get(target, {})
+            has_evidence = bool(isinstance(known_vuln_map, dict) and known_vuln_map)
+            if not has_evidence and recent_alerts:
+                has_evidence = any(alert.target == target for alert in recent_alerts)
+            if not has_evidence:
+                return False
+        return True
 
     def _to_candidate(
         self,
@@ -584,6 +675,7 @@ class LLMPlanner:
         payload = {
             "agent_type": agent_type,
             "role_goal": role_goal,
+            "protocol_requirement": "必须选择自带 raw_command/defense_rule 的候选，不允许生成候选外命令。",
             "battle_state": battle_state,
             "opponent_model": opponent_model,
             "recent_reflections": reflections[-2:],
@@ -602,6 +694,7 @@ class LLMPlanner:
         system_prompt = (
             "你是中文网络攻防对抗决策器。\n"
             "你必须结合当前战局和候选动作做取舍，禁止编造候选 ID。\n"
+            "候选中的 raw_command / defense_rule 来自真实攻防命令模板库，禁止改写或二次创造。\n"
             "输出必须是严格 JSON，且仅包含 output_schema 允许字段。\n"
             "思考要短，避免长篇推理。\n"
             f"角色规则：\n{background_prompt}"

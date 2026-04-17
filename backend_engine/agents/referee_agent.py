@@ -17,11 +17,12 @@ DEFAULT_REFEREE_PROMPT = """你是 CyberArena 的技术裁判（Referee）。
 
 判定原则：
 1. 只基于给定 world_state、动作定义与 payload 做技术可行性判断。
-2. 不要使用随机数；不要输出概率推测。
-3. 若动作从技术上可成立，is_success=true；否则 false。
-4. rationale 必须解释动作生效或失效的技术原因（网络路径、前置条件、漏洞匹配、目标状态）。
-5. llm_score_suggest 必须是整数，且 >= 0（仅为建议分，不直接用于最终计分）。
-6. effect 必须是短标签（如 intel/compromise/exfiltration/hardening/restoration/isolation/monitoring/failed）。
+2. 必须审查 Red.raw_command 与 Blue.defense_rule 的对抗关系（若提供 opposing_decision）。
+3. 不要使用随机数；不要输出概率推测。
+4. 若动作从技术上可成立，is_success=true；否则 false。
+5. rationale 必须解释动作生效或失效的技术原因（网络路径、前置条件、漏洞匹配、命令与防守规则关系）。
+6. llm_score_suggest 必须是整数，且 >= 0（仅为建议分，不直接用于最终计分）。
+7. effect 必须是短标签（如 intel/compromise/exfiltration/hardening/restoration/isolation/monitoring/failed/blocked/bypass）。
 
 输出必须是严格 JSON，不要输出 Markdown。
 """
@@ -51,6 +52,7 @@ class RefereeAgent:
         state: WorldState,
         decision: AgentDecision,
         *,
+        opposing_decision: AgentDecision | None = None,
         action_descriptor: dict[str, Any] | None = None,
         validation_summary: dict[str, Any] | None = None,
     ) -> RefereeJudgement:
@@ -64,6 +66,7 @@ class RefereeAgent:
         user_payload = {
             "turn": state.turn,
             "decision": decision.model_dump(mode="json"),
+            "opposing_decision": opposing_decision.model_dump(mode="json") if opposing_decision is not None else None,
             "action_descriptor": action_descriptor or {},
             "target_snapshot": target_snapshot,
             "world_state_summary": {

@@ -93,6 +93,8 @@ class AgentDecision(BaseModel):
     target: Optional[str] = Field(default=None)
     vuln_id: Optional[str] = Field(default=None)
     payload: str = Field(default="")
+    raw_command: str = Field(default="")
+    defense_rule: str = Field(default="")
 
 
 class RefereeJudgement(BaseModel):

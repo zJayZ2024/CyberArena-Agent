@@ -46,6 +46,41 @@
           "score": 24,
           "exploit_prob": 0.44,
           "patch_prob": 0.56
+        },
+        "CVE-2019-19781_Citrix_ADC_PathTraversal_RCE": {
+          "vuln_id": "CVE-2019-19781_Citrix_ADC_PathTraversal_RCE",
+          "severity": "High",
+          "score": 23,
+          "exploit_prob": 0.47,
+          "patch_prob": 0.61
+        },
+        "CVE-2022-1388_F5_BIGIP_iControl_RCE": {
+          "vuln_id": "CVE-2022-1388_F5_BIGIP_iControl_RCE",
+          "severity": "Critical",
+          "score": 27,
+          "exploit_prob": 0.42,
+          "patch_prob": 0.54
+        },
+        "CVE-2021-26855_Exchange_ProxyLogon_SSRF": {
+          "vuln_id": "CVE-2021-26855_Exchange_ProxyLogon_SSRF",
+          "severity": "High",
+          "score": 21,
+          "exploit_prob": 0.39,
+          "patch_prob": 0.63
+        },
+        "CVE-2022-26134_Confluence_OGNL_RCE": {
+          "vuln_id": "CVE-2022-26134_Confluence_OGNL_RCE",
+          "severity": "High",
+          "score": 24,
+          "exploit_prob": 0.45,
+          "patch_prob": 0.58
+        },
+        "CVE-2021-26084_Confluence_OGNL_Injection": {
+          "vuln_id": "CVE-2021-26084_Confluence_OGNL_Injection",
+          "severity": "Medium",
+          "score": 18,
+          "exploit_prob": 0.50,
+          "patch_prob": 0.67
         }
       }
     },
@@ -73,6 +108,13 @@
           "score": 20,
           "exploit_prob": 0.41,
           "patch_prob": 0.67
+        },
+        "CVE-2021-34527_PrintNightmare_PrivEsc": {
+          "vuln_id": "CVE-2021-34527_PrintNightmare_PrivEsc",
+          "severity": "High",
+          "score": 19,
+          "exploit_prob": 0.36,
+          "patch_prob": 0.73
         }
       }
     },
