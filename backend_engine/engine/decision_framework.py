@@ -250,6 +250,14 @@ class ActionSpaceBuilder:
                     if validation_error is not None:
                         continue
 
+                    # Some actions auto-resolve vuln_id during validation; sync payload to avoid semantic drift.
+                    draft.payload = self._build_payload(
+                        action_type=draft.action_type,
+                        target=draft.target,
+                        vuln_id=draft.vuln_id,
+                        agent_type=agent_type,
+                    )
+
                     key = (draft.action_type, draft.target, draft.vuln_id)
                     if key in seen:
                         continue

@@ -209,8 +209,99 @@ class RefereeEngine:
         return next_state
 
     def resolve_round(self, state: WorldState, red: AgentDecision, blue: AgentDecision) -> WorldState:
-        interim_state, red_result, _ = self.resolve_red_phase(state, red)
-        return self.finalize_round(interim_state, red, red_result, blue)
+        round_state = state.model_copy(deep=True)
+        self.prepare_state(round_state)
+        round_state.turn += 1
+        round_state.action_logs = []
+        round_state.security_alerts = []
+        common_snapshot = round_state.model_copy(deep=True)
+
+        red_eval_state = common_snapshot.model_copy(deep=True)
+        blue_eval_state = common_snapshot.model_copy(deep=True)
+        red_result = self._adjudicate_action(
+            red_eval_state,
+            red,
+            locale="zh",
+            opposing_decision=blue,
+        )
+        blue_result = self._adjudicate_action(
+            blue_eval_state,
+            blue,
+            locale="zh",
+            opposing_decision=red,
+        )
+
+        settlement_state = common_snapshot.model_copy(deep=True)
+        red_result, blue_result, interaction_meta = self._settle_dual_actions(
+            settlement_state,
+            common_snapshot=common_snapshot,
+            red=red,
+            red_result=red_result,
+            blue=blue,
+            blue_result=blue_result,
+        )
+
+        self._purge_invalid_red_intel(settlement_state, red, red_result)
+        self._update_red_perception(settlement_state, red, red_result)
+        self._update_blue_intel_from_red(settlement_state, red, red_result)
+        self._record_red_recon(settlement_state, red, red_result)
+        self._apply_blue_post_action_updates(settlement_state, blue, blue_result)
+        self._synchronize_known_vulnerability_maps(settlement_state)
+        self._update_winner_lock(settlement_state)
+        settlement_state.security_alerts = self._build_security_alerts(settlement_state, red, red_result)
+        recalculate_scores(settlement_state)
+        score_summary = apply_round_scores(
+            settlement_state,
+            red_decision=red,
+            red_result=red_result,
+            blue_decision=blue,
+            blue_result=blue_result,
+            repeat_tracker=self.score_repeat_tracker,
+        )
+        red_delta = int(score_summary["red_delta"])
+        blue_delta = int(score_summary["blue_delta"])
+
+        settlement_state.action_logs = [
+            ActionLog(
+                agent_type="Red",
+                thought=red.thought,
+                action_type=red.action_type,
+                payload=red.payload,
+                referee_result=red_result.message,
+                metadata=red_result.metadata,
+            ),
+            ActionLog(
+                agent_type="Blue",
+                thought=blue.thought,
+                action_type=blue.action_type,
+                payload=blue.payload,
+                referee_result=blue_result.message,
+                metadata=blue_result.metadata,
+            ),
+            self.referee.log_resolution(
+                red,
+                blue,
+                f"Red: {red_result.message}; Blue: {blue_result.message}",
+                metadata={
+                    "red_result": red_result.metadata,
+                    "blue_result": blue_result.metadata,
+                    "interaction": interaction_meta,
+                    "recent_alerts": [alert.model_dump(mode="json") for alert in settlement_state.security_alerts],
+                    "score_summary": {
+                        "red_delta": red_delta,
+                        "blue_delta": blue_delta,
+                        "red_score": settlement_state.red_score,
+                        "blue_score": settlement_state.blue_score,
+                        "red_breakdown": score_summary.get("red_breakdown", {}),
+                        "blue_breakdown": score_summary.get("blue_breakdown", {}),
+                    },
+                },
+            ),
+        ]
+
+        self.blue_previous_state_snapshot = copy.deepcopy(settlement_state)
+        self.blue_previous_alerts = copy.deepcopy(settlement_state.security_alerts)
+        return settlement_state
 
     def _adjudicate_action(
         self,
@@ -757,6 +848,332 @@ class RefereeEngine:
         turns = self.red_recon_history.setdefault(target, [])
         turns.append(int(state.turn))
         self.red_recon_history[target] = sorted(set(turns))[-20:]
+
+    def _settle_dual_actions(
+        self,
+        state: WorldState,
+        *,
+        common_snapshot: WorldState,
+        red: AgentDecision,
+        red_result: ActionResult,
+        blue: AgentDecision,
+        blue_result: ActionResult,
+    ) -> tuple[ActionResult, ActionResult, dict[str, Any]]:
+        red_result, blue_result, interaction_meta, red_blocked = self._resolve_interaction_decision(
+            common_snapshot,
+            red=red,
+            red_result=red_result,
+            blue=blue,
+            blue_result=blue_result,
+        )
+
+        if blue_result.success:
+            self._apply_action_effect(state, decision=blue, result=blue_result)
+
+        if red_result.success and not red_blocked:
+            self._apply_action_effect(state, decision=red, result=red_result)
+            if not self._post_validate_red_chain(state, red=red, red_result=red_result):
+                self._rollback_red_attack_effect(state, red_result)
+                red_result.success = False
+                red_result.effect = "blocked"
+                red_result.message = "同回合链路失效：蓝方处置切断了红方连续控制链，攻击结果回滚。"
+                red_result.metadata.update(
+                    {
+                        "execution": "intercepted_after_settlement",
+                        "referee_effect": "blocked",
+                        "intercepted_by": blue.action_type,
+                        "score_awarded": 0,
+                    }
+                )
+                interaction_meta.update(
+                    {
+                        "type": "path_intercept",
+                        "path_intercept": True,
+                        "target": red.target,
+                        "cut_by": blue.action_type,
+                    }
+                )
+
+        return red_result, blue_result, interaction_meta
+
+    def _resolve_interaction_decision(
+        self,
+        state: WorldState,
+        *,
+        red: AgentDecision,
+        red_result: ActionResult,
+        blue: AgentDecision,
+        blue_result: ActionResult,
+    ) -> tuple[ActionResult, ActionResult, dict[str, Any], bool]:
+        interaction_meta: dict[str, Any] = {
+            "type": "independent",
+            "perfect_intercept": False,
+            "proactive_patch": False,
+            "hard_interrupt": False,
+        }
+        red_blocked = False
+
+        if self._is_perfect_intercept(red, red_result, blue, blue_result):
+            red_blocked = True
+            red_result.success = False
+            red_result.effect = "blocked"
+            red_result.message = "同回合完美拦截：蓝方修补命中同目标同漏洞，红方攻击被即时打断。"
+            red_result.metadata.update(
+                {
+                    "execution": "intercepted",
+                    "referee_effect": "blocked",
+                    "intercepted_by": blue.action_type,
+                    "score_awarded": 0,
+                }
+            )
+            base_value = int(blue_result.metadata.get("score_value", 0) or 0)
+            boosted = int(round(base_value * 1.5))
+            blue_result.metadata.update(
+                {
+                    "interaction_bonus": "perfect_intercept",
+                    "score_multiplier": 1.5,
+                    "score_multiplier_reason": "same_round_patch_intercept",
+                    "score_budget_override": max(ROUND_SCORE_BUDGET, boosted),
+                }
+            )
+            interaction_meta.update(
+                {
+                    "type": "perfect_intercept",
+                    "perfect_intercept": True,
+                    "target": blue.target,
+                    "vuln_id": blue.vuln_id,
+                    "intercept_by": blue.action_type,
+                }
+            )
+            return red_result, blue_result, interaction_meta, red_blocked
+
+        if self._is_same_round_hard_interrupt(red, red_result, blue, blue_result):
+            red_blocked = True
+            red_result.success = False
+            red_result.effect = "blocked"
+            red_result.message = f"同回合即时中断：蓝方 {blue.action_type} 打断红方攻击链。"
+            red_result.metadata.update(
+                {
+                    "execution": "intercepted",
+                    "referee_effect": "blocked",
+                    "intercepted_by": blue.action_type,
+                    "score_awarded": 0,
+                }
+            )
+            interaction_meta.update(
+                {
+                    "type": "hard_interrupt",
+                    "hard_interrupt": True,
+                    "target": red.target,
+                    "intercept_by": blue.action_type,
+                }
+            )
+            return red_result, blue_result, interaction_meta, red_blocked
+
+        if self._is_path_intercept_by_blue(state, red, red_result, blue, blue_result):
+            red_blocked = True
+            red_result.success = False
+            red_result.effect = "blocked"
+            red_result.message = "同回合路径拦截：蓝方处置命中关键中间跳板，红方攻击路径不可达。"
+            red_result.metadata.update(
+                {
+                    "execution": "intercepted",
+                    "referee_effect": "blocked",
+                    "intercepted_by": blue.action_type,
+                    "score_awarded": 0,
+                }
+            )
+            interaction_meta.update(
+                {
+                    "type": "path_intercept",
+                    "path_intercept": True,
+                    "target": red.target,
+                    "intercept_by": blue.action_type,
+                }
+            )
+            return red_result, blue_result, interaction_meta, red_blocked
+
+        if (
+            red.action_type in RED_ATTACK_ACTIONS
+            and blue.action_type in {"PatchNode", "PreventivePatch"}
+            and red.target
+            and blue.target
+            and red.target == blue.target
+            and red_result.success
+            and blue_result.success
+        ):
+            red_vuln_id = red.vuln_id or str(red_result.metadata.get("vuln_id", ""))
+            blue_vuln_id = blue.vuln_id or str(blue_result.metadata.get("vuln_id", ""))
+            if red_vuln_id and blue_vuln_id and red_vuln_id != blue_vuln_id:
+                interaction_meta.update(
+                    {
+                        "type": "bypass",
+                        "bypass_reason": "same_target_different_vulnerability",
+                        "target": red.target,
+                        "red_vuln_id": red_vuln_id,
+                        "blue_vuln_id": blue_vuln_id,
+                    }
+                )
+
+        if self._is_proactive_patch(state, red, blue, blue_result):
+            blue_result.metadata.update(
+                {
+                    "interaction_bonus": "proactive_patch",
+                    "score_multiplier": 0.5,
+                    "score_multiplier_reason": "recent_red_recon_on_target",
+                }
+            )
+            interaction_meta.update(
+                {
+                    "type": "proactive_patch",
+                    "proactive_patch": True,
+                    "target": blue.target,
+                    "vuln_id": blue.vuln_id,
+                }
+            )
+
+        return red_result, blue_result, interaction_meta, red_blocked
+
+    def _apply_action_effect(
+        self,
+        state: WorldState,
+        *,
+        decision: AgentDecision,
+        result: ActionResult,
+    ) -> None:
+        if not result.success:
+            return
+
+        action_type = decision.action_type
+        target = decision.target or str(result.metadata.get("target") or "")
+        if not target or target not in state.network_nodes:
+            return
+        node = state.network_nodes[target]
+
+        if action_type in {"ExploitService", "LateralMove", "ExfiltrateDatabase", "ReactivateFoothold"}:
+            node.status = "Compromised"
+            return
+
+        if action_type == "AnchorFoothold":
+            _append_unique(state.red_anchored_nodes, target)
+            return
+
+        if action_type in {"PatchNode", "PreventivePatch"}:
+            vuln_id = decision.vuln_id or str(result.metadata.get("vuln_id", ""))
+            if vuln_id:
+                node.vulnerabilities.pop(vuln_id, None)
+            return
+
+        if action_type == "RestoreNode":
+            removed = result.metadata.get("removed_vulnerability")
+            if isinstance(removed, dict):
+                removed_id = str(removed.get("vuln_id", ""))
+                if removed_id:
+                    node.vulnerabilities.pop(removed_id, None)
+            node.status = "Normal"
+            return
+
+        if action_type == "DeepRestore":
+            removed_vulnerabilities = result.metadata.get("removed_vulnerabilities", [])
+            if isinstance(removed_vulnerabilities, list):
+                for row in removed_vulnerabilities:
+                    if not isinstance(row, dict):
+                        continue
+                    vuln_id = str(row.get("vuln_id", ""))
+                    if vuln_id:
+                        node.vulnerabilities.pop(vuln_id, None)
+            if bool(result.metadata.get("removed_anchor", False)):
+                state.red_anchored_nodes = [node_name for node_name in state.red_anchored_nodes if node_name != target]
+            node.status = "Normal"
+            return
+
+        if action_type == "Isolate":
+            node.status = "Down"
+
+    def _post_validate_red_chain(
+        self,
+        state: WorldState,
+        *,
+        red: AgentDecision,
+        red_result: ActionResult,
+    ) -> bool:
+        if not red_result.success:
+            return True
+
+        if red.action_type == "ExfiltrateDatabase":
+            app = state.network_nodes.get("app")
+            return app is not None and app.status == "Compromised"
+
+        if red.action_type != "LateralMove":
+            return True
+
+        target = red.target
+        if not target or target not in state.network_nodes:
+            return True
+        adjacency = _build_adjacency_map(state)
+        compromised_neighbors = [
+            node_name
+            for node_name in adjacency.get(target, [])
+            if state.network_nodes.get(node_name) is not None
+            and state.network_nodes[node_name].status == "Compromised"
+        ]
+        if not compromised_neighbors:
+            return False
+        if target.lower() == "db":
+            return any(node_name in {"app", "storage"} for node_name in compromised_neighbors)
+        return True
+
+    def _is_same_round_hard_interrupt(
+        self,
+        red: AgentDecision,
+        red_result: ActionResult,
+        blue: AgentDecision,
+        blue_result: ActionResult,
+    ) -> bool:
+        if not (red_result.success and blue_result.success):
+            return False
+        if red.action_type not in RED_ATTACK_ACTIONS:
+            return False
+        if blue.action_type not in {"Isolate", "DeepRestore"}:
+            return False
+        if not red.target or not blue.target:
+            return False
+        return red.target == blue.target
+
+    def _is_path_intercept_by_blue(
+        self,
+        state: WorldState,
+        red: AgentDecision,
+        red_result: ActionResult,
+        blue: AgentDecision,
+        blue_result: ActionResult,
+    ) -> bool:
+        if not (red_result.success and blue_result.success):
+            return False
+        if red.action_type not in {"LateralMove", "ExfiltrateDatabase"}:
+            return False
+        if blue.action_type not in {"Isolate", "DeepRestore"}:
+            return False
+        target = red.target
+        if not target or target not in state.network_nodes:
+            return False
+        if not blue.target or blue.target not in state.network_nodes:
+            return False
+
+        pivot_source = str(red_result.metadata.get("pivot_source", "") or "")
+        if pivot_source and pivot_source == blue.target:
+            return True
+
+        adjacency = _build_adjacency_map(state)
+        compromised_neighbors = [
+            node_name
+            for node_name in adjacency.get(target, [])
+            if state.network_nodes.get(node_name) is not None
+            and state.network_nodes[node_name].status == "Compromised"
+        ]
+        if target.lower() == "db":
+            compromised_neighbors = [node_name for node_name in compromised_neighbors if node_name in {"app", "storage"}]
+        return blue.target in compromised_neighbors
 
     def _apply_same_turn_interaction(
         self,

@@ -422,6 +422,16 @@ def _is_database_target(node_name: str) -> bool:
     return any(keyword in lowered for keyword in DATABASE_KEYWORDS)
 
 
+def _build_network_adjacency(state: WorldState) -> dict[str, set[str]]:
+    adjacency: dict[str, set[str]] = {node_name: set() for node_name in state.network_nodes}
+    for edge in state.edges:
+        if edge.source not in state.network_nodes or edge.target not in state.network_nodes:
+            continue
+        adjacency[edge.source].add(edge.target)
+        adjacency[edge.target].add(edge.source)
+    return adjacency
+
+
 ACTION_REGISTRY = ActionRegistry()
 
 
@@ -674,10 +684,10 @@ class LateralMoveAction(BaseAction):
         ),
     )
 
-    prerequisites: Dict[str, tuple[str, ...]] = {
-        "app": ("web",),
-        "db": ("app", "web"),
-        "fw": ("web",),
+    preferred_pivots: Dict[str, tuple[str, ...]] = {
+        "app": ("web", "fw"),
+        "db": ("app", "storage", "web"),
+        "storage": ("app", "web"),
     }
 
     def validate(self, context: ActionContext) -> ActionResult | None:
@@ -713,19 +723,32 @@ class LateralMoveAction(BaseAction):
                 zh=f"{target} 已经失陷，重复横移没有意义",
             )
 
-        required_nodes = self.prerequisites.get(target, ())
-        foothold_available = (
-            context.any_compromised(*required_nodes)
-            if required_nodes
-            else context.any_compromised_except(target)
-        )
-        if not foothold_available:
+        adjacency = _build_network_adjacency(context.state)
+        compromised_nodes = {
+            node_name
+            for node_name, row in context.state.network_nodes.items()
+            if row.status == "Compromised" and node_name != target
+        }
+        candidate_pivots = [node_name for node_name in adjacency.get(target, set()) if node_name in compromised_nodes]
+        if not candidate_pivots:
             return context.result(
                 success=False,
                 effect="failed",
-                en=f"No compromised foothold is available to pivot into {target}",
-                zh=f"当前没有可用于横移进入 {target} 的失陷据点",
+                en=f"No continuous compromised pivot chain reaches {target}",
+                zh=f"当前不存在可达 {target} 的连续失陷跳板链路",
             )
+
+        if target.lower() == "db" and not any(node_name in {"app", "storage"} for node_name in candidate_pivots):
+            return context.result(
+                success=False,
+                effect="failed",
+                en="Pivoting into db requires compromised intermediate foothold on app/storage path",
+                zh="横移进入 db 需要 app/storage 路径上的有效失陷中间跳板",
+            )
+
+        selected_pivot = self._select_pivot_source(target=target, candidates=candidate_pivots)
+        if selected_pivot and "pivot_source=" not in (context.decision.payload or ""):
+            context.decision.payload = f"{context.decision.payload} | pivot_source={selected_pivot}".strip()
 
         vuln_id, vulnerability, vuln_error = self._resolve_vulnerability(
             context,
@@ -756,7 +779,22 @@ class LateralMoveAction(BaseAction):
                 en="Execution failed: validated vuln_id is missing",
                 zh="执行失败：已校验漏洞在执行时不存在",
             )
-        required_nodes = self.prerequisites.get(target, ())
+        adjacency = _build_network_adjacency(context.state)
+        compromised_nodes = {
+            node_name
+            for node_name, row in context.state.network_nodes.items()
+            if row.status == "Compromised" and node_name != target
+        }
+        candidate_pivots = [node_name for node_name in adjacency.get(target, set()) if node_name in compromised_nodes]
+        if not candidate_pivots:
+            return context.result(
+                success=False,
+                effect="failed",
+                en=f"No compromised pivot is available to reach {target} at execution time",
+                zh=f"执行阶段不存在可用于到达 {target} 的失陷跳板",
+            )
+
+        pivot_source = self._select_pivot_source(target=target, candidates=candidate_pivots)
         previous_status = node.status
         node.status = "Compromised"
 
@@ -769,9 +807,19 @@ class LateralMoveAction(BaseAction):
                 "used_vulnerability": vulnerability_to_dict(vulnerability),
                 "score_value": vulnerability.score,
                 "previous_status": previous_status,
-                "pivot_path": list(required_nodes) or ["any_compromised_node"],
+                "pivot_source": pivot_source,
+                "pivot_candidates": sorted(candidate_pivots),
             },
         )
+
+    def _select_pivot_source(self, *, target: str, candidates: list[str]) -> str:
+        if not candidates:
+            return ""
+        preferred = self.preferred_pivots.get(target, ())
+        for node_name in preferred:
+            if node_name in candidates:
+                return node_name
+        return sorted(candidates)[0]
 
 
 @_register
