@@ -1,5 +1,3 @@
-import { NODE_CONFIGS } from "./constants";
-
 export const DEFAULT_ROUNDS = [
   {
     round: 1,
@@ -143,22 +141,120 @@ export const DEFAULT_ROUNDS = [
   },
 ];
 
-function normalizeNodes(nodes = [], networkNodes = {}) {
-  // Prefer backend network_nodes object if provided
-  const source = Object.keys(networkNodes).length
-    ? Object.entries(networkNodes).map(([id, data]) => ({ id, ...data }))
-    : nodes;
+const LEGACY_FALLBACK_EDGES = [
+  ["internet", "fw"],
+  ["fw", "web"],
+  ["web", "app"],
+  ["app", "storage"],
+  ["storage", "db"],
+  ["app", "db"],
+];
 
-  return Object.keys(NODE_CONFIGS).map((id) => {
-    const next = source.find((node) => node.id === id) ?? {};
-    return {
-      id,
+function normalizeNodes(nodes = [], networkNodes = {}) {
+  const normalized = new Map();
+
+  if (Array.isArray(nodes)) {
+    nodes.forEach((row) => {
+      if (!row || typeof row !== "object") {
+        return;
+      }
+      const id = String(row.id ?? row.node_id ?? row.name ?? "").trim();
+      if (!id) {
+        return;
+      }
+      normalized.set(id, { id, ...row });
+    });
+  }
+
+  if (networkNodes && typeof networkNodes === "object" && !Array.isArray(networkNodes)) {
+    Object.entries(networkNodes).forEach(([id, payload]) => {
+      const current = normalized.get(id) ?? { id };
+      normalized.set(id, { ...current, ...(payload || {}), id });
+    });
+  }
+
+  return Array.from(normalized.values())
+    .sort((a, b) => String(a.id).localeCompare(String(b.id)))
+    .map((next) => ({
+      id: String(next.id),
       status: next.status ?? "Normal",
       attack_count: next.attack_count ?? next.attackCount ?? 0,
       defense_count: next.defense_count ?? next.defenseCount ?? 0,
       ...next,
+    }));
+}
+
+function buildNetworkNodeMap(nodes = [], networkNodes = {}) {
+  if (networkNodes && Object.keys(networkNodes).length) {
+    return networkNodes;
+  }
+  const mapped = {};
+  nodes.forEach((node) => {
+    if (!node?.id) {
+      return;
+    }
+    mapped[node.id] = {
+      status: node.status ?? "Normal",
+      exposed_ports: node.exposed_ports ?? [],
+      vulnerabilities: node.vulnerabilities ?? {},
     };
   });
+  return mapped;
+}
+
+function normalizeEdges(edges = [], nodeIds = []) {
+  const nodeSet = new Set(nodeIds);
+  const normalized = [];
+  const seen = new Set();
+
+  const addEdge = (source, target) => {
+    const src = String(source || "").trim();
+    const dst = String(target || "").trim();
+    if (!src || !dst || src === dst) {
+      return;
+    }
+    if (nodeSet.size && (!nodeSet.has(src) || !nodeSet.has(dst))) {
+      return;
+    }
+    const key = src < dst ? `${src}|${dst}` : `${dst}|${src}`;
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    normalized.push({ source: src, target: dst });
+  };
+
+  if (Array.isArray(edges)) {
+    edges.forEach((edge) => {
+      if (!edge) {
+        return;
+      }
+      if (Array.isArray(edge) && edge.length >= 2) {
+        addEdge(edge[0], edge[1]);
+        return;
+      }
+      if (typeof edge === "object") {
+        addEdge(edge.source, edge.target);
+      }
+    });
+  }
+
+  if (!normalized.length) {
+    LEGACY_FALLBACK_EDGES.forEach(([source, target]) => addEdge(source, target));
+  }
+
+  if (!normalized.length && nodeIds.length > 1) {
+    nodeIds
+      .slice()
+      .sort((a, b) => String(a).localeCompare(String(b)))
+      .forEach((id, index, list) => {
+        if (index < list.length - 1) {
+          addEdge(id, list[index + 1]);
+        }
+      });
+  }
+
+  return normalized;
 }
 
 function inferRedPhase(redAction, actionLogs) {
@@ -168,8 +264,8 @@ function inferRedPhase(redAction, actionLogs) {
 
   if (actionType === "Recon" || techniqueId === "T1046") return "Recon";
   if (actionType === "ExploitService" || techniqueId.startsWith("T1")) return "Exploit";
-  if (actionType === "LateralMovement" || techniqueId === "T1021" || techniqueId === "T1003") return "LateralMove";
-  if (actionType === "DataExfiltration" || techniqueId === "T1041") return "Exfiltrate";
+  if (actionType === "LateralMovement" || actionType === "LateralMove" || techniqueId === "T1021" || techniqueId === "T1003") return "LateralMove";
+  if (actionType === "DataExfiltration" || actionType === "ExfiltrateDatabase" || techniqueId === "T1041") return "Exfiltrate";
   return "Recon";
 }
 
@@ -189,6 +285,7 @@ function extractActionsFromLogs(actionLogs) {
         reasoning: redLog.thought,
         action_type: redLog.action_type,
         payload: redLog.payload,
+        pivot_source: redMeta.pivot_source,
       }
     : {};
 
@@ -220,6 +317,7 @@ function normalizeRound(round, fallbackIndex, totalRounds) {
   const worldStateInput = round?.world_state ?? round?.worldState ?? {};
   const roundNumber = round?.round ?? round?.turn ?? worldStateInput.round ?? fallbackIndex + 1;
   const actionLogs = round?.action_logs ?? round?.actionLogs ?? [];
+  const rawNetworkNodes = round?.network_nodes ?? worldStateInput.network_nodes ?? worldStateInput.networkNodes ?? {};
 
   const hasLegacyActions = !!(round?.red_action || round?.redAction);
   const extracted = hasLegacyActions
@@ -249,6 +347,16 @@ function normalizeRound(round, fallbackIndex, totalRounds) {
         logs: extracted.judgeResult.logs.length ? extracted.judgeResult.logs : baseJudge.logs,
       };
 
+  const normalizedNodes = normalizeNodes(
+    worldStateInput.nodes ?? worldStateInput.networkNodes ?? round?.nodes,
+    rawNetworkNodes,
+  );
+  const normalizedNetworkNodes = buildNetworkNodeMap(normalizedNodes, rawNetworkNodes);
+  const normalizedEdges = normalizeEdges(
+    round?.edges ?? worldStateInput.edges ?? [],
+    normalizedNodes.map((node) => node.id),
+  );
+
   return {
     ...base,
     ...round,
@@ -261,7 +369,9 @@ function normalizeRound(round, fallbackIndex, totalRounds) {
       ...base.world_state,
       ...worldStateInput,
       round: roundNumber,
-      nodes: normalizeNodes(worldStateInput.nodes ?? worldStateInput.networkNodes ?? round?.nodes, round?.network_nodes),
+      nodes: normalizedNodes,
+      network_nodes: normalizedNetworkNodes,
+      edges: normalizedEdges,
       score: { red: scoreRed, blue: scoreBlue },
       red_phase: redPhase,
       availability: worldStateInput.availability ?? base.world_state.availability,
@@ -270,6 +380,8 @@ function normalizeRound(round, fallbackIndex, totalRounds) {
       system_health: worldStateInput.system_health ?? round?.system_health ?? base.world_state.system_health,
       exposure_level: worldStateInput.exposure_level ?? round?.exposure_level ?? base.world_state.exposure_level,
     },
+    network_nodes: normalizedNetworkNodes,
+    edges: normalizedEdges,
     action_logs: actionLogs,
     security_alerts: round?.security_alerts ?? round?.securityAlerts ?? base.security_alerts ?? [],
     red_visible_nodes: round?.red_visible_nodes ?? round?.redVisibleNodes ?? base.red_visible_nodes ?? [],

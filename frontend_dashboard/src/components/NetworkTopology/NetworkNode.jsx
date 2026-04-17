@@ -1,9 +1,9 @@
-import { ICONS, STATUS_STYLES, T } from "./constants";
+import { STATUS_STYLES, T, resolveNodeIcon } from "./constants";
 
 function NetworkNode({ cfg, status, atkCnt = 0, defCnt = 0, isTarget, isDefended, hovered, onHover, onClick }) {
   const normalizedStatus = typeof status === "string" ? status.toLowerCase() : "normal";
   const st = STATUS_STYLES[normalizedStatus] || STATUS_STYLES.normal;
-  const Icon = ICONS[cfg.id];
+  const Icon = resolveNodeIcon(cfg.id, cfg.zone);
   const pulseAnim = normalizedStatus === "scanning" ? "cyberPulseAmber" : normalizedStatus === "compromised" ? "cyberPulseRed" : normalizedStatus === "defended" || normalizedStatus === "patched" ? "cyberPulseGreen" : "none";
 
   return (

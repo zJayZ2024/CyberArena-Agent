@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from collections import deque
 from dataclasses import dataclass
 from typing import Any, Iterable, Literal
 
@@ -28,10 +29,30 @@ ASSET_STRATEGIC_VALUE = {
     "db": 100,
     "storage": 75,
     "app": 68,
+    "dev": 60,
+    "office_pc": 52,
+    "vpn": 48,
     "web": 45,
     "fw": 38,
     "internet": 20,
 }
+
+PERIMETER_KEYWORDS = (
+    "web",
+    "fw",
+    "firewall",
+    "gateway",
+    "proxy",
+    "edge",
+    "vpn",
+    "mail",
+    "dmz",
+)
+DATABASE_KEYWORDS = ("db", "database", "mysql", "postgres", "sql")
+STORAGE_KEYWORDS = ("storage", "nas", "file", "backup")
+APPLICATION_KEYWORDS = ("app", "api", "service", "portal")
+WORKSTATION_KEYWORDS = ("office", "pc", "workstation", "client", "endpoint")
+DEVOPS_KEYWORDS = ("dev", "ci", "jenkins", "build", "git")
 
 
 def _core_assets(state: WorldState) -> tuple[str, ...]:
@@ -49,6 +70,68 @@ def _build_adjacency_map(state: WorldState) -> dict[str, list[str]]:
         if edge.source not in adjacency[edge.target]:
             adjacency[edge.target].append(edge.source)
     return adjacency
+
+
+def _is_perimeter_node(node_name: str) -> bool:
+    lowered = node_name.lower()
+    return lowered == "internet" or any(keyword in lowered for keyword in PERIMETER_KEYWORDS)
+
+
+def _default_red_visible_nodes(state: WorldState) -> set[str]:
+    visible = {node_name for node_name in state.network_nodes if _is_perimeter_node(node_name)}
+    if visible:
+        return visible
+    # Keep one stable seed if topology naming is unusual.
+    return {"internet"} & set(state.network_nodes)
+
+
+def _asset_strategic_value(target: str | None) -> int:
+    if not target:
+        return 20
+    lowered = target.lower()
+    if lowered in ASSET_STRATEGIC_VALUE:
+        return ASSET_STRATEGIC_VALUE[lowered]
+    if any(keyword in lowered for keyword in DATABASE_KEYWORDS):
+        return 95
+    if any(keyword in lowered for keyword in STORAGE_KEYWORDS):
+        return 74
+    if any(keyword in lowered for keyword in APPLICATION_KEYWORDS):
+        return 66
+    if any(keyword in lowered for keyword in DEVOPS_KEYWORDS):
+        return 60
+    if any(keyword in lowered for keyword in WORKSTATION_KEYWORDS):
+        return 52
+    if "vpn" in lowered:
+        return 48
+    if _is_perimeter_node(lowered):
+        return 44
+    return 36
+
+
+def _shortest_hops_to_core(
+    *,
+    adjacency: dict[str, list[str]],
+    starts: Iterable[str],
+    cores: set[str],
+) -> int | None:
+    queue: deque[tuple[str, int]] = deque()
+    visited: set[str] = set()
+    for node_name in starts:
+        if node_name in cores:
+            return 0
+        if node_name in adjacency and node_name not in visited:
+            visited.add(node_name)
+            queue.append((node_name, 0))
+    while queue:
+        node_name, depth = queue.popleft()
+        for neighbor in adjacency.get(node_name, []):
+            if neighbor in visited:
+                continue
+            if neighbor in cores:
+                return depth + 1
+            visited.add(neighbor)
+            queue.append((neighbor, depth + 1))
+    return None
 
 
 @dataclass(slots=True)
@@ -113,7 +196,7 @@ class IntelPackage:
 def build_red_intel_package(state: WorldState) -> IntelPackage:
     visible = set(state.red_visible_nodes)
     if not visible:
-        visible.update({"internet", "fw", "web"} & set(state.network_nodes))
+        visible.update(_default_red_visible_nodes(state))
     visible.update(node_name for node_name, node in state.network_nodes.items() if node.status == "Compromised")
 
     known_services: dict[str, tuple[int, ...]] = {}
@@ -337,7 +420,7 @@ class ActionSpaceBuilder:
 
         visible = set(state.red_visible_nodes)
         if not visible:
-            visible.update({"internet", "fw", "web"} & set(state.network_nodes))
+            visible.update(_default_red_visible_nodes(state))
         visible.update(node_name for node_name, node in state.network_nodes.items() if node.status == "Compromised")
         return sorted(visible)
 
@@ -541,7 +624,7 @@ class ActionSpaceBuilder:
             if vulnerability is not None:
                 vuln_score = int(vulnerability.score)
         vuln_value = max(0, min(30, vuln_score))
-        asset_value = ASSET_STRATEGIC_VALUE.get((target or "").lower(), 20)
+        asset_value = _asset_strategic_value(target)
 
         pressure_target = str(opponent_model.get("pressure_target", "") or "")
         pressure_bonus = 8 if pressure_target and target == pressure_target else 0
@@ -1185,12 +1268,22 @@ def build_battle_state(
     down_nodes = sorted(node_name for node_name, node in state.network_nodes.items() if node.status == "Down")
     core_assets = list(_core_assets(state))
     core_compromised = [node_name for node_name in compromised_nodes if node_name in core_assets]
+    adjacency = _build_adjacency_map(state)
+    compromised_perimeter = [node_name for node_name in compromised_nodes if _is_perimeter_node(node_name)]
+    compromised_internal = [node_name for node_name in compromised_nodes if node_name not in compromised_perimeter]
+    shortest_hops_to_core = _shortest_hops_to_core(
+        adjacency=adjacency,
+        starts=compromised_nodes,
+        cores=set(core_assets),
+    )
 
     if agent_type == "Red":
         killchain_phase = "recon"
-        if any(node_name in compromised_nodes for node_name in ("web", "fw")):
+        if compromised_perimeter:
             killchain_phase = "foothold"
-        if any(node_name in compromised_nodes for node_name in ("app", "storage")):
+        if compromised_internal:
+            killchain_phase = "lateral"
+        if shortest_hops_to_core is not None and shortest_hops_to_core <= 1 and not core_compromised:
             killchain_phase = "lateral"
         if any(node_name in compromised_nodes for node_name in core_assets):
             killchain_phase = "objective"
@@ -1227,9 +1320,12 @@ def build_battle_state(
         "red_score": state.red_score,
         "blue_score": state.blue_score,
         "compromised_nodes": compromised_nodes,
+        "compromised_perimeter_nodes": compromised_perimeter,
+        "compromised_internal_nodes": compromised_internal,
         "down_nodes": down_nodes,
         "core_assets": core_assets,
         "core_assets_compromised": core_compromised,
+        "shortest_hops_to_core": shortest_hops_to_core,
         "red_anchored_nodes": list(state.red_anchored_nodes),
         "winner_locked": bool(state.winner_locked),
         "winner_side": state.winner_side,

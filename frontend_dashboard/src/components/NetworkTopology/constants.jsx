@@ -35,30 +35,35 @@ export const PAGE_STYLES = `
   .info-chip { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 5px 12px; border-radius: 20px; background: #111827; border: 0.5px solid #1f2937; color: #6b7280; }
 `;
 
-export const ZONE_CONFIGS = {
-  internet: { label: "INTERNET", x: 120, y: 30, w: 180, h: 380, color: T.gray, bg: "rgba(55,65,81,0.06)" },
-  dmz: { label: "DMZ", x: 310, y: 30, w: 130, h: 380, color: T.blue, bg: "rgba(59,130,246,0.05)" },
-  internal: { label: "INTERNAL", x: 450, y: 30, w: 170, h: 380, color: T.green, bg: "rgba(34,197,94,0.05)" },
-  database: { label: "DATABASE", x: 630, y: 30, w: 140, h: 380, color: T.amber, bg: "rgba(245,158,11,0.05)" },
+export const GRAPH_VIEW = {
+  width: 980,
+  height: 460,
+  zoneX: 120,
+  zoneY: 30,
+  zoneW: 740,
+  zoneH: 390,
+  zoneGap: 14,
+  redBaseX: 60,
+  blueBaseX: 920,
+  baseY: 230,
 };
 
-export const NODE_CONFIGS = {
-  internet: { id: "internet", label: "INET", sublabel: ":80/443", zone: "internet", x: 150, y: 220, ports: [80, 443], vulns: [], description: "Public internet entry point" },
-  fw: { id: "fw", label: "FW", sublabel: "gateway", zone: "internet", x: 270, y: 220, ports: [443], vulns: [], description: "Perimeter firewall gateway" },
-  web: { id: "web", label: "WEB", sublabel: ":80/443", zone: "dmz", x: 390, y: 220, ports: [80, 443], vulns: ["Log4Shell", "PathTraversal", "CitrixBleed"], description: "Nginx web server in DMZ" },
-  app: { id: "app", label: "APP", sublabel: ":8080", zone: "internal", x: 540, y: 140, ports: [8080, 8443], vulns: ["Spring4Shell", "Struts2", "MOVEit"], description: "Tomcat application server" },
-  storage: { id: "storage", label: "STOR", sublabel: ":139/445", zone: "internal", x: 540, y: 300, ports: [139, 445], vulns: ["EternalBlue", "ZeroLogon", "Samba"], description: "SMB file storage server" },
-  db: { id: "db", label: "DB", sublabel: ":3306", zone: "database", x: 690, y: 220, ports: [3306, 5432], vulns: ["MySQL Config Injection", "MySQL Auth Bypass"], description: "MySQL 8.0 final target" },
-};
+const PERIMETER_KEYWORDS = ["web", "fw", "firewall", "gateway", "proxy", "edge", "vpn", "mail", "dmz"];
+const DATABASE_KEYWORDS = ["db", "database", "mysql", "postgres", "sql"];
 
-export const STATIC_EDGES = [
-  ["internet", "fw"],
-  ["fw", "web"],
-  ["web", "app"],
-  ["app", "storage"],
-  ["storage", "db"],
-  ["app", "db"],
-];
+const ZONE_ORDER = ["internet", "dmz", "internal", "database"];
+const ZONE_LABELS = {
+  internet: "INTERNET",
+  dmz: "PERIMETER",
+  internal: "INTERNAL",
+  database: "DATABASE",
+};
+const ZONE_STYLES = {
+  internet: { color: T.gray, bg: "rgba(55,65,81,0.06)" },
+  dmz: { color: T.blue, bg: "rgba(59,130,246,0.05)" },
+  internal: { color: T.green, bg: "rgba(34,197,94,0.05)" },
+  database: { color: T.amber, bg: "rgba(245,158,11,0.05)" },
+};
 
 export const STATUS_STYLES = {
   Normal: { border: T.blue, bg: T.bgNode, glow: "none", dot: T.green, label: "ONLINE" },
@@ -73,15 +78,7 @@ export const STATUS_STYLES = {
   defended: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(34,197,94,.55)", dot: T.green, label: "HARDENED" },
   isolated: { border: T.gray, bg: "#0a0a0a", glow: "none", dot: T.grayDim, label: "ISOLATED" },
   patched: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(34,197,94,.55)", dot: T.green, label: "PATCHED" },
-};
-
-export const MULTI_HOP = {
-  db: ["internet", "fw", "web", "app", "db"],
-  storage: ["internet", "fw", "web", "app", "storage"],
-  app: ["internet", "fw", "web", "app"],
-  web: ["internet", "fw", "web"],
-  fw: ["internet", "fw"],
-  internet: ["internet"],
+  down: { border: T.gray, bg: "#0a0a0a", glow: "none", dot: T.grayDim, label: "DOWN" },
 };
 
 const IconShield = ({ size = 16, color = "#fff" }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>;
@@ -94,4 +91,139 @@ const IconWifi = ({ size = 16, color = "#fff" }) => <svg width={size} height={si
 export const IconTerminal = ({ size = 16, color = "#fff" }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>;
 export const IconAlert = ({ size = 12, color = "#fff" }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>;
 
-export const ICONS = { internet: IconGlobe, fw: IconShield, web: IconGlobe, app: IconServer, storage: IconServer, db: IconDB };
+export const ICONS = {
+  internet: IconGlobe,
+  fw: IconShield,
+  firewall: IconShield,
+  web: IconGlobe,
+  app: IconServer,
+  storage: IconServer,
+  db: IconDB,
+  vpn: IconWifi,
+  office_pc: IconMonitor,
+  dev: IconServer,
+};
+
+export function classifyZone(nodeId = "") {
+  const lowered = String(nodeId || "").toLowerCase();
+  if (lowered === "internet") {
+    return "internet";
+  }
+  if (DATABASE_KEYWORDS.some((keyword) => lowered.includes(keyword))) {
+    return "database";
+  }
+  if (PERIMETER_KEYWORDS.some((keyword) => lowered.includes(keyword))) {
+    return "dmz";
+  }
+  return "internal";
+}
+
+function abbreviateNodeId(nodeId = "") {
+  const cleaned = String(nodeId || "").trim();
+  if (!cleaned) {
+    return "NODE";
+  }
+  const parts = cleaned.split(/[^a-zA-Z0-9]+/).filter(Boolean);
+  if (parts.length > 1) {
+    return parts.map((part) => part[0]).join("").slice(0, 4).toUpperCase();
+  }
+  if (cleaned.length <= 4) {
+    return cleaned.toUpperCase();
+  }
+  return cleaned.slice(0, 4).toUpperCase();
+}
+
+export function buildZoneConfigs(nodes = []) {
+  const zonePresence = new Set();
+  nodes.forEach((node) => {
+    const zone = node?.zone || classifyZone(node?.id || "");
+    zonePresence.add(zone);
+  });
+  const activeZones = ZONE_ORDER.filter((zone) => zonePresence.has(zone));
+  if (!activeZones.length) {
+    activeZones.push("internal");
+  }
+
+  const slotCount = activeZones.length;
+  const availableWidth = GRAPH_VIEW.zoneW - GRAPH_VIEW.zoneGap * Math.max(0, slotCount - 1);
+  const slotWidth = Math.max(120, Math.floor(availableWidth / slotCount));
+
+  return activeZones.map((zone, index) => {
+    const style = ZONE_STYLES[zone] || ZONE_STYLES.internal;
+    return {
+      id: zone,
+      label: ZONE_LABELS[zone] || zone.toUpperCase(),
+      x: GRAPH_VIEW.zoneX + index * (slotWidth + GRAPH_VIEW.zoneGap),
+      y: GRAPH_VIEW.zoneY,
+      w: slotWidth,
+      h: GRAPH_VIEW.zoneH,
+      color: style.color,
+      bg: style.bg,
+    };
+  });
+}
+
+export function buildNodeConfigs(nodes = [], networkNodes = {}, zoneConfigs = []) {
+  const zoneMap = Object.fromEntries(zoneConfigs.map((zone) => [zone.id, zone]));
+  const byZone = new Map();
+
+  nodes
+    .slice()
+    .sort((a, b) => String(a.id || "").localeCompare(String(b.id || "")))
+    .forEach((node) => {
+      const nodeId = String(node?.id || "");
+      if (!nodeId) {
+        return;
+      }
+      const zone = node.zone || classifyZone(nodeId);
+      if (!byZone.has(zone)) {
+        byZone.set(zone, []);
+      }
+      byZone.get(zone).push(node);
+    });
+
+  const configs = {};
+  zoneConfigs.forEach((zone) => {
+    const group = byZone.get(zone.id) || [];
+    const verticalGap = zone.h / (group.length + 1);
+    group.forEach((node, index) => {
+      const nodeId = String(node.id);
+      const rawPorts = networkNodes?.[nodeId]?.exposed_ports ?? node.exposed_ports ?? [];
+      const ports = Array.isArray(rawPorts) ? rawPorts.map((port) => Number(port)).filter((port) => Number.isFinite(port)) : [];
+      const vulns = Object.keys(networkNodes?.[nodeId]?.vulnerabilities ?? node.vulnerabilities ?? {});
+      const xOffset = group.length > 1 && index % 2 === 1 ? -12 : group.length > 1 ? 12 : 0;
+      configs[nodeId] = {
+        id: nodeId,
+        label: abbreviateNodeId(nodeId),
+        sublabel: ports.length ? `:${ports[0]}` : "node",
+        zone: zone.id,
+        x: Math.round(zone.x + zone.w / 2 + xOffset),
+        y: Math.round(zone.y + verticalGap * (index + 1)),
+        ports,
+        vulns,
+      };
+    });
+  });
+
+  return configs;
+}
+
+export function resolveNodeIcon(nodeId = "", zone = "internal") {
+  const lowered = String(nodeId || "").toLowerCase();
+  if (ICONS[lowered]) {
+    return ICONS[lowered];
+  }
+  if (DATABASE_KEYWORDS.some((keyword) => lowered.includes(keyword)) || zone === "database") {
+    return IconDB;
+  }
+  if (lowered === "internet" || zone === "internet") {
+    return IconGlobe;
+  }
+  if (PERIMETER_KEYWORDS.some((keyword) => lowered.includes(keyword)) || zone === "dmz") {
+    return lowered.includes("vpn") ? IconWifi : IconShield;
+  }
+  if (["office", "pc", "workstation", "client", "endpoint"].some((keyword) => lowered.includes(keyword))) {
+    return IconMonitor;
+  }
+  return IconServer;
+}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, Literal
 
@@ -686,8 +687,11 @@ class LateralMoveAction(BaseAction):
 
     preferred_pivots: Dict[str, tuple[str, ...]] = {
         "app": ("web", "fw"),
-        "db": ("app", "storage", "web"),
-        "storage": ("app", "web"),
+        "db": ("app", "storage", "dev", "office_pc", "web"),
+        "storage": ("app", "dev", "web"),
+        "dev": ("office_pc", "vpn", "app"),
+        "office_pc": ("vpn",),
+        "vpn": ("fw", "web"),
     }
 
     def validate(self, context: ActionContext) -> ActionResult | None:
@@ -746,7 +750,12 @@ class LateralMoveAction(BaseAction):
                 zh="横移进入 db 需要 app/storage 路径上的有效失陷中间跳板",
             )
 
-        selected_pivot = self._select_pivot_source(target=target, candidates=candidate_pivots)
+        selected_pivot = self._select_pivot_source(
+            target=target,
+            candidates=candidate_pivots,
+            state=context.state,
+            adjacency=adjacency,
+        )
         if selected_pivot and "pivot_source=" not in (context.decision.payload or ""):
             context.decision.payload = f"{context.decision.payload} | pivot_source={selected_pivot}".strip()
 
@@ -794,7 +803,12 @@ class LateralMoveAction(BaseAction):
                 zh=f"执行阶段不存在可用于到达 {target} 的失陷跳板",
             )
 
-        pivot_source = self._select_pivot_source(target=target, candidates=candidate_pivots)
+        pivot_source = self._select_pivot_source(
+            target=target,
+            candidates=candidate_pivots,
+            state=context.state,
+            adjacency=adjacency,
+        )
         previous_status = node.status
         node.status = "Compromised"
 
@@ -812,14 +826,53 @@ class LateralMoveAction(BaseAction):
             },
         )
 
-    def _select_pivot_source(self, *, target: str, candidates: list[str]) -> str:
+    def _select_pivot_source(
+        self,
+        *,
+        target: str,
+        candidates: list[str],
+        state: WorldState,
+        adjacency: dict[str, set[str]],
+    ) -> str:
         if not candidates:
             return ""
         preferred = self.preferred_pivots.get(target, ())
-        for node_name in preferred:
-            if node_name in candidates:
-                return node_name
-        return sorted(candidates)[0]
+        preference_rank = {node_name: idx for idx, node_name in enumerate(preferred)}
+        core_assets = {node_name for node_name in state.core_assets if node_name in state.network_nodes} or {"db"}
+
+        def rank(node_name: str) -> tuple[int, int, str]:
+            preferred_order = preference_rank.get(node_name, len(preference_rank) + 8)
+            hops_to_core = self._distance_to_core(
+                start=node_name,
+                adjacency=adjacency,
+                core_assets=core_assets,
+            )
+            hop_score = hops_to_core if hops_to_core is not None else 999
+            return preferred_order, hop_score, node_name
+
+        return sorted(candidates, key=rank)[0]
+
+    def _distance_to_core(
+        self,
+        *,
+        start: str,
+        adjacency: dict[str, set[str]],
+        core_assets: set[str],
+    ) -> int | None:
+        if start in core_assets:
+            return 0
+        queue: deque[tuple[str, int]] = deque([(start, 0)])
+        visited: set[str] = {start}
+        while queue:
+            node_name, depth = queue.popleft()
+            for neighbor in adjacency.get(node_name, set()):
+                if neighbor in visited:
+                    continue
+                if neighbor in core_assets:
+                    return depth + 1
+                visited.add(neighbor)
+                queue.append((neighbor, depth + 1))
+        return None
 
 
 @_register
