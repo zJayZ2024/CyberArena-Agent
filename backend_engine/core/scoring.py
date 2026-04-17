@@ -63,7 +63,11 @@ def _compute_base_score(decision: AgentDecision, result: ActionResult) -> tuple[
 
     score_value = _coerce_non_negative_int(result.metadata.get("score_value", 0))
     if score_value > 0:
-        return score_value, "action_metadata.score_value"
+        operational_cost = _coerce_non_negative_int(result.metadata.get("operational_cost", 0))
+        net_score = max(0, score_value - operational_cost)
+        if operational_cost > 0:
+            return net_score, "action_metadata.score_value_minus_operational_cost"
+        return net_score, "action_metadata.score_value"
 
     if action_type in DEFENSE_POLICY_CONSTANTS:
         constant_score = _coerce_non_negative_int(DEFENSE_POLICY_CONSTANTS[action_type])

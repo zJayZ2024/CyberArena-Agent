@@ -13,10 +13,13 @@ from backend_engine.engine.actions import ACTION_REGISTRY, ActionContext
 
 AgentType = Literal["Red", "Blue"]
 
-RED_PASSIVE_ACTIONS = {"Recon"}
+RED_PASSIVE_ACTIONS = {"Recon", "AnchorFoothold"}
 BLUE_PASSIVE_ACTIONS = {"Monitor"}
 RED_OBJECTIVE_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase", "AnchorFoothold", "ReactivateFoothold"}
 BLUE_RESPONSE_ACTIONS = {"PatchNode", "RestoreNode", "DeepRestore", "Isolate"}
+RED_VULN_VARIANT_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase"}
+MAX_RED_VULN_VARIANTS_PER_ACTION_TARGET = 2
+MAX_RED_EXPLOIT_VARIANTS_PER_TARGET = 3
 CORE_DEFAULT = ("db",)
 PREVENTIVE_PATCH_INTERVAL = 2
 TIER0_PROACTIVE_LOCK_ROUNDS = 2
@@ -315,6 +318,8 @@ class ActionSpaceBuilder:
                     candidates.append(candidate)
 
         candidates.sort(key=lambda row: (row.heuristic_score, row.expected_impact), reverse=True)
+        if agent_type == "Red":
+            candidates = self._rebalance_red_candidates(candidates)
         return candidates[: self.max_candidates]
 
     def _target_pool(
@@ -354,7 +359,14 @@ class ActionSpaceBuilder:
             known_vulns = intel_package.known_vulnerabilities.get(target, ())
             if not known_vulns:
                 return [None]
-            return [None, *list(known_vulns[:5])]
+            ranked_vulns = self._rank_known_vulnerabilities(
+                state,
+                target=target,
+                known_vulns=known_vulns,
+            )
+            if action_type in RED_VULN_VARIANT_ACTIONS:
+                return [None, *ranked_vulns[:MAX_RED_VULN_VARIANTS_PER_ACTION_TARGET]]
+            return [None, *ranked_vulns[:2]]
 
         if action_type not in {"PatchNode", "Isolate"}:
             return [None]
@@ -380,6 +392,47 @@ class ActionSpaceBuilder:
         if not ranked:
             return [None]
         return [None, *ranked[:3]]
+
+    def _rank_known_vulnerabilities(
+        self,
+        state: WorldState,
+        *,
+        target: str,
+        known_vulns: Iterable[str],
+    ) -> list[str]:
+        node = state.network_nodes.get(target)
+        unique = sorted(set(str(vuln_id) for vuln_id in known_vulns if vuln_id))
+        if node is None:
+            return unique
+        return sorted(
+            unique,
+            key=lambda vuln_id: (
+                int(node.vulnerabilities[vuln_id].score) if vuln_id in node.vulnerabilities else -1,
+                vuln_id,
+            ),
+            reverse=True,
+        )
+
+    def _rebalance_red_candidates(self, candidates: list[CandidateAction]) -> list[CandidateAction]:
+        limited: list[CandidateAction] = []
+        overflow: list[CandidateAction] = []
+        per_target_variant_count: dict[str, int] = {}
+
+        for row in candidates:
+            action_type = row.decision.action_type
+            target = row.decision.target or ""
+            if action_type in RED_VULN_VARIANT_ACTIONS and target:
+                current = per_target_variant_count.get(target, 0)
+                if current >= MAX_RED_EXPLOIT_VARIANTS_PER_TARGET:
+                    overflow.append(row)
+                    continue
+                per_target_variant_count[target] = current + 1
+            limited.append(row)
+
+        if len(limited) >= self.max_candidates:
+            return limited
+        limited.extend(overflow)
+        return limited
 
     def _build_payload(
         self,
@@ -531,7 +584,7 @@ class ActionSpaceBuilder:
         else:
             blue_priority_stage = str(battle_state.get("blue_priority_stage", "P2"))
             base_impact = {
-                "DeepRestore": 88,
+                "DeepRestore": 72,
                 "RestoreNode": 78,
                 "Isolate": 72,
                 "PatchNode": 64,
@@ -539,7 +592,7 @@ class ActionSpaceBuilder:
                 "Monitor": 20,
             }.get(action_type, 18)
             base_risk = {
-                "DeepRestore": 26,
+                "DeepRestore": 34,
                 "RestoreNode": 18,
                 "Isolate": 24,
                 "PatchNode": 12,
@@ -547,13 +600,24 @@ class ActionSpaceBuilder:
                 "Monitor": 6,
             }.get(action_type, 10)
             progress_value = {
-                "DeepRestore": 56,
+                "DeepRestore": 40,
                 "RestoreNode": 48,
                 "Isolate": 44,
                 "PatchNode": 34,
                 "PreventivePatch": 24,
                 "Monitor": 12,
             }.get(action_type, 10)
+
+            if action_type == "DeepRestore":
+                has_anchor = bool(target and target in state.red_anchored_nodes)
+                if has_anchor:
+                    base_impact += 14
+                    progress_value += 10
+                elif target and target in state.network_nodes and state.network_nodes[target].status == "Compromised":
+                    base_impact += 6
+                else:
+                    base_impact -= 10
+                    progress_value -= 8
 
             if blue_priority_stage == "P0":
                 if action_type in BLUE_RESPONSE_ACTIONS:
@@ -638,7 +702,7 @@ class LLMPlanner:
         max_retries: int = 1,
         max_candidate_rows: int = 6,
         max_context_chars: int = 1800,
-        max_output_tokens: int = 180,
+        max_output_tokens: int = 280,
     ) -> None:
         self.max_retries = max(1, max_retries)
         self.max_candidate_rows = max(3, max_candidate_rows)
@@ -686,7 +750,8 @@ class LLMPlanner:
                 "chosen_id": "str",
                 "goal_tag": "core_objective|containment|recovery|intel_gain|anti_stagnation|risk_control",
                 "risk_tag": "low|medium|high",
-                "short_reason": "str<=120chars",
+                "medium_reason": "str<=240chars",
+                "short_reason": "str<=240chars (backward-compatible alias)",
                 "backup_id": "str|optional",
             },
         }
@@ -696,7 +761,7 @@ class LLMPlanner:
             "你必须结合当前战局和候选动作做取舍，禁止编造候选 ID。\n"
             "候选中的 raw_command / defense_rule 来自真实攻防命令模板库，禁止改写或二次创造。\n"
             "输出必须是严格 JSON，且仅包含 output_schema 允许字段。\n"
-            "思考要短，避免长篇推理。\n"
+            "思考保持中等长度，覆盖目标、风险、依据，避免空泛与过短。\n"
             f"角色规则：\n{background_prompt}"
         )
         messages = [
@@ -735,8 +800,12 @@ class LLMPlanner:
 
                 goal_tag = str(parsed.get("goal_tag", "risk_control") or "risk_control")
                 risk_tag = str(parsed.get("risk_tag", "medium") or "medium")
-                short_reason = str(parsed.get("short_reason", "") or "").strip()
-                thought = f"goal={goal_tag}; risk={risk_tag}; reason={short_reason[:120]}"
+                medium_reason = str(
+                    parsed.get("medium_reason")
+                    or parsed.get("short_reason")
+                    or ""
+                ).strip()
+                thought = f"goal={goal_tag}; risk={risk_tag}; reason={medium_reason[:240]}"
                 return PlannerDecision(
                     chosen_candidate_id=chosen_id,
                     backup_candidate_id=backup_id,
@@ -946,12 +1015,14 @@ class AntiStagnationController:
         *,
         self_agent_type: AgentType,
         max_recon_streak: int = 2,
+        max_anchor_streak: int = 1,
         max_monitor_streak: int = 2,
         max_monitor_no_gain_streak: int = 2,
         no_progress_threshold: int = 3,
     ) -> None:
         self.self_agent_type = self_agent_type
         self.max_recon_streak = max(1, max_recon_streak)
+        self.max_anchor_streak = max(1, max_anchor_streak)
         self.max_monitor_streak = max(1, max_monitor_streak)
         self.max_monitor_no_gain_streak = max(1, max_monitor_no_gain_streak)
         self.no_progress_threshold = max(2, no_progress_threshold)
@@ -1031,6 +1102,15 @@ class AntiStagnationController:
             if non_recon:
                 filtered = non_recon
 
+        if (
+            self.self_agent_type == "Red"
+            and self._last_action_type == "AnchorFoothold"
+            and self._action_streak >= self.max_anchor_streak
+        ):
+            non_anchor = [row for row in filtered if row.decision.action_type != "AnchorFoothold"]
+            if non_anchor:
+                filtered = non_anchor
+
         if self.self_agent_type == "Blue" and self._last_action_type == "Monitor" and self._action_streak >= self.max_monitor_streak:
             non_monitor = [row for row in filtered if row.decision.action_type != "Monitor"]
             if non_monitor:
@@ -1081,9 +1161,11 @@ class FallbackPlanner:
                 base += 6
             if agent_type == "Red" and row.decision.action_type == "Recon":
                 base -= 10
+            if agent_type == "Red" and row.decision.action_type == "AnchorFoothold":
+                base -= 6
             if agent_type == "Blue" and row.decision.action_type == "Monitor":
                 base -= 10
-            if "转向推进" in last_adjustment and row.decision.action_type in {"Recon", "Monitor"}:
+            if "转向推进" in last_adjustment and row.decision.action_type in {"Recon", "AnchorFoothold", "Monitor"}:
                 base -= 8
             return (base, row.candidate_id)
 

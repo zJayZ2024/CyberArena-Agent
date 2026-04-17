@@ -1599,6 +1599,11 @@ class DeepRestoreAction(BaseAction):
             removed_anchor = True
             score_value += 10
 
+        # Deep restore is a heavy operation: include remediation and service interruption cost.
+        operational_cost = 12 + len(removed_vulnerabilities) * 2 + (4 if removed_anchor else 0)
+        if previous_status != "Down":
+            operational_cost += 2
+
         node.status = "Normal"
         return context.result(
             success=True,
@@ -1609,6 +1614,7 @@ class DeepRestoreAction(BaseAction):
                 "removed_vulnerabilities": removed_vulnerabilities,
                 "removed_anchor": removed_anchor,
                 "score_value": score_value,
+                "operational_cost": operational_cost,
                 "previous_status": previous_status,
             },
         )

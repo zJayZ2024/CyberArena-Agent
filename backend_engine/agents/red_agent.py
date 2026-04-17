@@ -34,6 +34,7 @@ class RedAgent(BaseLLMAgent):
         self._anti_stagnation = AntiStagnationController(
             self_agent_type="Red",
             max_recon_streak=2,
+            max_anchor_streak=1,
             no_progress_threshold=3,
         )
         self._fallback_planner = FallbackPlanner()

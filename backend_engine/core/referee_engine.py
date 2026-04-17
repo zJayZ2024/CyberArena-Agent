@@ -12,6 +12,8 @@ from backend_engine.engine.actions import ACTION_REGISTRY, ActionContext, Action
 
 RED_ATTACK_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase", "ReactivateFoothold"}
 RED_HIGH_IMPACT_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase", "ReactivateFoothold"}
+COMMAND_DUEL_RED_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase", "ReactivateFoothold"}
+COMMAND_DUEL_BLUE_ACTIONS = {"PatchNode", "PreventivePatch", "Isolate"}
 PREVENTIVE_PATCH_INTERVAL = 2
 PREVENTIVE_PATCH_NODE_COOLDOWN = 2
 TIER0_PROACTIVE_LOCK_ROUNDS = 2
@@ -763,13 +765,17 @@ class RefereeEngine:
     ) -> str:
         if decision.agent_type != "Red" or opposing_decision is None or opposing_decision.agent_type != "Blue":
             return "none"
+        if decision.action_type not in COMMAND_DUEL_RED_ACTIONS:
+            return "none"
+        if opposing_decision.action_type not in COMMAND_DUEL_BLUE_ACTIONS:
+            return "none"
         normalized = (judgement_effect or "").strip().lower()
         if normalized in {"blocked", "intercept", "intercepted", "rule_blocked"}:
             return "blocked"
         if normalized in {"bypass", "evaded", "rule_bypass"}:
             return "bypass"
         if judgement_success and decision.target and opposing_decision.target and decision.target == opposing_decision.target:
-            if opposing_decision.action_type in {"PatchNode", "PreventivePatch", "Isolate", "DeepRestore", "RestoreNode"}:
+            if opposing_decision.action_type in COMMAND_DUEL_BLUE_ACTIONS:
                 return "bypass"
         return "none"
 
