@@ -43,6 +43,8 @@ class RedAgent(BaseLLMAgent):
         if not context_markdown:
             raise LLMDecisionError("红方缺少 context_markdown，无法进行 LLM 决策。")
 
+        context_markdown = self._ensure_settled_world_state_prompt(state, context_markdown)
+
         self._opponent_modeler.observe(state)
         self._reflection_engine.observe(state)
         self._anti_stagnation.observe_state(state)
@@ -64,7 +66,7 @@ class RedAgent(BaseLLMAgent):
             battle_state=battle_state,
             opponent_model=opponent_model,
         )
-        candidates = self._anti_stagnation.apply(candidates, battle_state=battle_state)
+        candidates = self._anti_stagnation.apply(candidates, state=state, battle_state=battle_state)
         if not candidates:
             raise LLMDecisionError("红方当前没有可执行候选动作。")
 
@@ -93,9 +95,31 @@ class RedAgent(BaseLLMAgent):
             candidate_id = fallback.candidate_id
 
         decision.thought = thought
-        self._anti_stagnation.observe_decision(decision.action_type)
+        self._anti_stagnation.observe_decision(decision.action_type, decision.target)
         self._reflection_engine.set_expected(decision=decision, candidate_id=candidate_id, thought=thought)
         return decision
+
+    def _ensure_settled_world_state_prompt(self, state: WorldState, context_markdown: str) -> str:
+        marker = "[WORLD STATE - 当前轮裁判结算后]"
+        if marker in context_markdown:
+            return context_markdown
+
+        anchored_nodes = sorted(node_name for node_name in state.red_anchored_nodes if node_name in state.network_nodes)
+        compromised_nodes = sorted(
+            node_name for node_name, node in state.network_nodes.items() if node.status == "Compromised"
+        )
+        anchor_text = f"[{', '.join(anchored_nodes)}]" if anchored_nodes else "[]"
+        compromised_text = f"[{', '.join(compromised_nodes)}]" if compromised_nodes else "[]"
+        prefix = "\n".join(
+            [
+                marker,
+                f"你控制的节点（anchored）: {anchor_text}",
+                f"已失陷节点（compromised）: {compromised_text}",
+                "注意：这是本轮裁判结算后的最新状态，请基于此做决策",
+                "",
+            ]
+        )
+        return f"{prefix}\n{context_markdown}"
 
     def _choose_with_llm(
         self,
@@ -180,7 +204,7 @@ class RedAgent(BaseLLMAgent):
             battle_state=battle_state,
             opponent_model=opponent_model,
         )
-        candidates = self._anti_stagnation.apply(candidates, battle_state=battle_state)
+        candidates = self._anti_stagnation.apply(candidates, state=state, battle_state=battle_state)
         if not candidates:
             raise LLMDecisionError("红方 fallback 阶段没有可执行动作。")
         chosen = self._fallback_planner.choose(
@@ -191,6 +215,6 @@ class RedAgent(BaseLLMAgent):
         )
         decision = chosen.decision.model_copy(deep=True)
         decision.thought = f"红方候选集兜底规划：{chosen.reason}"
-        self._anti_stagnation.observe_decision(decision.action_type)
+        self._anti_stagnation.observe_decision(decision.action_type, decision.target)
         self._reflection_engine.set_expected(decision=decision, candidate_id=chosen.candidate_id, thought=decision.thought)
         return decision

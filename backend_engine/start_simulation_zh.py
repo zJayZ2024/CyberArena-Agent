@@ -36,6 +36,7 @@ def run_simulation(
     frames = [state.model_dump(mode="json")]
 
     for _ in range(rounds):
+        state = referee.prepare_state(state)
         blue_perceived_state = referee.get_blue_perceived_state()
         recent_logs = referee.get_blue_recent_alerts()
 

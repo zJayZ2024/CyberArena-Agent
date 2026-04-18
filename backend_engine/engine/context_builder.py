@@ -12,6 +12,12 @@ def _format_ports(ports: list[int]) -> str:
     return ", ".join(str(port) for port in ports)
 
 
+def _format_node_list(nodes: list[str]) -> str:
+    if not nodes:
+        return "[]"
+    return "[" + ", ".join(nodes) + "]"
+
+
 def _format_single_vulnerability(vuln_id: str, vulnerability: VulnerabilityInfo | dict[str, Any] | str) -> str:
     if isinstance(vulnerability, str):
         return vuln_id
@@ -106,6 +112,62 @@ def _blue_priority_from_alerts(recent_logs: list[Any]) -> str:
     return "P2"
 
 
+def _extract_last_blue_action(state: WorldState) -> tuple[str, str] | None:
+    for entry in reversed(state.action_logs):
+        if not isinstance(entry, ActionLog):
+            continue
+        if entry.agent_type != "Blue":
+            continue
+        target = ""
+        if isinstance(entry.metadata, dict):
+            target_raw = entry.metadata.get("target")
+            if isinstance(target_raw, str):
+                target = target_raw.strip()
+        return entry.action_type, target
+    return None
+
+
+def _build_blue_action_prediction_lines(state: WorldState) -> list[str]:
+    latest = _extract_last_blue_action(state)
+    if latest is None:
+        return [
+            "## 本轮蓝方动作预判",
+            "- 蓝方上轮动作：未知",
+            "- 推测本轮目标状态：信息不足，建议先验证关键节点状态再决策。",
+            "- 建议：先验证目标当前状态再决策，不要假设上轮控制依然有效。",
+        ]
+
+    action_type, target = latest
+    action_label = f"{action_type} {target}" if target else action_type
+    if action_type == "RestoreNode":
+        if target:
+            predicted = f"推测本轮 {target} 状态：可能已恢复为 Normal。"
+        else:
+            predicted = "推测本轮目标节点状态：可能已恢复为 Normal。"
+    elif action_type == "DeepRestore":
+        if target:
+            predicted = f"推测本轮 {target} 状态：可能已恢复为 Normal，且扎根已被清除。"
+        else:
+            predicted = "推测本轮目标节点状态：可能已恢复为 Normal，且扎根已被清除。"
+    elif action_type == "Isolate":
+        if target:
+            predicted = f"推测本轮 {target} 状态：可能已被隔离为 Down。"
+        else:
+            predicted = "推测本轮目标节点状态：可能已被隔离为 Down。"
+    else:
+        if target:
+            predicted = f"推测本轮 {target} 状态：可能已受蓝方处置动作影响。"
+        else:
+            predicted = "推测本轮目标节点状态：可能已受蓝方处置动作影响。"
+
+    return [
+        "## 本轮蓝方动作预判",
+        f"- 蓝方上轮动作：{action_label}",
+        f"- {predicted}",
+        "- 建议：先验证目标当前状态再决策，不要假设上轮控制依然有效。",
+    ]
+
+
 def build_red_context(state: WorldState) -> str:
     visible_nodes = _derive_initial_visible_nodes(state)
     recon_targets = set(state.red_recon_nodes)
@@ -124,8 +186,18 @@ def build_red_context(state: WorldState) -> str:
         for node_name in state.network_nodes
         if node_name not in visible_nodes and _is_internal_node(node_name)
     )
+    blue_prediction_lines = _build_blue_action_prediction_lines(state)
+
+    world_state_lines = [
+        "[WORLD STATE - 当前轮裁判结算后]",
+        f"你控制的节点（anchored）: {_format_node_list(sorted(anchored_nodes))}",
+        f"已失陷节点（compromised）: {_format_node_list(sorted(controlled_nodes))}",
+        "注意：这是本轮裁判结算后的最新状态，请基于此做决策",
+        "",
+    ]
 
     lines = [
+        *world_state_lines,
         "# 红方感知上下文",
         "",
         "## 当前目标",
@@ -140,6 +212,8 @@ def build_red_context(state: WorldState) -> str:
         f"- 已控制节点数：{len(controlled_nodes)}",
         f"- 已侦察节点数：{len(recon_targets)}",
         f"- 已扎根节点：{', '.join(sorted(anchored_nodes)) if anchored_nodes else '无'}",
+        "",
+        *blue_prediction_lines,
         "",
         "## 已控制节点",
     ]

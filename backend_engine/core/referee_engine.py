@@ -18,6 +18,10 @@ PREVENTIVE_PATCH_INTERVAL = 2
 PREVENTIVE_PATCH_NODE_COOLDOWN = 2
 TIER0_PROACTIVE_LOCK_ROUNDS = 2
 MONITOR_DISCOVERY_PER_TURN = 2
+SELF_ISOLATE_RESTORE_WINDOW_TURNS = 3
+SELF_ISOLATE_RESTORE_PENALTY_FACTOR = 0.1
+CORE_OPENING_STRICT_ROUNDS = 3
+CORE_HIGH_RISK_BLUE_ACTIONS = {"Isolate", "DeepRestore", "RestoreNode"}
 
 
 def _is_perimeter_node(node_name: str) -> bool:
@@ -67,6 +71,7 @@ class RefereeEngine:
         self.blue_previous_state_snapshot: WorldState | None = None
         self.blue_previous_alerts: list[SecurityAlert] = []
         self.red_recon_history: dict[str, list[int]] = {}
+        self.blue_isolate_history: dict[str, list[int]] = {}
         self.score_repeat_tracker: dict[str, dict[str, Any]] = {
             "Red": {"action_type": None, "target": None, "streak": 0},
             "Blue": {"action_type": None, "target": None, "streak": 0},
@@ -84,6 +89,12 @@ class RefereeEngine:
             state.blue_preventive_patch_cooldowns = {}
         if not isinstance(state.winner_locked, bool):
             state.winner_locked = False
+        valid_nodes = set(state.network_nodes.keys())
+        self.blue_isolate_history = {
+            node_name: sorted({int(turn) for turn in turns})[-20:]
+            for node_name, turns in self.blue_isolate_history.items()
+            if node_name in valid_nodes and isinstance(turns, list)
+        }
 
         self._ensure_initial_red_visibility(state)
         if self.blue_previous_state_snapshot is None:
@@ -579,6 +590,65 @@ class RefereeEngine:
         if protocol_error is not None:
             return protocol_error
 
+        if decision.agent_type == "Blue" and decision.action_type in CORE_HIGH_RISK_BLUE_ACTIONS:
+            target = decision.target
+            core_assets = [node_name for node_name in state.core_assets if node_name in state.network_nodes] or ["db"]
+            if target and target in core_assets and state.turn <= CORE_OPENING_STRICT_ROUNDS:
+                node = state.network_nodes.get(target)
+                if node is not None and node.status == "Normal":
+                    has_evidence = self._has_core_high_risk_evidence(state, target)
+                    if not has_evidence:
+                        return ActionResult(
+                            success=False,
+                            effect="failed",
+                            message=(
+                                f"开局前 {CORE_OPENING_STRICT_ROUNDS} 轮：核心资产 {target} 当前为 Normal，"
+                                "且无高危证据，禁止执行 Isolate/DeepRestore/RestoreNode。"
+                                if locale == "zh"
+                                else (
+                                    f"Opening rounds policy: core asset {target} is Normal without high-risk evidence; "
+                                    "Isolate/DeepRestore/RestoreNode are blocked."
+                                )
+                            ),
+                            metadata={
+                                "action_type": decision.action_type,
+                                "agent_type": decision.agent_type,
+                                "target": decision.target,
+                                "vuln_id": decision.vuln_id,
+                                "policy_block": "opening_core_action_lock",
+                                "opening_round_limit": CORE_OPENING_STRICT_ROUNDS,
+                            },
+                        )
+
+        if decision.agent_type == "Blue" and decision.action_type == "RestoreNode":
+            target = decision.target
+            if target and target in state.network_nodes:
+                recent_turns = self._recent_blue_isolate_turns(state, target)
+                node_status = state.network_nodes[target].status
+                if recent_turns and node_status != "Compromised":
+                    return ActionResult(
+                        success=False,
+                        effect="failed",
+                        message=(
+                            f"策略禁止：{target} 在过去 {SELF_ISOLATE_RESTORE_WINDOW_TURNS} 轮内被蓝方 Isolate，"
+                            "且当前未被红方攻陷，禁止执行 RestoreNode。"
+                            if locale == "zh"
+                            else (
+                                f"Policy blocked: {target} was isolated by Blue within the last "
+                                f"{SELF_ISOLATE_RESTORE_WINDOW_TURNS} turns and is not Compromised."
+                            )
+                        ),
+                        metadata={
+                            "action_type": decision.action_type,
+                            "agent_type": decision.agent_type,
+                            "target": decision.target,
+                            "vuln_id": decision.vuln_id,
+                            "policy_block": "restore_after_recent_self_isolate",
+                            "recent_isolate_turns": sorted(recent_turns),
+                            "window_turns": SELF_ISOLATE_RESTORE_WINDOW_TURNS,
+                        },
+                    )
+
         if decision.action_type != "PreventivePatch":
             return None
         target = decision.target
@@ -812,6 +882,30 @@ class RefereeEngine:
             return True
         return any(alert.target == target for alert in state.security_alerts)
 
+    def _has_core_high_risk_evidence(self, state: WorldState, target: str) -> bool:
+        node = state.network_nodes.get(target)
+        if node is not None and node.status == "Compromised":
+            return True
+
+        if any(alert.target == target and alert.severity == "CRIT" for alert in state.security_alerts):
+            return True
+        if any(alert.target == target and alert.severity == "CRIT" for alert in self.blue_previous_alerts):
+            return True
+
+        snapshot = self.blue_previous_state_snapshot
+        if snapshot is None:
+            return False
+        for entry in snapshot.action_logs:
+            if entry.agent_type != "Red":
+                continue
+            if entry.action_type not in RED_ATTACK_ACTIONS:
+                continue
+            metadata = entry.metadata if isinstance(entry.metadata, dict) else {}
+            hit_target = metadata.get("target")
+            if isinstance(hit_target, str) and hit_target == target:
+                return True
+        return False
+
     def _ensure_initial_red_visibility(self, state: WorldState) -> None:
         if state.red_visible_nodes:
             return
@@ -895,6 +989,35 @@ class RefereeEngine:
             if blue.action_type == "PreventivePatch" and target:
                 state.blue_last_preventive_patch_turn = int(state.turn)
                 state.blue_preventive_patch_cooldowns[target] = int(state.turn + PREVENTIVE_PATCH_NODE_COOLDOWN)
+            return
+
+        if blue.action_type == "Isolate":
+            target = blue.target or str(blue_result.metadata.get("target") or "")
+            if target:
+                turns = self.blue_isolate_history.setdefault(target, [])
+                turns.append(int(state.turn))
+                self.blue_isolate_history[target] = sorted(set(turns))[-20:]
+            return
+
+        if blue.action_type == "RestoreNode":
+            target = blue.target or str(blue_result.metadata.get("target") or "")
+            if not target:
+                return
+            recent_isolate_turns = self._recent_blue_isolate_turns(state, target)
+            previous_status = str(blue_result.metadata.get("previous_status", "") or "")
+            if recent_isolate_turns and previous_status != "Compromised":
+                blue_result.metadata.update(
+                    {
+                        "score_multiplier": SELF_ISOLATE_RESTORE_PENALTY_FACTOR,
+                        "score_multiplier_reason": "restore_after_recent_self_isolate_penalty",
+                        "self_isolate_restore_penalty_applied": True,
+                        "self_isolate_restore_penalty_factor": SELF_ISOLATE_RESTORE_PENALTY_FACTOR,
+                        "self_isolate_restore_window_turns": SELF_ISOLATE_RESTORE_WINDOW_TURNS,
+                        "self_isolate_restore_recent_turns": sorted(recent_isolate_turns),
+                    }
+                )
+            else:
+                blue_result.metadata["self_isolate_restore_penalty_applied"] = False
             return
 
         if blue.action_type == "DeepRestore":
@@ -1079,6 +1202,73 @@ class RefereeEngine:
         turns.append(int(state.turn))
         self.red_recon_history[target] = sorted(set(turns))[-20:]
 
+    def _recent_blue_isolate_turns(self, state: WorldState, target: str) -> list[int]:
+        if not target:
+            return []
+        current_turn = int(state.turn)
+        turns = self.blue_isolate_history.get(target, [])
+        return [
+            int(turn)
+            for turn in turns
+            if 0 < current_turn - int(turn) <= SELF_ISOLATE_RESTORE_WINDOW_TURNS
+        ]
+
+    def _hard_precheck_red_against_settled_state(
+        self,
+        state: WorldState,
+        *,
+        red: AgentDecision,
+        red_result: ActionResult,
+        locale: str = "zh",
+    ) -> ActionResult | None:
+        if red.action_type not in RED_HIGH_IMPACT_ACTIONS:
+            return None
+        action = ACTION_REGISTRY.get(red.action_type)
+        if action is None:
+            return None
+
+        preview_decision = red.model_copy(deep=True)
+        if not preview_decision.vuln_id:
+            resolved_vuln_id = str(red_result.metadata.get("vuln_id", "") or "")
+            if resolved_vuln_id:
+                preview_decision.vuln_id = resolved_vuln_id
+
+        context = ActionContext(
+            state=state,
+            decision=preview_decision,
+            locale="zh" if locale == "zh" else "en",
+            opposing_decision=None,
+        )
+        validation_error = action.validate(context)
+        if validation_error is not None:
+            return ActionResult(
+                success=False,
+                effect="blocked",
+                message=validation_error.message,
+                metadata={
+                    "action_type": red.action_type,
+                    "agent_type": red.agent_type,
+                    "target": red.target,
+                    "vuln_id": preview_decision.vuln_id,
+                    "precheck": "failed_after_blue_settlement",
+                    "precheck_source_effect": red_result.effect,
+                },
+            )
+
+        policy_error = self._apply_runtime_policy(state, preview_decision, locale=locale)
+        if policy_error is not None:
+            return ActionResult(
+                success=False,
+                effect="blocked",
+                message=policy_error.message,
+                metadata={
+                    **policy_error.metadata,
+                    "precheck": "failed_after_blue_settlement",
+                    "precheck_source_effect": red_result.effect,
+                },
+            )
+        return None
+
     def _settle_dual_actions(
         self,
         state: WorldState,
@@ -1101,6 +1291,34 @@ class RefereeEngine:
             self._apply_action_effect(state, decision=blue, result=blue_result)
 
         if red_result.success and not red_blocked:
+            hard_precheck_error = self._hard_precheck_red_against_settled_state(
+                state,
+                red=red,
+                red_result=red_result,
+                locale="zh",
+            )
+            if hard_precheck_error is not None:
+                red_result.success = False
+                red_result.effect = "blocked"
+                red_result.message = hard_precheck_error.message
+                red_result.metadata.update(
+                    {
+                        "execution": "blocked_precheck_after_blue_settlement",
+                        "referee_effect": "blocked",
+                        "score_awarded": 0,
+                        "hard_precheck": hard_precheck_error.metadata,
+                        "intercepted_by": blue.action_type if blue_result.success else "",
+                    }
+                )
+                interaction_meta.update(
+                    {
+                        "type": "hard_precheck_block",
+                        "target": red.target,
+                        "cut_by": blue.action_type if blue_result.success else "",
+                    }
+                )
+                return red_result, blue_result, interaction_meta
+
             self._apply_action_effect(state, decision=red, result=red_result)
             if not self._post_validate_red_chain(state, red=red, red_result=red_result):
                 self._rollback_red_attack_effect(state, red_result)
@@ -1564,6 +1782,36 @@ class RefereeEngine:
                         "blue_vuln_id": blue_vuln_id,
                     }
                 )
+
+        if red_result.success:
+            hard_precheck_error = self._hard_precheck_red_against_settled_state(
+                state,
+                red=red,
+                red_result=red_result,
+                locale="zh",
+            )
+            if hard_precheck_error is not None:
+                self._rollback_red_attack_effect(state, red_result)
+                red_result.success = False
+                red_result.effect = "blocked"
+                red_result.message = hard_precheck_error.message
+                red_result.metadata.update(
+                    {
+                        "execution": "blocked_precheck_after_blue_settlement",
+                        "referee_effect": "blocked",
+                        "score_awarded": 0,
+                        "hard_precheck": hard_precheck_error.metadata,
+                        "intercepted_by": blue.action_type if blue_result.success else "",
+                    }
+                )
+                interaction_meta.update(
+                    {
+                        "type": "hard_precheck_block",
+                        "target": red.target,
+                        "cut_by": blue.action_type if blue_result.success else "",
+                    }
+                )
+                return red_result, blue_result, interaction_meta
 
         if self._is_proactive_patch(state, red, blue, blue_result):
             blue_result.metadata.update(
