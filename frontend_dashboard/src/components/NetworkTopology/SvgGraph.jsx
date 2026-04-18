@@ -8,7 +8,6 @@ import {
   T,
   buildNodeConfigs,
   buildZoneConfigs,
-  classifyZone,
   resolveNodeIcon,
 } from "./constants";
 
@@ -44,7 +43,7 @@ function Tooltip({ cfg, status, atkCnt, defCnt, vulnDetails = {} }) {
   const st = STATUS_STYLES[status] || STATUS_STYLES[String(status || "").toLowerCase()] || STATUS_STYLES.Normal;
   const vulnEntries = Object.entries(vulnDetails);
   const lines = [
-    `Zone:     ${String(cfg.zone || "internal").toUpperCase()}`,
+    `Zone:     ${String(cfg.zone || "core").toUpperCase()}`,
     `Ports:    ${(cfg.ports || []).join(", ") || "none"}`,
     `Status:   ${st.label}`,
     `Attacks:  ${atkCnt}   Defenses: ${defCnt}`,
@@ -157,6 +156,30 @@ function shortestPath(adjacency, start, target) {
   return [];
 }
 
+function resolveRedEntryNode(graph) {
+  const orderedZones = ["dmz", "office", "core"];
+  for (const zone of orderedZones) {
+    const zoneNodes = graph.nodeIds
+      .map((nodeId) => graph.nodeConfigs[nodeId])
+      .filter((cfg) => cfg?.zone === zone)
+      .sort((a, b) => (a.x - b.x) || (a.y - b.y));
+    if (!zoneNodes.length) {
+      continue;
+    }
+
+    if (zone === "dmz") {
+      // DMZ entry should always prefer gateway/firewall-like nodes.
+      const gatewayNode = zoneNodes.find((cfg) => /(^|[_-])(fw|firewall|gateway|edge)([_-]|$)/i.test(cfg.id));
+      if (gatewayNode) {
+        return gatewayNode.id;
+      }
+    }
+
+    return zoneNodes[0].id;
+  }
+  return graph.nodeIds[0] || null;
+}
+
 function extractRoundGraph(roundItem) {
   const ws = roundItem?.world_state ?? {};
   const nodeRows = Array.isArray(ws.nodes) ? ws.nodes : [];
@@ -187,56 +210,22 @@ function extractRoundGraph(roundItem) {
 }
 
 function resolveAttackPath(roundItem, graph) {
-  const targetNode = roundItem?.red_action?.target_node;
+  const targetNode = roundItem?.red_action?.target_node || roundItem?.red_action?.target;
   if (!targetNode || !graph.nodeConfigs[targetNode]) {
     return [];
   }
 
-  const actionType = String(roundItem?.red_action?.action_type || roundItem?.red_action?.technique || "");
-  const pivotSource = roundItem?.red_action?.pivot_source;
-  const compromised = graph.nodeIds.filter((nodeId) => {
-    const status = String(graph.statusById[nodeId] || "").toLowerCase();
-    return status === "compromised" && nodeId !== targetNode;
-  });
-  const perimeter = graph.nodeIds.filter((nodeId) => {
-    const zone = graph.nodeConfigs[nodeId]?.zone || classifyZone(nodeId);
-    return zone === "internet" || zone === "dmz";
-  });
-
-  const candidates = [];
-  if (pivotSource && graph.nodeConfigs[pivotSource]) {
-    candidates.push(pivotSource);
-  }
-  if (["LateralMove", "ExfiltrateDatabase"].includes(actionType)) {
-    candidates.push(...compromised);
-  }
-  if (!candidates.length) {
-    if (graph.nodeConfigs.internet) {
-      candidates.push("internet");
-    }
-    candidates.push(...perimeter);
-    candidates.push(...compromised);
-    if (graph.nodeIds.length) {
-      candidates.push(graph.nodeIds[0]);
-    }
+  const entryNode = resolveRedEntryNode(graph);
+  if (!entryNode || !graph.nodeConfigs[entryNode]) {
+    return [];
   }
 
-  const uniqueCandidates = Array.from(new Set(candidates.filter((nodeId) => nodeId && graph.nodeConfigs[nodeId])));
-  let bestPath = [];
-  uniqueCandidates.forEach((startNode) => {
-    const path = shortestPath(graph.adjacency, startNode, targetNode);
-    if (!path.length) {
-      return;
-    }
-    if (!bestPath.length || path.length < bestPath.length) {
-      bestPath = path;
-    }
-  });
-
-  if (!bestPath.length) {
-    return [targetNode];
+  const directPath = shortestPath(graph.adjacency, entryNode, targetNode);
+  if (directPath.length) {
+    return directPath;
   }
-  return bestPath;
+
+  return [];
 }
 
 function pathToEdges(path, nodeConfigs) {
@@ -256,46 +245,43 @@ function pathToEdges(path, nodeConfigs) {
 function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
   const graph = extractRoundGraph(round);
   const ws = graph.ws;
+  const turnNumber = Number(round?.round ?? round?.turn ?? ws?.round ?? idx + 1);
+  const allowTurnActions = Number.isFinite(turnNumber) ? turnNumber > 0 : true;
   const score = ws.score ?? { red: 0, blue: 0 };
-  const targetNode = round?.red_action?.target_node;
-  const defendNode = round?.blue_action?.target;
+  const targetNode = round?.red_action?.target_node || round?.red_action?.target;
+  const defendNode = round?.blue_action?.target || round?.blue_action?.target_node;
+  const activePathIds = targetNode && graph.nodeConfigs[targetNode]
+    ? resolveAttackPath(round, graph)
+    : [];
+  const hasCurrentRedAction = allowTurnActions && activePathIds.length > 0;
+  const hasCurrentBlueAction = !!(
+    allowTurnActions
+    && defendNode
+    && graph.nodeConfigs[defendNode]
+    && (round?.blue_action?.type || round?.blue_action?.action_type)
+  );
   const specialEvent = ws.special_event;
 
   const nodeStatus = (id) => graph.statusById[id] ?? "Normal";
   const nodeData = (id) => graph.nodeRows.find((node) => node.id === id) ?? {};
 
-  const activePathIds = resolveAttackPath(round, graph);
+  const redEntryNode = hasCurrentRedAction ? activePathIds[0] : null;
   const attackEdges = pathToEdges(activePathIds, graph.nodeConfigs);
-  const defendTargetCfg = defendNode ? graph.nodeConfigs[defendNode] : null;
+  const defendTargetCfg = hasCurrentBlueAction ? graph.nodeConfigs[defendNode] : null;
   const defEdge = defendTargetCfg
     ? { x1: GRAPH_VIEW.blueBaseX, y1: GRAPH_VIEW.baseY, x2: defendTargetCfg.x, y2: defendTargetCfg.y }
     : null;
-
-  const ghostPaths = [];
-  rounds.slice(0, idx).forEach((item) => {
-    if (!item?.judge_result?.success) {
-      return;
-    }
-    const itemGraph = extractRoundGraph(item);
-    const path = resolveAttackPath(item, itemGraph);
-    pathToEdges(path, graph.nodeConfigs).forEach((edge, edgeIndex) => {
-      ghostPaths.push({ x1: edge.a.x, y1: edge.a.y, x2: edge.b.x, y2: edge.b.y, key: `g${item.round}-${edgeIndex}` });
-    });
-  });
-
-  const perimeterEntry = graph.nodeIds
-    .map((nodeId) => graph.nodeConfigs[nodeId])
-    .filter((cfg) => cfg && (cfg.zone === "internet" || cfg.zone === "dmz"))
-    .sort((a, b) => a.x - b.x)[0];
-  const redEntryEdge = perimeterEntry
-    ? { x1: GRAPH_VIEW.redBaseX, y1: GRAPH_VIEW.baseY, x2: perimeterEntry.x - 26, y2: perimeterEntry.y }
+  const redEntryCfg = redEntryNode ? graph.nodeConfigs[redEntryNode] : null;
+  const redEntryEdge = redEntryCfg
+    ? { x1: GRAPH_VIEW.redBaseX, y1: GRAPH_VIEW.baseY, x2: redEntryCfg.x - 18, y2: redEntryCfg.y }
     : null;
+
   const blueEntryEdge = defendTargetCfg
     ? { x1: GRAPH_VIEW.blueBaseX, y1: GRAPH_VIEW.baseY, x2: defendTargetCfg.x + 20, y2: defendTargetCfg.y }
     : null;
 
   return (
-    <div style={{ position: "relative", background: T.bg, borderRadius: 10, border: `1px solid ${T.border}`, overflow: "hidden" }}>
+    <div style={{ position: "relative", width: "100%", height: "100%", background: T.bg, borderRadius: 10, border: `1px solid ${T.border}`, overflow: "hidden" }}>
       <style>{`
         @keyframes cyberFlow { to { stroke-dashoffset: -18; } }
         @keyframes cyberPulseRed { 0%,100% { filter: drop-shadow(0 0 5px rgba(239,68,68,.4)); } 50% { filter: drop-shadow(0 0 16px rgba(239,68,68,.9)); } }
@@ -316,7 +302,7 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
         {toast.text}
       </div>
 
-      <svg viewBox={`0 0 ${GRAPH_VIEW.width} ${GRAPH_VIEW.height}`} width="100%" height="auto" style={{ display: "block" }} preserveAspectRatio="xMidYMid meet">
+      <svg viewBox={`0 0 ${GRAPH_VIEW.width} ${GRAPH_VIEW.height}`} width="100%" height="100%" style={{ display: "block", width: "100%", height: "100%" }} preserveAspectRatio="xMidYMid meet">
         <defs>
           <pattern id="sl" width="1" height="3" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="1" y2="0" stroke="#fff" strokeWidth="0.4" opacity="0.012" /></pattern>
           <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L9 5L1 9" fill="none" stroke={T.red} strokeWidth="1.5" /></marker>
@@ -329,6 +315,20 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
           <g key={zone.id}>
             <rect x={zone.x} y={zone.y} width={zone.w} height={zone.h} rx={6} fill={zone.bg} stroke={zone.color} strokeWidth="0.5" strokeDasharray="5 3" opacity={0.85} />
             <text x={zone.x + zone.w / 2} y={zone.y + 14} textAnchor="middle" fontFamily={T.fontMono} fontSize={8} fill={zone.color} letterSpacing="1.5" fontWeight="600" opacity="0.75">{zone.label}</text>
+            {zone.note && (
+              <text
+                x={zone.x + zone.w / 2}
+                y={zone.y + 25}
+                textAnchor="middle"
+                fontFamily={T.fontMono}
+                fontSize={6}
+                fill={zone.color}
+                letterSpacing="0.4"
+                opacity="0.62"
+              >
+                {zone.note}
+              </text>
+            )}
           </g>
         ))}
         {graph.edges.map((edge) => {
@@ -339,14 +339,13 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
           }
           return <line key={`${edge.source}-${edge.target}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={T.gray} strokeWidth="0.8" opacity={0.35} />;
         })}
-        {ghostPaths.map((path) => <line key={path.key} x1={path.x1} y1={path.y1} x2={path.x2} y2={path.y2} stroke={T.red} strokeWidth="1" strokeDasharray="3 5" opacity={0.2} />)}
-        {redEntryEdge && <line x1={redEntryEdge.x1} y1={redEntryEdge.y1} x2={redEntryEdge.x2} y2={redEntryEdge.y2} stroke={T.redDim} strokeWidth="1" strokeDasharray="4 3" opacity={0.5} markerEnd="url(#ag)" />}
         {blueEntryEdge && <line x1={blueEntryEdge.x1} y1={blueEntryEdge.y1} x2={blueEntryEdge.x2} y2={blueEntryEdge.y2} stroke={T.blueDim} strokeWidth="1" strokeDasharray="4 3" opacity={0.5} markerEnd="url(#ag)" />}
+        {redEntryEdge && <AnimatedEdge x1={redEntryEdge.x1} y1={redEntryEdge.y1} x2={redEntryEdge.x2} y2={redEntryEdge.y2} color={T.red} dasharray="6 3" speed={0.38} markerId="ar" opacity={0.9} />}
         {attackEdges.map(({ a, b }, i) => <AnimatedEdge key={`${a.id}-${b.id}-${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} color={T.red} dasharray="6 3" speed={0.38} markerId="ar" opacity={0.9} />)}
         {defEdge && <AnimatedEdge x1={defEdge.x1} y1={defEdge.y1} x2={defEdge.x2} y2={defEdge.y2} color={T.blue} dasharray="7 3" speed={0.55} markerId="ab" opacity={0.85} />}
         {Object.values(graph.nodeConfigs).map((cfg) => {
           const nd = nodeData(cfg.id);
-          return <NetworkNode key={cfg.id} cfg={cfg} status={nodeStatus(cfg.id)} atkCnt={nd.attack_count ?? 0} defCnt={nd.defense_count ?? 0} isTarget={cfg.id === targetNode} isDefended={cfg.id === defendNode} hovered={hoveredNode === cfg.id} onHover={onHoverNode} onClick={() => {}} />;
+          return <NetworkNode key={cfg.id} cfg={cfg} status={nodeStatus(cfg.id)} atkCnt={nd.attack_count ?? 0} defCnt={nd.defense_count ?? 0} isTarget={hasCurrentRedAction && cfg.id === targetNode} isDefended={hasCurrentBlueAction && cfg.id === defendNode} hovered={hoveredNode === cfg.id} onHover={onHoverNode} onClick={() => {}} />;
         })}
         {hoveredNode && graph.nodeConfigs[hoveredNode] && (() => {
           const cfg = graph.nodeConfigs[hoveredNode];
@@ -354,16 +353,26 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
           const networkNode = graph.networkNodes?.[hoveredNode] ?? {};
           return <Tooltip cfg={cfg} status={nodeStatus(hoveredNode)} atkCnt={nd.attack_count ?? 0} defCnt={nd.defense_count ?? 0} vulnDetails={networkNode.vulnerabilities ?? {}} />;
         })()}
-        {attackEdges.length > 0 && round?.red_action?.technique_id && (() => {
+        {hasCurrentRedAction && (round?.red_action?.technique_id || round?.red_action?.action_type || round?.red_action?.technique) && (() => {
           const last = attackEdges[attackEdges.length - 1];
-          return <EdgeLabel x={(last.a.x + last.b.x) / 2} y={(last.a.y + last.b.y) / 2 - 18} text={`${round.red_action.technique_id} 路 ${round.red_action.technique?.split(" ")[0] || round.red_action.action_type || "action"}`} color={T.red} bg={T.redBg} />;
+          const anchor = last
+            ? { x: (last.a.x + last.b.x) / 2, y: (last.a.y + last.b.y) / 2 - 18 }
+            : redEntryEdge
+              ? { x: (redEntryEdge.x1 + redEntryEdge.x2) / 2, y: (redEntryEdge.y1 + redEntryEdge.y2) / 2 - 18 }
+              : null;
+          if (!anchor) {
+            return null;
+          }
+          const actionName = round.red_action.technique?.split(" ")[0] || round.red_action.action_type || "action";
+          const actionCode = round.red_action.technique_id || round.red_action.action_type || "ACTION";
+          return <EdgeLabel x={anchor.x} y={anchor.y} text={`${actionCode} - ${actionName}`} color={T.red} bg={T.redBg} />;
         })()}
-        {defEdge && <EdgeLabel x={(defEdge.x1 + defEdge.x2) / 2} y={(defEdge.y1 + defEdge.y2) / 2 + 20} text={round?.blue_action?.type?.replace("_", " ").toUpperCase() ?? "DEFENSE"} color={T.blue} bg={T.blueBg} />}
+        {defEdge && <EdgeLabel x={(defEdge.x1 + defEdge.x2) / 2} y={(defEdge.y1 + defEdge.y2) / 2 + 20} text={(round?.blue_action?.type || round?.blue_action?.action_type || "DEFENSE").replaceAll("_", " ").toUpperCase()} color={T.blue} bg={T.blueBg} />}
         <Base x={GRAPH_VIEW.redBaseX} y={GRAPH_VIEW.baseY} label="RED BASE" sublabel="ATTACKER" score={score.red} color={T.red} bg={T.redBg} glowColor={T.redGlow} Icon={IconTerminal} />
         <Base x={GRAPH_VIEW.blueBaseX} y={GRAPH_VIEW.baseY} label="BLUE BASE" sublabel="DEFENDER" score={score.blue} color={T.blue} bg={T.blueBg} glowColor={T.blueGlow} Icon={resolveNodeIcon("fw", "dmz")} />
         <g transform={`translate(${GRAPH_VIEW.width / 2},8)`}>
           <rect x={-60} y={0} width={120} height={18} rx={4} fill={T.bgPanel} stroke={T.border} strokeWidth="0.5" />
-          <text x={0} y={13} textAnchor="middle" fontFamily={T.fontMono} fontSize={8} fill={T.grayText} letterSpacing="1">ROUND {ws.round ?? 1} / {rounds.length} 路 {ws.red_phase?.toUpperCase()}</text>
+          <text x={0} y={13} textAnchor="middle" fontFamily={T.fontMono} fontSize={8} fill={T.grayText} letterSpacing="1">ROUND {ws.round ?? 1} / {rounds.length} - {ws.red_phase?.toUpperCase()}</text>
         </g>
         <g transform={`translate(${Math.floor(GRAPH_VIEW.width / 2) - 120},${GRAPH_VIEW.height - 20})`}>
           <text fontFamily={T.fontMono} fontSize={7} fill={T.grayDim} x={0} y={0}>AVAIL</text>
@@ -380,3 +389,4 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
 }
 
 export default SvgGraph;
+

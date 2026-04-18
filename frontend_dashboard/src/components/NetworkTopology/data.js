@@ -319,13 +319,19 @@ function normalizeRound(round, fallbackIndex, totalRounds) {
   const actionLogs = round?.action_logs ?? round?.actionLogs ?? [];
   const rawNetworkNodes = round?.network_nodes ?? worldStateInput.network_nodes ?? worldStateInput.networkNodes ?? {};
 
-  const hasLegacyActions = !!(round?.red_action || round?.redAction);
+  const legacyRedAction = round?.red_action ?? round?.redAction ?? {};
+  const legacyBlueAction = round?.blue_action ?? round?.blueAction ?? {};
+  const legacyJudgeResult = round?.judge_result ?? round?.judgeResult ?? {};
+  const hasLegacyActions = !!(round?.red_action || round?.redAction || round?.blue_action || round?.blueAction || round?.judge_result || round?.judgeResult);
+  const hasActionLogs = Array.isArray(actionLogs) && actionLogs.length > 0;
   const extracted = hasLegacyActions
-    ? { redAction: {}, blueAction: {}, judgeResult: {} }
-    : extractActionsFromLogs(actionLogs);
+    ? { redAction: legacyRedAction, blueAction: legacyBlueAction, judgeResult: legacyJudgeResult }
+    : hasActionLogs
+      ? extractActionsFromLogs(actionLogs)
+      : { redAction: {}, blueAction: {}, judgeResult: {} };
 
-  const redAction = { ...base.red_action, ...extracted.redAction, ...(round?.red_action ?? round?.redAction ?? {}) };
-  const blueAction = { ...base.blue_action, ...extracted.blueAction, ...(round?.blue_action ?? round?.blueAction ?? {}) };
+  const redAction = { ...(extracted.redAction ?? {}) };
+  const blueAction = { ...(extracted.blueAction ?? {}) };
 
   if (!redAction.target_node && redAction.target) {
     redAction.target_node = redAction.target;
@@ -338,14 +344,15 @@ function normalizeRound(round, fallbackIndex, totalRounds) {
   const scoreBlue = worldStateInput.score?.blue ?? worldStateInput.blue_score ?? round?.blue_score ?? round?.blueScore ?? base.world_state.score.blue;
   const redPhase = worldStateInput.red_phase ?? worldStateInput.redPhase ?? inferRedPhase(redAction, actionLogs);
 
-  const baseJudge = { ...base.judge_result, ...(round?.judge_result ?? round?.judgeResult ?? {}) };
-  const judgeResult = hasLegacyActions
-    ? baseJudge
-    : {
-        ...baseJudge,
-        ...extracted.judgeResult,
-        logs: extracted.judgeResult.logs.length ? extracted.judgeResult.logs : baseJudge.logs,
-      };
+  const judgePayload = extracted.judgeResult ?? {};
+  const judgeResult = {
+    success: typeof judgePayload.success === "boolean" ? judgePayload.success : null,
+    damage: Number.isFinite(judgePayload.damage) ? judgePayload.damage : 0,
+    logs: Array.isArray(judgePayload.logs) ? judgePayload.logs : [],
+    narrative: judgePayload.narrative ?? "",
+    score_summary: judgePayload.score_summary ?? {},
+    ...judgePayload,
+  };
 
   const normalizedNodes = normalizeNodes(
     worldStateInput.nodes ?? worldStateInput.networkNodes ?? round?.nodes,

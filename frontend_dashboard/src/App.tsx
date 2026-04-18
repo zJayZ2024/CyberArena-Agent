@@ -106,7 +106,7 @@ function App() {
           </aside>
         </main>
 
-        <section className="h-56 shrink-0 border-t border-[#1f2937] bg-[#0a0f17]">
+        <section className="h-40 shrink-0 border-t border-[#1f2937] bg-[#0a0f17] md:h-44 xl:h-48">
           <TerminalLogs round={currentRound} />
         </section>
       </div>

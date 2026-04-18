@@ -48,21 +48,40 @@ export const GRAPH_VIEW = {
   baseY: 230,
 };
 
-const PERIMETER_KEYWORDS = ["web", "fw", "firewall", "gateway", "proxy", "edge", "vpn", "mail", "dmz"];
+const FIREWALL_KEYWORDS = ["fw", "firewall", "gateway", "edge", "waf"];
+const DMZ_KEYWORDS = ["web", "vpn", "proxy", "mail", "bastion", "dmz"];
+const OFFICE_KEYWORDS = ["office", "pc", "workstation", "client", "endpoint"];
 const DATABASE_KEYWORDS = ["db", "database", "mysql", "postgres", "sql"];
+const CORE_KEYWORDS = ["app", "db", "database", "mysql", "postgres", "sql", "storage", "redis", "cache"];
 
-const ZONE_ORDER = ["internet", "dmz", "internal", "database"];
+const ZONE_ORDER = ["external", "dmz", "office", "core"];
 const ZONE_LABELS = {
-  internet: "INTERNET",
-  dmz: "PERIMETER",
-  internal: "INTERNAL",
-  database: "DATABASE",
+  external: "EXTERNAL THREAT",
+  dmz: "DMZ ISOLATION - FW / WEB / VPN",
+  office: "OFFICE INTRANET - OFFICE_PC",
+  core: "CORE BUSINESS - APP / DEV / DB / STORAGE",
+};
+const ZONE_NOTES = {
+  external: "RED STARTS FROM INTERNET; NOT A CONTESTABLE RESOURCE NODE",
 };
 const ZONE_STYLES = {
-  internet: { color: T.gray, bg: "rgba(55,65,81,0.06)" },
+  external: { color: T.gray, bg: "rgba(55,65,81,0.05)" },
   dmz: { color: T.blue, bg: "rgba(59,130,246,0.05)" },
-  internal: { color: T.green, bg: "rgba(34,197,94,0.05)" },
-  database: { color: T.amber, bg: "rgba(245,158,11,0.05)" },
+  office: { color: "#22c55e", bg: "rgba(34,197,94,0.05)" },
+  core: { color: T.amber, bg: "rgba(245,158,11,0.05)" },
+};
+
+const HIDDEN_RESOURCE_NODE_IDS = new Set(["internet"]);
+const NODE_ZONE_MAP = {
+  fw: "dmz",
+  firewall: "dmz",
+  web: "dmz",
+  vpn: "dmz",
+  office_pc: "office",
+  app: "core",
+  dev: "core",
+  db: "core",
+  storage: "core",
 };
 
 export const STATUS_STYLES = {
@@ -70,15 +89,15 @@ export const STATUS_STYLES = {
   Scanning: { border: T.amber, bg: T.amberBg, glow: "0 0 10px rgba(245,158,11,.55)", dot: T.amber, label: "SCANNING" },
   Compromised: { border: T.red, bg: T.redBg, glow: "0 0 14px rgba(239,68,68,.7)", dot: T.red, label: "COMPROMISED" },
   Defended: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(34,197,94,.55)", dot: T.green, label: "HARDENED" },
-  Isolated: { border: T.gray, bg: "#0a0a0a", glow: "none", dot: T.grayDim, label: "ISOLATED" },
+  Isolated: { border: "#64748b", bg: "#0b1220", glow: "none", dot: T.grayDim, label: "ISOLATED" },
   Patched: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(34,197,94,.55)", dot: T.green, label: "PATCHED" },
   normal: { border: T.blue, bg: T.bgNode, glow: "none", dot: T.green, label: "ONLINE" },
   scanning: { border: T.amber, bg: T.amberBg, glow: "0 0 10px rgba(245,158,11,.55)", dot: T.amber, label: "SCANNING" },
   compromised: { border: T.red, bg: T.redBg, glow: "0 0 14px rgba(239,68,68,.7)", dot: T.red, label: "COMPROMISED" },
   defended: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(34,197,94,.55)", dot: T.green, label: "HARDENED" },
-  isolated: { border: T.gray, bg: "#0a0a0a", glow: "none", dot: T.grayDim, label: "ISOLATED" },
+  isolated: { border: "#64748b", bg: "#0b1220", glow: "none", dot: T.grayDim, label: "ISOLATED" },
   patched: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(34,197,94,.55)", dot: T.green, label: "PATCHED" },
-  down: { border: T.gray, bg: "#0a0a0a", glow: "none", dot: T.grayDim, label: "DOWN" },
+  down: { border: "#64748b", bg: "#0b1220", glow: "none", dot: T.grayDim, label: "DOWN" },
 };
 
 const IconShield = ({ size = 16, color = "#fff" }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>;
@@ -104,18 +123,45 @@ export const ICONS = {
   dev: IconServer,
 };
 
-export function classifyZone(nodeId = "") {
-  const lowered = String(nodeId || "").toLowerCase();
-  if (lowered === "internet") {
-    return "internet";
+function normalizeZoneId(zoneId = "", nodeId = "") {
+  const normalized = String(zoneId || "").toLowerCase();
+  if (["external", "internet", "outside", "wan"].includes(normalized)) {
+    return "external";
   }
-  if (DATABASE_KEYWORDS.some((keyword) => lowered.includes(keyword))) {
-    return "database";
-  }
-  if (PERIMETER_KEYWORDS.some((keyword) => lowered.includes(keyword))) {
+  if (["dmz", "perimeter", "edge", "firewall", "fw", "gateway", "perimeter_fw"].includes(normalized)) {
     return "dmz";
   }
-  return "internal";
+  if (["office", "intranet", "office_lan", "corp"].includes(normalized)) {
+    return "office";
+  }
+  if (["core", "internal", "database", "datacenter", "lan"].includes(normalized)) {
+    return "core";
+  }
+  return classifyZone(nodeId);
+}
+
+export function isHiddenResourceNode(nodeId = "") {
+  return HIDDEN_RESOURCE_NODE_IDS.has(String(nodeId || "").toLowerCase());
+}
+
+export function classifyZone(nodeId = "") {
+  const lowered = String(nodeId || "").toLowerCase();
+  if (isHiddenResourceNode(lowered)) {
+    return "external";
+  }
+  if (NODE_ZONE_MAP[lowered]) {
+    return NODE_ZONE_MAP[lowered];
+  }
+  if (FIREWALL_KEYWORDS.some((keyword) => lowered.includes(keyword)) || DMZ_KEYWORDS.some((keyword) => lowered.includes(keyword))) {
+    return "dmz";
+  }
+  if (OFFICE_KEYWORDS.some((keyword) => lowered.includes(keyword))) {
+    return "office";
+  }
+  if (CORE_KEYWORDS.some((keyword) => lowered.includes(keyword))) {
+    return "core";
+  }
+  return "core";
 }
 
 function abbreviateNodeId(nodeId = "") {
@@ -134,25 +180,16 @@ function abbreviateNodeId(nodeId = "") {
 }
 
 export function buildZoneConfigs(nodes = []) {
-  const zonePresence = new Set();
-  nodes.forEach((node) => {
-    const zone = node?.zone || classifyZone(node?.id || "");
-    zonePresence.add(zone);
-  });
-  const activeZones = ZONE_ORDER.filter((zone) => zonePresence.has(zone));
-  if (!activeZones.length) {
-    activeZones.push("internal");
-  }
-
-  const slotCount = activeZones.length;
+  const slotCount = ZONE_ORDER.length;
   const availableWidth = GRAPH_VIEW.zoneW - GRAPH_VIEW.zoneGap * Math.max(0, slotCount - 1);
   const slotWidth = Math.max(120, Math.floor(availableWidth / slotCount));
 
-  return activeZones.map((zone, index) => {
-    const style = ZONE_STYLES[zone] || ZONE_STYLES.internal;
+  return ZONE_ORDER.map((zone, index) => {
+    const style = ZONE_STYLES[zone] || ZONE_STYLES.core;
     return {
       id: zone,
       label: ZONE_LABELS[zone] || zone.toUpperCase(),
+      note: ZONE_NOTES[zone] || "",
       x: GRAPH_VIEW.zoneX + index * (slotWidth + GRAPH_VIEW.zoneGap),
       y: GRAPH_VIEW.zoneY,
       w: slotWidth,
@@ -164,7 +201,6 @@ export function buildZoneConfigs(nodes = []) {
 }
 
 export function buildNodeConfigs(nodes = [], networkNodes = {}, zoneConfigs = []) {
-  const zoneMap = Object.fromEntries(zoneConfigs.map((zone) => [zone.id, zone]));
   const byZone = new Map();
 
   nodes
@@ -172,10 +208,10 @@ export function buildNodeConfigs(nodes = [], networkNodes = {}, zoneConfigs = []
     .sort((a, b) => String(a.id || "").localeCompare(String(b.id || "")))
     .forEach((node) => {
       const nodeId = String(node?.id || "");
-      if (!nodeId) {
+      if (!nodeId || isHiddenResourceNode(nodeId)) {
         return;
       }
-      const zone = node.zone || classifyZone(nodeId);
+      const zone = normalizeZoneId(node.zone, nodeId);
       if (!byZone.has(zone)) {
         byZone.set(zone, []);
       }
@@ -208,22 +244,25 @@ export function buildNodeConfigs(nodes = [], networkNodes = {}, zoneConfigs = []
   return configs;
 }
 
-export function resolveNodeIcon(nodeId = "", zone = "internal") {
+export function resolveNodeIcon(nodeId = "", zone = "core") {
   const lowered = String(nodeId || "").toLowerCase();
   if (ICONS[lowered]) {
     return ICONS[lowered];
   }
-  if (DATABASE_KEYWORDS.some((keyword) => lowered.includes(keyword)) || zone === "database") {
+  if (DATABASE_KEYWORDS.some((keyword) => lowered.includes(keyword))) {
     return IconDB;
   }
-  if (lowered === "internet" || zone === "internet") {
+  if (lowered === "internet" || zone === "external") {
     return IconGlobe;
   }
-  if (PERIMETER_KEYWORDS.some((keyword) => lowered.includes(keyword)) || zone === "dmz") {
+  if (DMZ_KEYWORDS.some((keyword) => lowered.includes(keyword)) || zone === "dmz") {
     return lowered.includes("vpn") ? IconWifi : IconShield;
   }
-  if (["office", "pc", "workstation", "client", "endpoint"].some((keyword) => lowered.includes(keyword))) {
+  if (OFFICE_KEYWORDS.some((keyword) => lowered.includes(keyword)) || zone === "office") {
     return IconMonitor;
+  }
+  if (FIREWALL_KEYWORDS.some((keyword) => lowered.includes(keyword))) {
+    return IconShield;
   }
   return IconServer;
 }

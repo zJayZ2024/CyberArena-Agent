@@ -23,7 +23,15 @@ function TopologyVisualizer({ round, rounds = MOCK_ROUNDS, roundIndex = 0 }: Top
   useEffect(() => {
     const redAction = currentRound?.red_action;
     const judgeResult = currentRound?.judge_result;
-    if (!redAction) {
+    const hasActionSignal = !!(
+      redAction?.technique_id
+      || redAction?.action_type
+      || redAction?.technique
+      || redAction?.target_node
+      || redAction?.target
+    );
+    if (!hasActionSignal) {
+      setToast((prev) => (prev.visible || prev.text ? { ...prev, visible: false, text: "" } : prev));
       return undefined;
     }
 
@@ -69,7 +77,7 @@ function TopologyVisualizer({ round, rounds = MOCK_ROUNDS, roundIndex = 0 }: Top
         <div className="flex items-center gap-2 font-mono text-[10px]">
           <span className="rounded-full border border-emerald-500/30 bg-emerald-950/30 px-2 py-0.5 text-emerald-300">Normal</span>
           <span className="rounded-full border border-red-500/30 bg-red-950/30 px-2 py-0.5 text-red-300">Compromised</span>
-          <span className="rounded-full border border-slate-500/30 bg-slate-900/70 px-2 py-0.5 text-slate-300">Down</span>
+          <span className="rounded-full border border-slate-400/40 bg-slate-900/70 px-2 py-0.5 text-slate-300">Down / Isolated</span>
         </div>
       </div>
 
