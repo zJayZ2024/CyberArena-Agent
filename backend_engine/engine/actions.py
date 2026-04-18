@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass, field
@@ -21,6 +21,21 @@ PERIMETER_KEYWORDS = (
     "dmz",
 )
 DATABASE_KEYWORDS = ("db", "database", "mysql", "postgres", "sql")
+
+# Hard attack path policy for Red.
+# internet -> fw
+#   A: fw -> web -> app -> (db | storage -> db)
+#   B: fw -> vpn -> office_pc -> dev -> (app | storage) -> db
+STRICT_RED_INITIAL_ENTRY_TARGETS = ("fw", "web", "vpn")
+STRICT_RED_ATTACK_PREDECESSORS: dict[str, tuple[str, ...]] = {
+    "web": ("fw",),
+    "vpn": ("fw",),
+    "app": ("web", "dev"),
+    "office_pc": ("vpn",),
+    "dev": ("office_pc",),
+    "storage": ("app", "dev"),
+    "db": ("app", "storage"),
+}
 
 
 @dataclass(slots=True, frozen=True)
@@ -433,6 +448,19 @@ def _build_network_adjacency(state: WorldState) -> dict[str, set[str]]:
     return adjacency
 
 
+def _strict_attack_predecessors(target: str) -> tuple[str, ...]:
+    return STRICT_RED_ATTACK_PREDECESSORS.get(target.lower(), ())
+
+
+def _compromised_strict_predecessors(state: WorldState, target: str) -> list[str]:
+    compromised: list[str] = []
+    for node_name in _strict_attack_predecessors(target):
+        node = state.network_nodes.get(node_name)
+        if node is not None and node.status == "Compromised":
+            compromised.append(node_name)
+    return compromised
+
+
 ACTION_REGISTRY = ActionRegistry()
 
 
@@ -573,6 +601,20 @@ class ExploitServiceAction(BaseAction):
                 zh="内部资产应在建立据点后使用 LateralMove。",
             )
 
+        if target.lower() not in STRICT_RED_INITIAL_ENTRY_TARGETS:
+            return context.result(
+                success=False,
+                effect="failed",
+                en=(
+                    f"{target} is outside the allowed initial-entry targets "
+                    f"{list(STRICT_RED_INITIAL_ENTRY_TARGETS)}"
+                ),
+                zh=(
+                    f"{target} 不在红方入口级合法目标范围 "
+                    f"{list(STRICT_RED_INITIAL_ENTRY_TARGETS)}"
+                ),
+            )
+
         if node.status == "Down":
             return context.result(
                 success=False,
@@ -686,12 +728,13 @@ class LateralMoveAction(BaseAction):
     )
 
     preferred_pivots: Dict[str, tuple[str, ...]] = {
-        "app": ("web", "fw"),
-        "db": ("app", "storage", "dev", "office_pc", "web"),
-        "storage": ("app", "dev", "web"),
-        "dev": ("office_pc", "vpn", "app"),
+        "web": ("fw",),
+        "vpn": ("fw",),
+        "app": ("web", "dev"),
         "office_pc": ("vpn",),
-        "vpn": ("fw", "web"),
+        "dev": ("office_pc",),
+        "storage": ("app", "dev"),
+        "db": ("app", "storage"),
     }
 
     def validate(self, context: ActionContext) -> ActionResult | None:
@@ -728,12 +771,7 @@ class LateralMoveAction(BaseAction):
             )
 
         adjacency = _build_network_adjacency(context.state)
-        compromised_nodes = {
-            node_name
-            for node_name, row in context.state.network_nodes.items()
-            if row.status == "Compromised" and node_name != target
-        }
-        candidate_pivots = [node_name for node_name in adjacency.get(target, set()) if node_name in compromised_nodes]
+        candidate_pivots = _compromised_strict_predecessors(context.state, target)
         if not candidate_pivots:
             return context.result(
                 success=False,
@@ -789,12 +827,7 @@ class LateralMoveAction(BaseAction):
                 zh="执行失败：已校验漏洞在执行时不存在",
             )
         adjacency = _build_network_adjacency(context.state)
-        compromised_nodes = {
-            node_name
-            for node_name, row in context.state.network_nodes.items()
-            if row.status == "Compromised" and node_name != target
-        }
-        candidate_pivots = [node_name for node_name in adjacency.get(target, set()) if node_name in compromised_nodes]
+        candidate_pivots = _compromised_strict_predecessors(context.state, target)
         if not candidate_pivots:
             return context.result(
                 success=False,
@@ -934,13 +967,13 @@ class ExfiltrateDatabaseAction(BaseAction):
                 zh="该动作只适用于数据库资产。",
             )
 
-        app = context.state.network_nodes.get("app")
-        if app is None or app.status != "Compromised":
+        candidate_pivots = _compromised_strict_predecessors(context.state, target)
+        if not candidate_pivots:
             return context.result(
                 success=False,
                 effect="failed",
-                en="Database exfiltration requires a compromised application tier",
-                zh="数据库导出必须建立在应用层已失陷的前提上",
+                en="Database exfiltration requires compromised predecessor app/storage under hard path policy",
+                zh="数据库外传在硬路径策略下需要先控制 app 或 storage",
             )
 
         if node.status == "Down":

@@ -8,7 +8,13 @@ from backend_engine.agents.referee_agent import RefereeAgent
 from backend_engine.core.models import ActionLog, AgentDecision, SecurityAlert, VulnerabilityInfo, WorldState
 from backend_engine.core.scoring import ROUND_SCORE_BUDGET, apply_round_scores, recalculate_scores
 from backend_engine.engine.command_protocol import is_blue_rule_from_library, is_red_command_from_library
-from backend_engine.engine.actions import ACTION_REGISTRY, ActionContext, ActionResult, PERIMETER_KEYWORDS
+from backend_engine.engine.actions import (
+    ACTION_REGISTRY,
+    ActionContext,
+    ActionResult,
+    PERIMETER_KEYWORDS,
+    _compromised_strict_predecessors,
+)
 
 RED_ATTACK_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase", "ReactivateFoothold"}
 RED_HIGH_IMPACT_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase", "ReactivateFoothold"}
@@ -1828,8 +1834,10 @@ class RefereeEngine:
             return True
 
         if red.action_type == "ExfiltrateDatabase":
-            app = state.network_nodes.get("app")
-            return app is not None and app.status == "Compromised"
+            target = red.target
+            if not target or target not in state.network_nodes:
+                return True
+            return bool(_compromised_strict_predecessors(state, target))
 
         if red.action_type != "LateralMove":
             return True
@@ -1837,18 +1845,7 @@ class RefereeEngine:
         target = red.target
         if not target or target not in state.network_nodes:
             return True
-        adjacency = _build_adjacency_map(state)
-        compromised_neighbors = [
-            node_name
-            for node_name in adjacency.get(target, [])
-            if state.network_nodes.get(node_name) is not None
-            and state.network_nodes[node_name].status == "Compromised"
-        ]
-        if not compromised_neighbors:
-            return False
-        if target.lower() == "db":
-            return any(node_name in {"app", "storage"} for node_name in compromised_neighbors)
-        return True
+        return bool(_compromised_strict_predecessors(state, target))
 
     def _is_same_round_hard_interrupt(
         self,
@@ -1891,15 +1888,7 @@ class RefereeEngine:
         if pivot_source and pivot_source == blue.target:
             return True
 
-        adjacency = _build_adjacency_map(state)
-        compromised_neighbors = [
-            node_name
-            for node_name in adjacency.get(target, [])
-            if state.network_nodes.get(node_name) is not None
-            and state.network_nodes[node_name].status == "Compromised"
-        ]
-        if target.lower() == "db":
-            compromised_neighbors = [node_name for node_name in compromised_neighbors if node_name in {"app", "storage"}]
+        compromised_neighbors = _compromised_strict_predecessors(state, target)
         return blue.target in compromised_neighbors
 
     def _apply_same_turn_interaction(

@@ -1,3 +1,4 @@
+﻿# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import argparse
@@ -12,10 +13,46 @@ from backend_engine.agents.blue_agent_zh import BlueAgent
 from backend_engine.agents.red_agent_zh import RedAgent
 from backend_engine.agents.llm_agent import LLMDecisionError
 from backend_engine.core.network_topology import load_scenario
-from backend_engine.core.replay_export import build_replay_lite
-from backend_engine.core.scoring import TERMINAL_OBJECTIVE_BONUS
 from backend_engine.core.referee_engine_zh import RefereeEngine
+from backend_engine.core.replay_export import build_replay_lite
 from backend_engine.engine.context_builder import build_blue_context, build_red_context
+
+
+def _resolve_timeout_outcome(state, *, executed_rounds: int) -> None:
+    core_assets = [node_name for node_name in state.core_assets if node_name in state.network_nodes] or ["db"]
+    compromised_core = [
+        node_name
+        for node_name in core_assets
+        if state.network_nodes.get(node_name) is not None and state.network_nodes[node_name].status == "Compromised"
+    ]
+    compromised_nodes = [
+        node_name for node_name, node in state.network_nodes.items() if node.status == "Compromised"
+    ]
+
+    if compromised_core:
+        state.winner_locked = True
+        state.winner_side = "Red"
+        state.winner_reason = (
+            f"{executed_rounds}轮结束：核心资产已失陷({', '.join(compromised_core)})，"
+            "按状态判定红方胜。"
+        )
+        return
+
+    if not compromised_nodes and not state.red_anchored_nodes:
+        state.winner_locked = True
+        state.winner_side = "Blue"
+        state.winner_reason = (
+            f"{executed_rounds}轮结束：无失陷节点且无红方据点残留，"
+            "按状态判定蓝方胜。"
+        )
+        return
+
+    state.winner_locked = False
+    state.winner_side = None
+    state.winner_reason = (
+        f"{executed_rounds}轮结束：未达成明确胜利状态，判定平局。"
+        f"(compromised={len(compromised_nodes)}, anchored={len(state.red_anchored_nodes)})"
+    )
 
 
 def run_simulation(
@@ -70,16 +107,7 @@ def run_simulation(
 
     if not state.winner_locked:
         executed_rounds = len(frames) - 1
-        state.winner_locked = True
-        state.winner_side = "Blue"
-        terminal_bonus = int(TERMINAL_OBJECTIVE_BONUS.get("Blue", 0) or 0)
-        if terminal_bonus > 0:
-            state.blue_score = max(0, int(state.blue_score) + terminal_bonus)
-        state.winner_reason = (
-            f"{executed_rounds}轮结束红方未占领核心资产；综合指标 health={state.system_health}, "
-            f"exposure={state.exposure_level}, red_score={state.red_score}, blue_score={state.blue_score}, "
-            f"terminal_bonus={terminal_bonus}"
-        )
+        _resolve_timeout_outcome(state, executed_rounds=executed_rounds)
         frames[-1] = state.model_dump(mode="json")
 
     replay = {
@@ -98,7 +126,14 @@ def run_simulation(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="运行一个中文入口的 CyberArena 对抗模拟（红蓝决策默认强制 LLM）。")
+    # 强制 UTF-8 输出，避免 Windows 终端中文乱码。
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+    parser = argparse.ArgumentParser(description="运行一个中文入口的 CyberArena 对抗模拟（默认严格 LLM 决策）。")
     parser.add_argument("--scenario", default="backend_engine/scenarios/level_1_basic_web.json")
     parser.add_argument("--rounds", type=int, default=20)
     parser.add_argument("--output", default="backend_engine/results/mock_simulation_zh.json")
@@ -120,7 +155,7 @@ def main() -> None:
     parser.add_argument(
         "--stop_on_winner",
         action="store_true",
-        help="命中胜利锁定后立即停止（默认继续跑满回合用于回放）。",
+        help="命中胜利锁定后立刻停止（默认继续跑满回合用于回放）。",
     )
     args = parser.parse_args()
 
