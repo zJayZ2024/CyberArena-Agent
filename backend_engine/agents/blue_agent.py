@@ -72,7 +72,7 @@ class BlueAgent(BaseLLMAgent):
             battle_state=battle_state,
             opponent_model=opponent_model,
         )
-        candidates = self._anti_stagnation.apply(candidates, battle_state=battle_state)
+        candidates = self._anti_stagnation.apply(candidates, state=state, battle_state=battle_state)
         if not candidates:
             raise LLMDecisionError("蓝方当前没有可执行候选动作。")
 
@@ -101,7 +101,7 @@ class BlueAgent(BaseLLMAgent):
             candidate_id = fallback.candidate_id
 
         decision.thought = thought
-        self._anti_stagnation.observe_decision(decision.action_type)
+        self._anti_stagnation.observe_decision(decision.action_type, decision.target)
         self._reflection_engine.set_expected(decision=decision, candidate_id=candidate_id, thought=thought)
         return decision
 
@@ -194,7 +194,7 @@ class BlueAgent(BaseLLMAgent):
             battle_state=battle_state,
             opponent_model=opponent_model,
         )
-        candidates = self._anti_stagnation.apply(candidates, battle_state=battle_state)
+        candidates = self._anti_stagnation.apply(candidates, state=state, battle_state=battle_state)
         if not candidates:
             raise LLMDecisionError("蓝方 fallback 阶段没有可执行动作。")
         chosen = self._fallback_planner.choose(
@@ -205,6 +205,6 @@ class BlueAgent(BaseLLMAgent):
         )
         decision = chosen.decision.model_copy(deep=True)
         decision.thought = f"蓝方候选集兜底规划：{chosen.reason}"
-        self._anti_stagnation.observe_decision(decision.action_type)
+        self._anti_stagnation.observe_decision(decision.action_type, decision.target)
         self._reflection_engine.set_expected(decision=decision, candidate_id=chosen.candidate_id, thought=decision.thought)
         return decision

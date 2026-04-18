@@ -18,6 +18,7 @@ RED_PASSIVE_ACTIONS = {"Recon", "AnchorFoothold"}
 BLUE_PASSIVE_ACTIONS = {"Monitor"}
 RED_OBJECTIVE_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase", "AnchorFoothold", "ReactivateFoothold"}
 BLUE_RESPONSE_ACTIONS = {"PatchNode", "RestoreNode", "DeepRestore", "Isolate"}
+RED_ATTACK_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase", "ReactivateFoothold"}
 RED_VULN_VARIANT_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase"}
 MAX_RED_VULN_VARIANTS_PER_ACTION_TARGET = 2
 MAX_RED_EXPLOIT_VARIANTS_PER_TARGET = 3
@@ -1115,6 +1116,13 @@ class AntiStagnationController:
         self._last_progress_signature: tuple[Any, ...] | None = None
         self._no_progress_rounds = 0
         self._monitor_no_gain_streak = 0
+        self._zero_score_streak = 0
+        self._red_attacked_targets: set[str] = set()
+        self._red_used_vuln_ids: set[str] = set()
+        self._last_recon_target: str | None = None
+        self._recon_same_target_streak = 0
+        self._last_monitor_target: str | None = None
+        self._monitor_same_target_no_gain_streak = 0
         self._last_observed_turn = -1
 
     def observe_state(self, state: WorldState) -> None:
@@ -1143,21 +1151,62 @@ class AntiStagnationController:
             self._no_progress_rounds = 0
         self._last_progress_signature = signature
 
-        if self.self_agent_type == "Blue":
-            own_log = next((log for log in state.action_logs if log.agent_type == "Blue"), None)
-            if own_log and own_log.action_type == "Monitor":
-                metadata = own_log.metadata if isinstance(own_log.metadata, dict) else {}
-                intel_gain = bool(metadata.get("intel_gain", False))
-                if intel_gain:
+        own_log = next((log for log in state.action_logs if log.agent_type == self.self_agent_type), None)
+        if own_log is not None:
+            metadata = own_log.metadata if isinstance(own_log.metadata, dict) else {}
+            score_awarded = int(metadata.get("score_awarded", 0) or 0)
+            if score_awarded <= 0:
+                self._zero_score_streak += 1
+            else:
+                self._zero_score_streak = 0
+
+            target = metadata.get("target")
+            target = target.strip() if isinstance(target, str) else ""
+
+            if self.self_agent_type == "Red":
+                if own_log.action_type == "Recon":
+                    if target and target == self._last_recon_target:
+                        self._recon_same_target_streak += 1
+                    else:
+                        self._last_recon_target = target or None
+                        self._recon_same_target_streak = 1 if target else 0
+                elif own_log.action_type != "Recon":
+                    self._last_recon_target = None
+                    self._recon_same_target_streak = 0
+
+                if own_log.action_type in RED_ATTACK_ACTIONS and target:
+                    self._red_attacked_targets.add(target)
+                    vuln_id = metadata.get("vuln_id")
+                    if isinstance(vuln_id, str) and vuln_id:
+                        self._red_used_vuln_ids.add(vuln_id)
+
+            if self.self_agent_type == "Blue":
+                if own_log.action_type == "Monitor":
+                    intel_gain = bool(metadata.get("intel_gain", False))
+                    monitor_target = metadata.get("monitor_scope")
+                    if not isinstance(monitor_target, str) or not monitor_target.strip():
+                        monitor_target = target
+                    monitor_target = monitor_target.strip() if isinstance(monitor_target, str) else ""
+
+                    if intel_gain:
+                        self._monitor_no_gain_streak = 0
+                        self._monitor_same_target_no_gain_streak = 0
+                        self._last_monitor_target = monitor_target or None
+                    else:
+                        self._monitor_no_gain_streak += 1
+                        if monitor_target and monitor_target == self._last_monitor_target:
+                            self._monitor_same_target_no_gain_streak += 1
+                        else:
+                            self._last_monitor_target = monitor_target or None
+                            self._monitor_same_target_no_gain_streak = 1 if monitor_target else 0
+                elif own_log.action_type != "Monitor":
                     self._monitor_no_gain_streak = 0
-                else:
-                    self._monitor_no_gain_streak += 1
-            elif own_log and own_log.action_type != "Monitor":
-                self._monitor_no_gain_streak = 0
+                    self._monitor_same_target_no_gain_streak = 0
+                    self._last_monitor_target = None
 
         self._last_observed_turn = state.turn
 
-    def observe_decision(self, action_type: str) -> None:
+    def observe_decision(self, action_type: str, target: str | None = None) -> None:
         if self._last_action_type == action_type:
             self._action_streak += 1
         else:
@@ -1174,6 +1223,7 @@ class AntiStagnationController:
         self,
         candidates: list[CandidateAction],
         *,
+        state: WorldState,
         battle_state: dict[str, Any],
     ) -> list[CandidateAction]:
         if not candidates:
@@ -1184,6 +1234,18 @@ class AntiStagnationController:
             non_recon = [row for row in filtered if row.decision.action_type != "Recon"]
             if non_recon:
                 filtered = non_recon
+        if (
+            self.self_agent_type == "Red"
+            and self._last_recon_target
+            and self._recon_same_target_streak >= self.max_recon_streak
+        ):
+            switched_recon = [
+                row
+                for row in filtered
+                if not (row.decision.action_type == "Recon" and row.decision.target == self._last_recon_target)
+            ]
+            if switched_recon:
+                filtered = switched_recon
 
         if (
             self.self_agent_type == "Red"
@@ -1199,10 +1261,18 @@ class AntiStagnationController:
             if non_monitor:
                 filtered = non_monitor
 
-        if self.self_agent_type == "Blue" and self._monitor_no_gain_streak >= self.max_monitor_no_gain_streak:
-            non_monitor = [row for row in filtered if row.decision.action_type != "Monitor"]
-            if non_monitor:
-                filtered = non_monitor
+        if (
+            self.self_agent_type == "Blue"
+            and self._last_monitor_target
+            and self._monitor_same_target_no_gain_streak > self.max_monitor_no_gain_streak
+        ):
+            switched_target = [
+                row
+                for row in filtered
+                if not (row.decision.action_type == "Monitor" and row.decision.target == self._last_monitor_target)
+            ]
+            if switched_target:
+                filtered = switched_target
 
         if self._no_progress_rounds >= self.no_progress_threshold:
             if self.self_agent_type == "Red":
@@ -1212,13 +1282,65 @@ class AntiStagnationController:
             if progressive:
                 filtered = progressive
 
+        if self.self_agent_type == "Red" and self._zero_score_streak >= 3:
+            progressive = [row for row in filtered if row.decision.action_type not in RED_PASSIVE_ACTIONS]
+            if progressive:
+                filtered = progressive
+
+            untried_targets = [
+                row
+                for row in filtered
+                if row.decision.action_type in RED_ATTACK_ACTIONS
+                and row.decision.target
+                and row.decision.target not in self._red_attacked_targets
+            ]
+            if untried_targets:
+                filtered = untried_targets
+
+            unused_vuln_rows: list[tuple[CandidateAction, int]] = []
+            for row in filtered:
+                vuln_id = row.decision.vuln_id
+                target = row.decision.target
+                if not vuln_id or vuln_id in self._red_used_vuln_ids or not target:
+                    continue
+                vuln_score = self._vuln_score(state, target=target, vuln_id=vuln_id)
+                if vuln_score >= 0:
+                    unused_vuln_rows.append((row, vuln_score))
+            if unused_vuln_rows:
+                best_score = max(score for _, score in unused_vuln_rows)
+                filtered = [row for row, score in unused_vuln_rows if score == best_score]
+
         if self.self_agent_type == "Blue" and battle_state.get("blue_priority_stage") == "P0":
             prioritized = [row for row in filtered if row.decision.action_type in BLUE_RESPONSE_ACTIONS]
             if prioritized:
                 filtered = prioritized
 
+        if (
+            self.self_agent_type == "Blue"
+            and int(battle_state.get("exposure_level", 100) or 100) < 50
+            and not battle_state.get("compromised_nodes")
+        ):
+            preventive_patch = [row for row in filtered if row.decision.action_type == "PreventivePatch"]
+            if preventive_patch:
+                filtered = preventive_patch
+            else:
+                non_monitor_isolate = [
+                    row for row in filtered if row.decision.action_type not in {"Monitor", "Isolate"}
+                ]
+                if non_monitor_isolate:
+                    filtered = non_monitor_isolate
+
         filtered.sort(key=lambda row: (row.heuristic_score, row.candidate_id), reverse=True)
         return filtered
+
+    def _vuln_score(self, state: WorldState, *, target: str, vuln_id: str) -> int:
+        node = state.network_nodes.get(target)
+        if node is None:
+            return -1
+        vulnerability = node.vulnerabilities.get(vuln_id)
+        if vulnerability is None:
+            return -1
+        return int(vulnerability.score)
 
 
 class FallbackPlanner:

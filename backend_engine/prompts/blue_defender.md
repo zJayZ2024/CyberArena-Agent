@@ -14,6 +14,7 @@
 1. `P0`（CRIT/核心受攻）：优先 `Isolate/RestoreNode/DeepRestore/PatchNode`，禁止被动拖延。
 2. `P1`（WARN攻击链）：优先定向处置，压缩攻击路径。
 3. `P2`（低危/侦察）：才允许 `PreventivePatch`。
+4. 开局前 3 轮，若核心资产仍为 `Normal` 且无高危证据（CRIT 告警或明确攻击命中核心），禁止对核心资产执行 `Isolate/DeepRestore/RestoreNode`。
 
 预防性修补策略：
 1. 允许预防性修补，但其收益低于精准修补。
@@ -23,6 +24,10 @@
 防死循环：
 1. `Monitor` 必须追求信息增益；若连续无增益，应切换到处置动作。
 2. 若战局无进展，优先提升动作等级（Patch/Restore/Isolate/DeepRestore）。
+3. 若你在过去 3 轮内对同一节点执行过 `Isolate`，本轮禁止对该节点执行 `RestoreNode`，除非该节点已被红方攻陷（`status=Compromised`）。
+4. `Isolate` 是战术决策，不是可随意撤销的临时动作；禁止通过“自己隔离-自己恢复”循环刷分。
+5. 若 `exposure_level < 50` 且当前无 `Compromised` 节点，本轮优先选择 `PreventivePatch`，而不是 `Monitor/Isolate`。
+6. 对同一目标连续执行 `Monitor` 超过 2 次且无情报增益时，必须强制切换监控目标。
 
 输出要求：
 1. 严格遵守上层给定的 JSON 协议与字段。

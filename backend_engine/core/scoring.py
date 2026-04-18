@@ -8,6 +8,12 @@ from backend_engine.engine.actions import ActionResult
 # Recon and Monitor are intentionally hard-coded to zero score so they cannot be farmed.
 ZERO_SCORE_ACTIONS = {"Recon", "Monitor"}
 ROUND_SCORE_BUDGET = 30
+BLUE_REMEDIATION_ACTIONS = {"PatchNode", "RestoreNode", "DeepRestore", "PreventivePatch"}
+BLUE_REMEDIATION_BASE_SCALE = 0.8
+TERMINAL_OBJECTIVE_BONUS = {
+    "Red": 120,
+    "Blue": 120,
+}
 
 # Same action on same target in consecutive rounds receives score decay.
 REPEAT_DECAY_FACTORS = (1.0, 0.7, 0.4, 0.25)
@@ -65,14 +71,35 @@ def _compute_base_score(decision: AgentDecision, result: ActionResult) -> tuple[
     if score_value > 0:
         operational_cost = _coerce_non_negative_int(result.metadata.get("operational_cost", 0))
         net_score = max(0, score_value - operational_cost)
+        if decision.agent_type == "Blue" and decision.action_type in BLUE_REMEDIATION_ACTIONS:
+            net_score = int(round(net_score * BLUE_REMEDIATION_BASE_SCALE))
         if operational_cost > 0:
-            return net_score, "action_metadata.score_value_minus_operational_cost"
-        return net_score, "action_metadata.score_value"
+            reason = "action_metadata.score_value_minus_operational_cost"
+        else:
+            reason = "action_metadata.score_value"
+        if decision.agent_type == "Blue" and decision.action_type in BLUE_REMEDIATION_ACTIONS:
+            reason = f"{reason}+blue_remediation_scaled"
+        milestone_bonus = _coerce_non_negative_int(result.metadata.get("milestone_bonus", 0))
+        if milestone_bonus > 0:
+            net_score += milestone_bonus
+            reason = f"{reason}+milestone_bonus"
+        return net_score, reason
 
     if action_type in DEFENSE_POLICY_CONSTANTS:
         constant_score = _coerce_non_negative_int(DEFENSE_POLICY_CONSTANTS[action_type])
-        return constant_score, "defense_policy_constant"
+        reason = "defense_policy_constant"
+        if decision.agent_type == "Blue" and decision.action_type in BLUE_REMEDIATION_ACTIONS:
+            constant_score = int(round(constant_score * BLUE_REMEDIATION_BASE_SCALE))
+            reason = f"{reason}+blue_remediation_scaled"
+        milestone_bonus = _coerce_non_negative_int(result.metadata.get("milestone_bonus", 0))
+        if milestone_bonus > 0:
+            constant_score += milestone_bonus
+            reason = f"{reason}+milestone_bonus"
+        return constant_score, reason
 
+    milestone_bonus = _coerce_non_negative_int(result.metadata.get("milestone_bonus", 0))
+    if milestone_bonus > 0:
+        return milestone_bonus, "milestone_bonus_only"
     return 0, "no_effective_score_source"
 
 
@@ -130,10 +157,17 @@ def _apply_single_score(
     budget_cap, budget_overridden = _resolve_budget_cap(result, round_score_budget=round_score_budget)
     score_awarded = min(decayed_score, budget_cap)
 
+    terminal_bonus_awarded = bool(entry.get("terminal_bonus_awarded", False))
+    terminal_bonus = 0
+    if state.winner_locked and state.winner_side == side and not terminal_bonus_awarded:
+        terminal_bonus = _coerce_non_negative_int(TERMINAL_OBJECTIVE_BONUS.get(side, 0))
+        if terminal_bonus > 0:
+            entry["terminal_bonus_awarded"] = True
+
     if side == "Red":
-        state.red_score = max(0, state.red_score + score_awarded)
+        state.red_score = max(0, state.red_score + score_awarded + terminal_bonus)
     else:
-        state.blue_score = max(0, state.blue_score + score_awarded)
+        state.blue_score = max(0, state.blue_score + score_awarded + terminal_bonus)
 
     entry.update(
         {
@@ -145,7 +179,9 @@ def _apply_single_score(
 
     result.metadata.update(
         {
-            "score_awarded": score_awarded,
+            "score_awarded": score_awarded + terminal_bonus,
+            "score_awarded_action_only": score_awarded,
+            "terminal_bonus_awarded": terminal_bonus,
             "score_base_raw": raw_base_score,
             "score_base": adjusted_base_score,
             "score_reason": score_reason,
@@ -165,7 +201,9 @@ def _apply_single_score(
         result.metadata["intel_score_threshold_passed"] = False
 
     return {
-        "delta": score_awarded,
+        "delta": score_awarded + terminal_bonus,
+        "delta_action_only": score_awarded,
+        "delta_terminal_bonus": terminal_bonus,
         "base": adjusted_base_score,
         "base_raw": raw_base_score,
         "reason": score_reason,
