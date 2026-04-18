@@ -251,6 +251,66 @@ function extractCommandText(action = {}, fallback = "No command payload availabl
   return found ? found.trim() : fallback;
 }
 
+function splitZoneLabelLines(label = "") {
+  const text = String(label || "").trim();
+  if (!text) {
+    return [];
+  }
+  if (text.includes(" - ")) {
+    return text
+      .split(" - ")
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+  return [text];
+}
+
+function splitZoneNoteLines(note = "") {
+  const text = String(note || "").trim();
+  if (!text) {
+    return [];
+  }
+
+  const parts = text
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (!parts.length) {
+    return [];
+  }
+
+  return parts.map((part, index) => (index < parts.length - 1 ? `${part};` : part));
+}
+
+function wrapTextLines(lines = [], maxChars = 28) {
+  const wrapped = [];
+
+  lines.forEach((line) => {
+    const words = String(line || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (!words.length) {
+      return;
+    }
+
+    let current = words[0];
+    for (let i = 1; i < words.length; i += 1) {
+      const next = `${current} ${words[i]}`;
+      if (next.length <= maxChars) {
+        current = next;
+      } else {
+        wrapped.push(current);
+        current = words[i];
+      }
+    }
+    wrapped.push(current);
+  });
+
+  return wrapped;
+}
+
 function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
   const [flowDetail, setFlowDetail] = useState(null);
   const graph = extractRoundGraph(round);
@@ -258,6 +318,42 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
   const turnNumber = Number(round?.round ?? round?.turn ?? ws?.round ?? idx + 1);
   const allowTurnActions = Number.isFinite(turnNumber) ? turnNumber > 0 : true;
   const score = ws.score ?? { red: 0, blue: 0 };
+  const totalRounds = (() => {
+    const fromCurrent = Number(
+      round?.total_rounds
+      ?? round?.totalRounds
+      ?? ws?.total_rounds
+      ?? ws?.totalRounds,
+    );
+    if (Number.isFinite(fromCurrent) && fromCurrent > 0) {
+      return fromCurrent;
+    }
+
+    const fromList = (Array.isArray(rounds) ? rounds : [])
+      .map((item) => Number(
+        item?.total_rounds
+        ?? item?.totalRounds
+        ?? item?.world_state?.total_rounds
+        ?? item?.world_state?.totalRounds,
+      ))
+      .find((value) => Number.isFinite(value) && value > 0);
+    if (typeof fromList === "number") {
+      return fromList;
+    }
+
+    const turns = (Array.isArray(rounds) ? rounds : [])
+      .map((item) => Number(item?.round ?? item?.turn ?? item?.world_state?.round))
+      .filter((value) => Number.isFinite(value) && value >= 0);
+    if (turns.length) {
+      return Math.max(...turns);
+    }
+
+    return Math.max((Array.isArray(rounds) ? rounds.length : 1) - 1, 1);
+  })();
+  const displayRound = Number.isFinite(turnNumber)
+    ? Math.min(Math.max(Math.round(turnNumber), 1), totalRounds)
+    : 1;
+  const displayPhase = String(ws.red_phase || "recon").toUpperCase();
   const targetNode = round?.red_action?.target_node || round?.red_action?.target;
   const defendNode = round?.blue_action?.target || round?.blue_action?.target_node;
   const activePathIds = targetNode && graph.nodeConfigs[targetNode]
@@ -364,26 +460,51 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
         </defs>
         <rect width={GRAPH_VIEW.width} height={GRAPH_VIEW.height} fill="url(#sl)" />
 
-        {graph.zoneConfigs.map((zone) => (
-          <g key={zone.id}>
-            <rect x={zone.x} y={zone.y} width={zone.w} height={zone.h} rx={6} fill={zone.bg} stroke={zone.color} strokeWidth="0.5" strokeDasharray="5 3" opacity={0.85} />
-            <text x={zone.x + zone.w / 2} y={zone.y + 14} textAnchor="middle" fontFamily={T.fontMono} fontSize={8} fill={zone.color} letterSpacing="1.5" fontWeight="600" opacity="0.75">{zone.label}</text>
-            {zone.note && (
-              <text
-                x={zone.x + zone.w / 2}
-                y={zone.y + 25}
-                textAnchor="middle"
-                fontFamily={T.fontMono}
-                fontSize={6}
-                fill={zone.color}
-                letterSpacing="0.4"
-                opacity="0.62"
-              >
-                {zone.note}
-              </text>
-            )}
-          </g>
-        ))}
+        {graph.zoneConfigs.map((zone) => {
+          const labelLines = wrapTextLines(splitZoneLabelLines(zone.label), 24);
+          const noteLines = wrapTextLines(splitZoneNoteLines(zone.note), 30);
+          const labelStartY = zone.y + 14;
+          const noteStartY = labelStartY + labelLines.length * 10 + 2;
+          const labelFontSize = 8;
+          const labelTracking = "1.5";
+
+          return (
+            <g key={zone.id}>
+              <rect x={zone.x} y={zone.y} width={zone.w} height={zone.h} rx={6} fill={zone.bg} stroke={zone.color} strokeWidth="0.5" strokeDasharray="5 3" opacity={0.85} />
+              {labelLines.map((line, index) => (
+                <text
+                  key={`${zone.id}-label-${index}`}
+                  x={zone.x + zone.w / 2}
+                  y={labelStartY + index * 9}
+                  textAnchor="middle"
+                  fontFamily={T.fontMono}
+                  fontSize={labelFontSize}
+                  fill={zone.color}
+                  letterSpacing={labelTracking}
+                  fontWeight="600"
+                  opacity="0.75"
+                >
+                  {line}
+                </text>
+              ))}
+              {noteLines.map((line, index) => (
+                <text
+                  key={`${zone.id}-note-${index}`}
+                  x={zone.x + zone.w / 2}
+                  y={noteStartY + index * 8}
+                  textAnchor="middle"
+                  fontFamily={T.fontMono}
+                  fontSize={6}
+                  fill={zone.color}
+                  letterSpacing="0.35"
+                  opacity="0.62"
+                >
+                  {line}
+                </text>
+              ))}
+            </g>
+          );
+        })}
         {graph.edges.map((edge) => {
           const a = graph.nodeConfigs[edge.source];
           const b = graph.nodeConfigs[edge.target];
@@ -420,8 +541,10 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
         <Base x={GRAPH_VIEW.redBaseX} y={GRAPH_VIEW.baseY} label="RED BASE" sublabel="ATTACKER" score={score.red} color={T.red} bg={T.redBg} glowColor={T.redGlow} Icon={IconTerminal} />
         <Base x={GRAPH_VIEW.blueBaseX} y={GRAPH_VIEW.baseY} label="BLUE BASE" sublabel="DEFENDER" score={score.blue} color={T.blue} bg={T.blueBg} glowColor={T.blueGlow} Icon={resolveNodeIcon("fw", "dmz")} />
         <g transform={`translate(${GRAPH_VIEW.width / 2},8)`}>
-          <rect x={-60} y={0} width={120} height={18} rx={4} fill={T.bgPanel} stroke={T.border} strokeWidth="0.5" />
-          <text x={0} y={13} textAnchor="middle" fontFamily={T.fontMono} fontSize={8} fill={T.grayText} letterSpacing="1">ROUND {ws.round ?? 1} / {rounds.length} - {ws.red_phase?.toUpperCase()}</text>
+          <rect x={-76} y={0} width={152} height={18} rx={4} fill={T.bgPanel} stroke={T.border} strokeWidth="0.5" />
+          <text x={0} y={13} textAnchor="middle" fontFamily={T.fontMono} fontSize={8} fill={T.grayText} letterSpacing="1">
+            {`ROUND ${displayRound} / ${totalRounds} - ${displayPhase}`}
+          </text>
         </g>
         <g transform={`translate(${Math.floor(GRAPH_VIEW.width / 2) - 120},${GRAPH_VIEW.height - 20})`}>
           <text fontFamily={T.fontMono} fontSize={7} fill={T.grayDim} x={0} y={0}>AVAIL</text>

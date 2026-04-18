@@ -95,15 +95,15 @@ function App() {
     }
 
     const fromList = rounds
-      .map((item) => Number(item?.total_rounds ?? item?.totalRounds))
-      .find((value) => Number.isFinite(value) && value > 0);
+      .map((item: any) => Number(item?.total_rounds ?? item?.totalRounds))
+      .find((value: number) => Number.isFinite(value) && value > 0);
     if (typeof fromList === "number") {
       return fromList;
     }
 
     const turns = rounds
-      .map((item) => Number(item?.round ?? item?.turn))
-      .filter((value) => Number.isFinite(value) && value >= 0);
+      .map((item: any) => Number(item?.round ?? item?.turn))
+      .filter((value: number) => Number.isFinite(value) && value >= 0);
     if (turns.length) {
       return Math.max(...turns);
     }
@@ -149,13 +149,13 @@ function App() {
           <span className="pointer-events-none absolute right-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-cyan-900/45 to-transparent" />
 
           <div className="px-5 pb-4 pt-7">
-            <div className="flex items-center gap-3">
-              <div className="origin-left scale-[1.35]">
+            <div className="flex items-center">
+              <div className="origin-left scale-[1.65]">
                 <CyberArenaLogo />
               </div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-cyan-200">AstraShield</p>
+              <p className="ml-6 font-mono text-[11px] uppercase tracking-[0.2em] text-cyan-200">AstraShield</p>
             </div>
-            <div className="mt-4">
+            <div className="mt-3">
               <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-300">CyberArena-Agent</p>
               <p className="text-[11px] text-slate-500">Attack/Defense Replay Console</p>
             </div>
