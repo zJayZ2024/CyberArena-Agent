@@ -59,12 +59,38 @@ function App() {
     return () => window.clearInterval(timer);
   }, [playing, rounds.length]);
 
-  const totalRounds = rounds.length || FALLBACK_ROUNDS.length;
-  const safeIndex = Math.min(roundIndex, Math.max(totalRounds - 1, 0));
+  const frameCount = rounds.length || FALLBACK_ROUNDS.length;
+  const safeIndex = Math.min(roundIndex, Math.max(frameCount - 1, 0));
   const currentRound = useMemo(
     () => rounds[safeIndex] ?? FALLBACK_ROUNDS[Math.min(safeIndex, FALLBACK_ROUNDS.length - 1)],
     [rounds, safeIndex],
   );
+  const totalRounds = useMemo(() => {
+    const fromCurrent = Number(currentRound?.total_rounds ?? currentRound?.totalRounds);
+    if (Number.isFinite(fromCurrent) && fromCurrent > 0) {
+      return fromCurrent;
+    }
+
+    const fromList = rounds
+      .map((item) => Number(item?.total_rounds ?? item?.totalRounds))
+      .find((value) => Number.isFinite(value) && value > 0);
+    if (typeof fromList === "number") {
+      return fromList;
+    }
+
+    const turns = rounds
+      .map((item) => Number(item?.round ?? item?.turn))
+      .filter((value) => Number.isFinite(value) && value >= 0);
+    if (turns.length) {
+      return Math.max(...turns);
+    }
+
+    return Math.max(frameCount, 1);
+  }, [currentRound, frameCount, rounds]);
+  const rawRoundValue = Number(currentRound?.round ?? currentRound?.turn ?? safeIndex + 1);
+  const displayRound = Number.isFinite(rawRoundValue)
+    ? Math.min(Math.max(rawRoundValue, 1), totalRounds)
+    : Math.min(safeIndex + 1, totalRounds);
 
   const score = currentRound?.world_state?.score ?? {
     red: currentRound?.red_score ?? 0,
@@ -73,13 +99,13 @@ function App() {
 
   const handleSeek = (nextIndex: number) => {
     setPlaying(false);
-    const clamped = Math.min(Math.max(nextIndex, 0), Math.max(totalRounds - 1, 0));
+    const clamped = Math.min(Math.max(nextIndex, 0), Math.max(frameCount - 1, 0));
     setRoundIndex(clamped);
   };
 
   const handleNext = () => {
     setPlaying(false);
-    setRoundIndex((current) => Math.min(current + 1, Math.max(totalRounds - 1, 0)));
+    setRoundIndex((current) => Math.min(current + 1, Math.max(frameCount - 1, 0)));
   };
 
   return (
@@ -87,7 +113,9 @@ function App() {
       <div className="flex h-full flex-col overflow-hidden">
         <TopBar
           roundIndex={safeIndex}
+          displayRound={displayRound}
           totalRounds={totalRounds}
+          frameCount={frameCount}
           redScore={score.red}
           blueScore={score.blue}
           playing={playing}

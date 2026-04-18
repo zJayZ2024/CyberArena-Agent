@@ -1,6 +1,8 @@
 type TopBarProps = {
   roundIndex?: number;
+  displayRound?: number;
   totalRounds?: number;
+  frameCount?: number;
   redScore?: number;
   blueScore?: number;
   playing?: boolean;
@@ -35,8 +37,10 @@ function CyberArenaLogo() {
 }
 
 function TopBar({
-  roundIndex = 6,
+  roundIndex = 0,
+  displayRound = 1,
   totalRounds = 20,
+  frameCount = 20,
   redScore = 118,
   blueScore = 104,
   playing = false,
@@ -45,7 +49,9 @@ function TopBar({
   onSeek,
 }: TopBarProps) {
   const safeTotal = Math.max(totalRounds, 1);
-  const clampedIndex = Math.min(Math.max(roundIndex, 0), safeTotal - 1);
+  const safeFrameCount = Math.max(frameCount, 1);
+  const clampedIndex = Math.min(Math.max(roundIndex, 0), safeFrameCount - 1);
+  const clampedDisplayRound = Math.min(Math.max(displayRound, 1), safeTotal);
   const redRatio = redScore + blueScore > 0 ? redScore / (redScore + blueScore) : 0.5;
 
   return (
@@ -62,7 +68,7 @@ function TopBar({
         <div className="mx-auto flex w-full max-w-[520px] items-center justify-center gap-3 rounded-lg border border-[#1f2937] bg-[#07090f] px-4 py-2">
           <span className="font-mono text-xs uppercase tracking-[0.18em] text-slate-500">Round</span>
           <span className="font-mono text-sm text-slate-100">
-            {clampedIndex + 1} / {safeTotal}
+            {clampedDisplayRound} / {safeTotal}
           </span>
 
           <div className="h-2 w-24 overflow-hidden rounded-full bg-[#1f2937]">
@@ -93,7 +99,7 @@ function TopBar({
             <input
               type="range"
               min={0}
-              max={Math.max(safeTotal - 1, 0)}
+              max={Math.max(safeFrameCount - 1, 0)}
               value={clampedIndex}
               onChange={(event) => onSeek?.(Number(event.target.value))}
               className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-[#1f2937] accent-[#3b82f6]"
