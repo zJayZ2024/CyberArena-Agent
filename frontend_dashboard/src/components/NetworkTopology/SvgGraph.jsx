@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import AnimatedEdge from "./AnimatedEdge";
 import NetworkNode from "./NetworkNode";
 import {
@@ -10,16 +11,6 @@ import {
   buildZoneConfigs,
   resolveNodeIcon,
 } from "./constants";
-
-function EdgeLabel({ x, y, text, color, bg }) {
-  const w = Math.max(text.length * 5.5 + 16, 52);
-  return (
-    <g transform={`translate(${x - w / 2},${y - 9})`}>
-      <rect width={w} height={16} rx={3} fill={bg} stroke={color} strokeWidth="0.7" />
-      <text x={w / 2} y={11} textAnchor="middle" fontFamily={T.fontMono} fontSize={8} fill={color}>{text}</text>
-    </g>
-  );
-}
 
 function Base({ x, y, label, sublabel, score, color, bg, glowColor, Icon }) {
   return (
@@ -220,12 +211,17 @@ function resolveAttackPath(roundItem, graph) {
     return [];
   }
 
-  const directPath = shortestPath(graph.adjacency, entryNode, targetNode);
-  if (directPath.length) {
-    return directPath;
+  const pivotSource = roundItem?.red_action?.pivot_source;
+  if (pivotSource && graph.nodeConfigs[pivotSource]) {
+    const toPivot = shortestPath(graph.adjacency, entryNode, pivotSource);
+    const pivotToTarget = shortestPath(graph.adjacency, pivotSource, targetNode);
+    if (toPivot.length && pivotToTarget.length) {
+      return [...toPivot, ...pivotToTarget.slice(1)];
+    }
   }
 
-  return [];
+  const directPath = shortestPath(graph.adjacency, entryNode, targetNode);
+  return directPath.length ? directPath : [];
 }
 
 function pathToEdges(path, nodeConfigs) {
@@ -242,7 +238,21 @@ function pathToEdges(path, nodeConfigs) {
     .filter(Boolean);
 }
 
+function extractCommandText(action = {}, fallback = "No command payload available for this round.") {
+  const candidates = [
+    action?.payload,
+    action?.rule_or_code,
+    action?.command,
+    action?.cmd,
+    action?.script,
+    action?.reasoning,
+  ];
+  const found = candidates.find((v) => typeof v === "string" && v.trim());
+  return found ? found.trim() : fallback;
+}
+
 function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
+  const [flowDetail, setFlowDetail] = useState(null);
   const graph = extractRoundGraph(round);
   const ws = graph.ws;
   const turnNumber = Number(round?.round ?? round?.turn ?? ws?.round ?? idx + 1);
@@ -264,6 +274,16 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
 
   const nodeStatus = (id) => graph.statusById[id] ?? "Normal";
   const nodeData = (id) => graph.nodeRows.find((node) => node.id === id) ?? {};
+  const externalZoneCfg = graph.zoneConfigs.find((zone) => zone.id === "external");
+  const internetCfg = externalZoneCfg
+    ? {
+        id: "internet",
+        x: Math.round(externalZoneCfg.x + externalZoneCfg.w * 0.52),
+        y: Math.round(externalZoneCfg.y + externalZoneCfg.h * 0.54),
+      }
+    : { id: "internet", x: Math.round(GRAPH_VIEW.zoneX + 56), y: GRAPH_VIEW.baseY };
+  const InternetIcon = resolveNodeIcon("internet", "external");
+  const internetColor = "#22d3ee";
 
   const redEntryNode = hasCurrentRedAction ? activePathIds[0] : null;
   const attackEdges = pathToEdges(activePathIds, graph.nodeConfigs);
@@ -273,12 +293,46 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
     : null;
   const redEntryCfg = redEntryNode ? graph.nodeConfigs[redEntryNode] : null;
   const redEntryEdge = redEntryCfg
-    ? { x1: GRAPH_VIEW.redBaseX, y1: GRAPH_VIEW.baseY, x2: redEntryCfg.x - 18, y2: redEntryCfg.y }
+    ? { x1: internetCfg.x, y1: internetCfg.y, x2: redEntryCfg.x, y2: redEntryCfg.y }
     : null;
+  const persistentInternetLink = {
+    x1: GRAPH_VIEW.redBaseX + 30,
+    y1: GRAPH_VIEW.baseY,
+    x2: internetCfg.x - 22,
+    y2: internetCfg.y,
+  };
 
-  const blueEntryEdge = defendTargetCfg
-    ? { x1: GRAPH_VIEW.blueBaseX, y1: GRAPH_VIEW.baseY, x2: defendTargetCfg.x + 20, y2: defendTargetCfg.y }
-    : null;
+  useEffect(() => {
+    setFlowDetail(null);
+  }, [idx, round?.round, round?.turn]);
+
+  const attackPathFromInternet = hasCurrentRedAction ? ["internet", ...activePathIds] : [];
+  const openAttackFlowDetail = () => {
+    if (!hasCurrentRedAction) {
+      return;
+    }
+    setFlowDetail({
+      type: "ATTACK FLOW",
+      start: "internet",
+      target: targetNode,
+      route: attackPathFromInternet.join(" -> "),
+      payload: extractCommandText(round?.red_action),
+      color: T.red,
+    });
+  };
+  const openDefenseFlowDetail = () => {
+    if (!hasCurrentBlueAction) {
+      return;
+    }
+    setFlowDetail({
+      type: "DEFENSE FLOW",
+      start: "blue_base",
+      target: defendNode,
+      route: `blue_base -> ${defendNode}`,
+      payload: extractCommandText(round?.blue_action),
+      color: T.blue,
+    });
+  };
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", background: T.bg, borderRadius: 10, border: `1px solid ${T.border}`, overflow: "hidden" }}>
@@ -307,7 +361,6 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
           <pattern id="sl" width="1" height="3" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="1" y2="0" stroke="#fff" strokeWidth="0.4" opacity="0.012" /></pattern>
           <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L9 5L1 9" fill="none" stroke={T.red} strokeWidth="1.5" /></marker>
           <marker id="ab" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L9 5L1 9" fill="none" stroke={T.blue} strokeWidth="1.5" /></marker>
-          <marker id="ag" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L9 5L1 9" fill="none" stroke={T.gray} strokeWidth="1" /></marker>
         </defs>
         <rect width={GRAPH_VIEW.width} height={GRAPH_VIEW.height} fill="url(#sl)" />
 
@@ -339,10 +392,21 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
           }
           return <line key={`${edge.source}-${edge.target}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={T.gray} strokeWidth="0.8" opacity={0.35} />;
         })}
-        {blueEntryEdge && <line x1={blueEntryEdge.x1} y1={blueEntryEdge.y1} x2={blueEntryEdge.x2} y2={blueEntryEdge.y2} stroke={T.blueDim} strokeWidth="1" strokeDasharray="4 3" opacity={0.5} markerEnd="url(#ag)" />}
-        {redEntryEdge && <AnimatedEdge x1={redEntryEdge.x1} y1={redEntryEdge.y1} x2={redEntryEdge.x2} y2={redEntryEdge.y2} color={T.red} dasharray="6 3" speed={0.38} markerId="ar" opacity={0.9} />}
-        {attackEdges.map(({ a, b }, i) => <AnimatedEdge key={`${a.id}-${b.id}-${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} color={T.red} dasharray="6 3" speed={0.38} markerId="ar" opacity={0.9} />)}
-        {defEdge && <AnimatedEdge x1={defEdge.x1} y1={defEdge.y1} x2={defEdge.x2} y2={defEdge.y2} color={T.blue} dasharray="7 3" speed={0.55} markerId="ab" opacity={0.85} />}
+        <line x1={persistentInternetLink.x1} y1={persistentInternetLink.y1} x2={persistentInternetLink.x2} y2={persistentInternetLink.y2} stroke={T.redDim} strokeWidth="1.2" strokeDasharray="6 3" opacity="0.85" />
+        {redEntryEdge && <AnimatedEdge x1={redEntryEdge.x1} y1={redEntryEdge.y1} x2={redEntryEdge.x2} y2={redEntryEdge.y2} color={T.red} dasharray="6 3" speed={0.38} markerId="ar" opacity={0.9} onClick={openAttackFlowDetail} title="Click to view attack flow detail" endPadding={24} />}
+        {attackEdges.map(({ a, b }, i) => <AnimatedEdge key={`${a.id}-${b.id}-${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} color={T.red} dasharray="6 3" speed={0.38} markerId="ar" opacity={0.9} onClick={openAttackFlowDetail} title="Click to view attack flow detail" endPadding={24} />)}
+        {defEdge && <AnimatedEdge x1={defEdge.x1} y1={defEdge.y1} x2={defEdge.x2} y2={defEdge.y2} color={T.blue} dasharray="7 3" speed={0.55} markerId="ab" opacity={0.85} onClick={openDefenseFlowDetail} title="Click to view defense flow detail" endPadding={24} />}
+        <g transform={`translate(${internetCfg.x},${internetCfg.y})`}>
+          <circle r={24} cx={0} cy={0} fill="#06141a" stroke={internetColor} strokeWidth="1.8" />
+          <circle r={30} cx={0} cy={0} fill="none" stroke={internetColor} strokeWidth="0.9" strokeDasharray="3 3" opacity="0.7" />
+          <foreignObject x={-10} y={-16} width={20} height={20} style={{ pointerEvents: "none", overflow: "visible" }}>
+            <div xmlns="http://www.w3.org/1999/xhtml" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
+              <InternetIcon size={14} color={internetColor} />
+            </div>
+          </foreignObject>
+          <text y={9} textAnchor="middle" fontFamily={T.fontMono} fontSize={8} fill={internetColor} fontWeight="700">INTERNET</text>
+          <text y={22} textAnchor="middle" fontFamily={T.fontMono} fontSize={6} fill="#67e8f9">ENTRY POINT</text>
+        </g>
         {Object.values(graph.nodeConfigs).map((cfg) => {
           const nd = nodeData(cfg.id);
           return <NetworkNode key={cfg.id} cfg={cfg} status={nodeStatus(cfg.id)} atkCnt={nd.attack_count ?? 0} defCnt={nd.defense_count ?? 0} isTarget={hasCurrentRedAction && cfg.id === targetNode} isDefended={hasCurrentBlueAction && cfg.id === defendNode} hovered={hoveredNode === cfg.id} onHover={onHoverNode} onClick={() => {}} />;
@@ -353,21 +417,6 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
           const networkNode = graph.networkNodes?.[hoveredNode] ?? {};
           return <Tooltip cfg={cfg} status={nodeStatus(hoveredNode)} atkCnt={nd.attack_count ?? 0} defCnt={nd.defense_count ?? 0} vulnDetails={networkNode.vulnerabilities ?? {}} />;
         })()}
-        {hasCurrentRedAction && (round?.red_action?.technique_id || round?.red_action?.action_type || round?.red_action?.technique) && (() => {
-          const last = attackEdges[attackEdges.length - 1];
-          const anchor = last
-            ? { x: (last.a.x + last.b.x) / 2, y: (last.a.y + last.b.y) / 2 - 18 }
-            : redEntryEdge
-              ? { x: (redEntryEdge.x1 + redEntryEdge.x2) / 2, y: (redEntryEdge.y1 + redEntryEdge.y2) / 2 - 18 }
-              : null;
-          if (!anchor) {
-            return null;
-          }
-          const actionName = round.red_action.technique?.split(" ")[0] || round.red_action.action_type || "action";
-          const actionCode = round.red_action.technique_id || round.red_action.action_type || "ACTION";
-          return <EdgeLabel x={anchor.x} y={anchor.y} text={`${actionCode} - ${actionName}`} color={T.red} bg={T.redBg} />;
-        })()}
-        {defEdge && <EdgeLabel x={(defEdge.x1 + defEdge.x2) / 2} y={(defEdge.y1 + defEdge.y2) / 2 + 20} text={(round?.blue_action?.type || round?.blue_action?.action_type || "DEFENSE").replaceAll("_", " ").toUpperCase()} color={T.blue} bg={T.blueBg} />}
         <Base x={GRAPH_VIEW.redBaseX} y={GRAPH_VIEW.baseY} label="RED BASE" sublabel="ATTACKER" score={score.red} color={T.red} bg={T.redBg} glowColor={T.redGlow} Icon={IconTerminal} />
         <Base x={GRAPH_VIEW.blueBaseX} y={GRAPH_VIEW.baseY} label="BLUE BASE" sublabel="DEFENDER" score={score.blue} color={T.blue} bg={T.blueBg} glowColor={T.blueGlow} Icon={resolveNodeIcon("fw", "dmz")} />
         <g transform={`translate(${GRAPH_VIEW.width / 2},8)`}>
@@ -384,6 +433,25 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
           {[[T.red, true, "Attack"], [T.blue, false, "Defense"], [T.gray, false, "Network"]].map(([color, dashed, label], i) => <g key={`${label}-${i}`} transform={`translate(${i * 90},0)`}><line x1={0} y1={8} x2={20} y2={8} stroke={color} strokeWidth={1.2} strokeDasharray={dashed ? "4 2" : "none"} opacity="0.8" /><text x={24} y={12} fontFamily={T.fontMono} fontSize={7} fill={T.grayDim}>{label}</text></g>)}
         </g>
       </svg>
+      {flowDetail && (
+        <div style={{ position: "absolute", right: 14, bottom: 14, width: 320, background: `${T.bgPanel}f5`, border: `1px solid ${flowDetail.color}`, borderRadius: 8, padding: 10, zIndex: 40, boxShadow: `0 0 16px ${flowDetail.color}33` }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+            <div style={{ fontFamily: T.fontMono, fontSize: 11, color: flowDetail.color, fontWeight: 700, letterSpacing: 0.6 }}>{flowDetail.type}</div>
+            <button type="button" onClick={() => setFlowDetail(null)} style={{ fontFamily: T.fontMono, fontSize: 10, color: T.grayText, background: "transparent", border: `1px solid ${T.border}`, borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>
+              CLOSE
+            </button>
+          </div>
+          <div style={{ fontFamily: T.fontMono, fontSize: 10, color: T.grayText, lineHeight: 1.6 }}>
+            <div>START: <span style={{ color: "#e5e7eb" }}>{flowDetail.start}</span></div>
+            <div>TARGET: <span style={{ color: "#e5e7eb" }}>{flowDetail.target}</span></div>
+            <div>ROUTE: <span style={{ color: "#e5e7eb" }}>{flowDetail.route}</span></div>
+          </div>
+          <div style={{ marginTop: 8, fontFamily: T.fontMono, fontSize: 10, color: T.grayDim }}>PAYLOAD / COMMAND</div>
+          <pre style={{ marginTop: 4, marginBottom: 0, maxHeight: 120, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word", background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: 8, fontFamily: T.fontMono, fontSize: 10, color: "#e5e7eb" }}>
+            {flowDetail.payload}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }

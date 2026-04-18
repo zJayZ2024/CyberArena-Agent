@@ -84,6 +84,23 @@ const NODE_ZONE_MAP = {
   storage: "core",
 };
 
+const NODE_POSITION_HINTS = {
+  dmz: {
+    fw: { xRatio: 0.34, yRatio: 0.25 },
+    web: { xRatio: 0.66, yRatio: 0.5 },
+    vpn: { xRatio: 0.34, yRatio: 0.75 },
+  },
+  office: {
+    office_pc: { xRatio: 0.5, yRatio: 0.5 },
+  },
+  core: {
+    app: { xRatio: 0.34, yRatio: 0.24 },
+    dev: { xRatio: 0.34, yRatio: 0.74 },
+    db: { xRatio: 0.68, yRatio: 0.36 },
+    storage: { xRatio: 0.68, yRatio: 0.7 },
+  },
+};
+
 export const STATUS_STYLES = {
   Normal: { border: T.blue, bg: T.bgNode, glow: "none", dot: T.green, label: "ONLINE" },
   Scanning: { border: T.amber, bg: T.amberBg, glow: "0 0 10px rgba(245,158,11,.55)", dot: T.amber, label: "SCANNING" },
@@ -227,14 +244,22 @@ export function buildNodeConfigs(nodes = [], networkNodes = {}, zoneConfigs = []
       const rawPorts = networkNodes?.[nodeId]?.exposed_ports ?? node.exposed_ports ?? [];
       const ports = Array.isArray(rawPorts) ? rawPorts.map((port) => Number(port)).filter((port) => Number.isFinite(port)) : [];
       const vulns = Object.keys(networkNodes?.[nodeId]?.vulnerabilities ?? node.vulnerabilities ?? {});
-      const xOffset = group.length > 1 && index % 2 === 1 ? -12 : group.length > 1 ? 12 : 0;
+      const hint = NODE_POSITION_HINTS?.[zone.id]?.[nodeId.toLowerCase()];
+      const fallbackXOffset = ((index % 3) - 1) * 22 + (index % 2 === 0 ? 6 : -6);
+      const fallbackYJitter = index % 2 === 0 ? -8 : 8;
+      const x = hint
+        ? zone.x + zone.w * hint.xRatio
+        : zone.x + zone.w / 2 + fallbackXOffset;
+      const y = hint
+        ? zone.y + zone.h * hint.yRatio
+        : zone.y + verticalGap * (index + 1) + fallbackYJitter;
       configs[nodeId] = {
         id: nodeId,
         label: abbreviateNodeId(nodeId),
         sublabel: ports.length ? `:${ports[0]}` : "node",
         zone: zone.id,
-        x: Math.round(zone.x + zone.w / 2 + xOffset),
-        y: Math.round(zone.y + verticalGap * (index + 1)),
+        x: Math.round(x),
+        y: Math.round(y),
         ports,
         vulns,
       };
