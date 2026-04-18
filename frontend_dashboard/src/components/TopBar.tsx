@@ -11,7 +11,7 @@ type TopBarProps = {
   onSeek?: (index: number) => void;
 };
 
-function CyberArenaLogo() {
+export function CyberArenaLogo() {
   return (
     <div className="flex h-7 w-7 items-center justify-center rounded-md border border-[#3b82f6]/40 bg-[#080f1c] shadow-[0_0_12px_rgba(59,130,246,0.35)]">
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
@@ -56,15 +56,7 @@ function TopBar({
 
   return (
     <header className="h-16 shrink-0 border-b border-[#1f2937] bg-[#0d1117]/95 px-4">
-      <div className="grid h-full grid-cols-[240px_1fr_440px] items-center gap-4">
-        <div className="flex items-center gap-3">
-          <CyberArenaLogo />
-          <div className="leading-tight">
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-400">CyberArena-Agent</p>
-            <p className="text-xs text-slate-500">Attack/Defense Replay Console</p>
-          </div>
-        </div>
-
+      <div className="grid h-full grid-cols-[1fr_440px] items-center gap-4">
         <div className="mx-auto flex w-full max-w-[520px] items-center justify-center gap-3 rounded-lg border border-[#1f2937] bg-[#07090f] px-4 py-2">
           <span className="font-mono text-xs uppercase tracking-[0.18em] text-slate-500">Round</span>
           <span className="font-mono text-sm text-slate-100">

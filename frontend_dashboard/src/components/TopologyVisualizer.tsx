@@ -8,11 +8,17 @@ type TopologyVisualizerProps = {
   round?: any;
   rounds?: any[];
   roundIndex?: number;
+  variant?: "default" | "embedded";
 };
 
 const MOCK_ROUNDS = normalizeRoundsPayload(DEFAULT_ROUNDS);
 
-function TopologyVisualizer({ round, rounds = MOCK_ROUNDS, roundIndex = 0 }: TopologyVisualizerProps) {
+function TopologyVisualizer({
+  round,
+  rounds = MOCK_ROUNDS,
+  roundIndex = 0,
+  variant = "default",
+}: TopologyVisualizerProps) {
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [toast, setToast] = useState({ visible: false, text: "", color: T.red });
 
@@ -71,17 +77,19 @@ function TopologyVisualizer({ round, rounds = MOCK_ROUNDS, roundIndex = 0 }: Top
   }, [currentRound, hoveredNode]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[#1f2937] bg-[#07090f]">
-      <div className="flex items-center justify-between border-b border-[#1f2937] px-3 py-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-400">Dynamic Network Topology</p>
-        <div className="flex items-center gap-2 font-mono text-[10px]">
-          <span className="rounded-full border border-emerald-500/30 bg-emerald-950/30 px-2 py-0.5 text-emerald-300">Normal</span>
-          <span className="rounded-full border border-red-500/30 bg-red-950/30 px-2 py-0.5 text-red-300">Compromised</span>
-          <span className="rounded-full border border-slate-400/40 bg-slate-900/70 px-2 py-0.5 text-slate-300">Down / Isolated</span>
+    <div className={`flex h-full min-h-0 flex-col overflow-hidden ${variant === "default" ? "rounded-xl border border-[#1f2937] bg-[#07090f]" : "bg-transparent"}`}>
+      {variant === "default" ? (
+        <div className="flex items-center justify-between border-b border-[#1f2937] px-3 py-2">
+          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-400">Dynamic Network Topology</p>
+          <div className="flex items-center gap-2 font-mono text-[10px]">
+            <span className="rounded-full border border-emerald-500/30 bg-emerald-950/30 px-2 py-0.5 text-emerald-300">Normal</span>
+            <span className="rounded-full border border-red-500/30 bg-red-950/30 px-2 py-0.5 text-red-300">Compromised</span>
+            <span className="rounded-full border border-slate-400/40 bg-slate-900/70 px-2 py-0.5 text-slate-300">Down / Isolated</span>
+          </div>
         </div>
-      </div>
+      ) : null}
 
-      <div className="relative min-h-0 flex-1 overflow-hidden p-2">
+      <div className={`relative min-h-0 flex-1 overflow-hidden ${variant === "default" ? "p-2" : "p-0"}`}>
         <SvgGraph
           round={currentRound}
           rounds={safeRounds}
@@ -92,7 +100,7 @@ function TopologyVisualizer({ round, rounds = MOCK_ROUNDS, roundIndex = 0 }: Top
         />
 
         {hoveredDetail && (
-          <div className="pointer-events-none absolute bottom-4 right-4 w-72 rounded-lg border border-[#1f2937] bg-[#0d1117]/95 p-3 font-mono text-[11px]">
+          <div className={`pointer-events-none absolute bottom-4 right-4 w-72 rounded-lg p-3 font-mono text-[11px] ${variant === "default" ? "border border-[#1f2937] bg-[#0d1117]/95" : "bg-[#050814]/78 shadow-[0_8px_24px_rgba(2,8,28,0.45)]"}`}>
             <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400">{hoveredDetail.id}</p>
             <p className="mt-2 text-slate-300">Ports: {hoveredDetail.exposedPorts.length ? hoveredDetail.exposedPorts.join(", ") : "none"}</p>
             <p className="mt-1 text-slate-400">Vulns: {hoveredDetail.vulnerabilities.length ? hoveredDetail.vulnerabilities.slice(0, 3).join(", ") : "none"}</p>
