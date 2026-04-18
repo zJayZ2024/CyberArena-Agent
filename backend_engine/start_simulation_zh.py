@@ -13,6 +13,7 @@ from backend_engine.agents.red_agent_zh import RedAgent
 from backend_engine.agents.llm_agent import LLMDecisionError
 from backend_engine.core.network_topology import load_scenario
 from backend_engine.core.replay_export import build_replay_lite
+from backend_engine.core.scoring import TERMINAL_OBJECTIVE_BONUS
 from backend_engine.core.referee_engine_zh import RefereeEngine
 from backend_engine.engine.context_builder import build_blue_context, build_red_context
 
@@ -71,9 +72,13 @@ def run_simulation(
         executed_rounds = len(frames) - 1
         state.winner_locked = True
         state.winner_side = "Blue"
+        terminal_bonus = int(TERMINAL_OBJECTIVE_BONUS.get("Blue", 0) or 0)
+        if terminal_bonus > 0:
+            state.blue_score = max(0, int(state.blue_score) + terminal_bonus)
         state.winner_reason = (
             f"{executed_rounds}轮结束红方未占领核心资产；综合指标 health={state.system_health}, "
-            f"exposure={state.exposure_level}, red_score={state.red_score}, blue_score={state.blue_score}"
+            f"exposure={state.exposure_level}, red_score={state.red_score}, blue_score={state.blue_score}, "
+            f"terminal_bonus={terminal_bonus}"
         )
         frames[-1] = state.model_dump(mode="json")
 
