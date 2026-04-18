@@ -10,10 +10,6 @@ ZERO_SCORE_ACTIONS = {"Recon", "Monitor"}
 ROUND_SCORE_BUDGET = 30
 BLUE_REMEDIATION_ACTIONS = {"PatchNode", "RestoreNode", "DeepRestore", "PreventivePatch"}
 BLUE_REMEDIATION_BASE_SCALE = 0.8
-TERMINAL_OBJECTIVE_BONUS = {
-    "Red": 120,
-    "Blue": 120,
-}
 
 # Same action on same target in consecutive rounds receives score decay.
 REPEAT_DECAY_FACTORS = (1.0, 0.7, 0.4, 0.25)
@@ -157,17 +153,10 @@ def _apply_single_score(
     budget_cap, budget_overridden = _resolve_budget_cap(result, round_score_budget=round_score_budget)
     score_awarded = min(decayed_score, budget_cap)
 
-    terminal_bonus_awarded = bool(entry.get("terminal_bonus_awarded", False))
-    terminal_bonus = 0
-    if state.winner_locked and state.winner_side == side and not terminal_bonus_awarded:
-        terminal_bonus = _coerce_non_negative_int(TERMINAL_OBJECTIVE_BONUS.get(side, 0))
-        if terminal_bonus > 0:
-            entry["terminal_bonus_awarded"] = True
-
     if side == "Red":
-        state.red_score = max(0, state.red_score + score_awarded + terminal_bonus)
+        state.red_score = max(0, state.red_score + score_awarded)
     else:
-        state.blue_score = max(0, state.blue_score + score_awarded + terminal_bonus)
+        state.blue_score = max(0, state.blue_score + score_awarded)
 
     entry.update(
         {
@@ -179,9 +168,9 @@ def _apply_single_score(
 
     result.metadata.update(
         {
-            "score_awarded": score_awarded + terminal_bonus,
+            "score_awarded": score_awarded,
             "score_awarded_action_only": score_awarded,
-            "terminal_bonus_awarded": terminal_bonus,
+            "terminal_bonus_awarded": 0,
             "score_base_raw": raw_base_score,
             "score_base": adjusted_base_score,
             "score_reason": score_reason,
@@ -201,9 +190,9 @@ def _apply_single_score(
         result.metadata["intel_score_threshold_passed"] = False
 
     return {
-        "delta": score_awarded + terminal_bonus,
+        "delta": score_awarded,
         "delta_action_only": score_awarded,
-        "delta_terminal_bonus": terminal_bonus,
+        "delta_terminal_bonus": 0,
         "base": adjusted_base_score,
         "base_raw": raw_base_score,
         "reason": score_reason,
