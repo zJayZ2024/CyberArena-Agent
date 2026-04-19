@@ -405,5 +405,18 @@ export function normalizeRoundsPayload(payload) {
   if (!maybeRounds.length) {
     return DEFAULT_ROUNDS;
   }
-  return maybeRounds.map((round, index) => normalizeRound(round, index, maybeRounds.length));
+
+  const payloadDeclaredTotal = Number(payload?.total_rounds ?? payload?.totalRounds);
+  const inferredMaxTurn = maybeRounds
+    .map((round) => Number(round?.round ?? round?.turn))
+    .filter((value) => Number.isFinite(value))
+    .reduce((max, value) => Math.max(max, value), Number.NEGATIVE_INFINITY);
+
+  const normalizedTotalRounds = Number.isFinite(payloadDeclaredTotal) && payloadDeclaredTotal > 0
+    ? payloadDeclaredTotal
+    : Number.isFinite(inferredMaxTurn) && inferredMaxTurn > 0
+      ? inferredMaxTurn
+      : maybeRounds.length;
+
+  return maybeRounds.map((round, index) => normalizeRound(round, index, normalizedTotalRounds));
 }

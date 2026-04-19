@@ -105,8 +105,8 @@ function TerminalLogs({ round }: TerminalLogsProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between border-b border-[#1f2937] px-3 py-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-400">Realtime Security Terminal</p>
+      <div className="flex items-center justify-between px-3 py-2">
+        <p className="font-mono text-[13px] uppercase tracking-[0.22em] text-slate-300">Realtime Security Terminal</p>
         <span className="font-mono text-[11px] text-slate-500">Round {roundLabel}</span>
       </div>
 
@@ -114,8 +114,8 @@ function TerminalLogs({ round }: TerminalLogsProps) {
         {lines.map((line) => (
           <div key={line.id} className="whitespace-pre-wrap break-words">
             <span className={ROLE_TEXT_CLASS[line.role]}>[{line.role}]</span>
-            <span className="ml-2 text-slate-200">{line.message}</span>
-            {line.detail ? <span className="ml-2 text-slate-500">| {line.detail}</span> : null}
+            <span className="ml-2 text-slate-400">{line.message}</span>
+            {line.detail ? <span className="ml-2 text-slate-600">| {line.detail}</span> : null}
           </div>
         ))}
       </div>
