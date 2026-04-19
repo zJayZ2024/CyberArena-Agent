@@ -703,6 +703,19 @@ class ActionSpaceBuilder:
                     base_impact -= 10
                     progress_value -= 8
 
+            if action_type == "Isolate" and target and target in state.network_nodes:
+                node = state.network_nodes[target]
+                has_recent_alert = False
+                if recent_alerts:
+                    has_recent_alert = any(
+                        alert.target == target and alert.severity in {"WARN", "CRIT"}
+                        for alert in recent_alerts
+                    )
+                # Avoid pre-emptively isolating healthy internal nodes without concrete threat signal.
+                if node.status == "Normal" and not has_recent_alert:
+                    base_impact -= 26
+                    progress_value -= 18
+
             if blue_priority_stage == "P0":
                 if action_type in BLUE_RESPONSE_ACTIONS:
                     base_impact += 18
@@ -1255,6 +1268,16 @@ class AntiStagnationController:
             non_anchor = [row for row in filtered if row.decision.action_type != "AnchorFoothold"]
             if non_anchor:
                 filtered = non_anchor
+
+        if self.self_agent_type == "Red":
+            lateral_rows = [row for row in filtered if row.decision.action_type == "LateralMove"]
+            internal_compromised = any(
+                node.status == "Compromised" and not _is_perimeter_node(node_name)
+                for node_name, node in state.network_nodes.items()
+            )
+            # Prefer depth over persistence when a legal pivot already exists but no internal node is owned yet.
+            if lateral_rows and not internal_compromised:
+                filtered = lateral_rows
 
         if self.self_agent_type == "Blue" and self._last_action_type == "Monitor" and self._action_streak >= self.max_monitor_streak:
             non_monitor = [row for row in filtered if row.decision.action_type != "Monitor"]
