@@ -153,10 +153,10 @@ function App() {
               <div className="origin-left scale-[1.65]">
                 <CyberArenaLogo />
               </div>
-              <p className="ml-6 font-mono text-[11px] uppercase tracking-[0.2em] text-cyan-200">AstraShield</p>
+              <p className="ml-8 font-mono text-[12px] uppercase tracking-[0.2em] text-cyan-200">MACSim</p>
             </div>
-            <div className="mt-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-300">CyberArena-Agent</p>
+            <div className="mt-4">
+              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-300">Multi-Agent CyberSec Simulator</p>
               <p className="text-[11px] text-slate-500">Attack/Defense Replay Console</p>
             </div>
           </div>

@@ -174,9 +174,7 @@ function HomeDashboard({
 
               <div className="shrink-0">
                 <p className="font-mono text-[10px] uppercase tracking-[0.26em] text-slate-500">Live Operations</p>
-                <h1 className="mt-2 text-[2rem] font-light tracking-wide text-slate-100">
-                  Live Simulation - {scenarioName}
-                </h1>
+                <h1 className="mt-2 text-[2rem] font-light tracking-wide text-slate-100">Live Simulation</h1>
                 <p className="mt-2 text-sm text-slate-400">
                   Round {displayRound} / {totalRounds} | Compromised nodes: {compromisedCount} | Status:{" "}
                   <span className={compromisedCount > 0 ? "text-amber-300" : "text-emerald-300"}>
