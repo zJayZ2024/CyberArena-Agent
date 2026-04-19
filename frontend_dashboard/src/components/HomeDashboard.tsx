@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 
+import LiveScoreChart from "./LiveScoreChart";
 import TopologyVisualizer from "./TopologyVisualizer";
 
 type HomeDashboardProps = {
@@ -57,10 +58,10 @@ function HomeDashboard({
   const compromisedCount = Array.isArray(worldState.nodes)
     ? worldState.nodes.filter((node: any) => ["compromised", "down", "isolated"].includes(String(node?.status || "").toLowerCase())).length
     : 0;
-  const safeRoundNumber = Number(currentRound?.round ?? currentRound?.turn ?? roundIndex + 1);
+  const safeRoundNumber = Number(roundIndex);
   const displayRound = Number.isFinite(safeRoundNumber)
-    ? Math.min(Math.max(Math.round(safeRoundNumber), 1), Math.max(totalRounds, 1))
-    : 1;
+    ? Math.min(Math.max(Math.round(safeRoundNumber), 0), Math.max(totalRounds, 1))
+    : 0;
 
   const scenarioName = useMemo(() => {
     const fromRound = currentRound?.scenario ?? rounds[0]?.scenario;
@@ -186,7 +187,7 @@ function HomeDashboard({
 
               <div className="mt-5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] bg-[#060b16]/35">
                 <div className="flex shrink-0 items-center justify-end gap-2 px-4 pt-3 text-[10px] font-mono uppercase tracking-[0.16em]">
-                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-300">Normal</span>
+                  <span className="rounded-full border border-blue-500/35 bg-blue-950/30 px-2 py-0.5 text-blue-300">Normal</span>
                   <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-red-300">Compromised</span>
                   <span className="rounded-full bg-slate-500/20 px-2 py-0.5 text-slate-300">Down</span>
                 </div>
@@ -197,75 +198,92 @@ function HomeDashboard({
             </div>
           </div>
 
-          <aside className="col-span-12 row-start-1 min-h-0 xl:col-span-4">
-            <div className="relative h-full overflow-y-auto rounded-[28px] bg-[#0b1222]/62 px-5 py-5 shadow-[0_18px_38px_rgba(2,8,24,0.36)]">
-              <span className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-blue-300/40 to-transparent" />
+          <aside className="col-span-12 row-start-1 min-h-0 xl:col-span-4 xl:row-span-2">
+            <div className="flex h-full min-h-0 flex-col gap-4">
+              <div className="relative min-h-0 flex-1 overflow-y-auto rounded-[28px] bg-[#0b1222]/62 px-5 py-5 shadow-[0_18px_38px_rgba(2,8,24,0.36)]">
+                <span className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-blue-300/40 to-transparent" />
 
-              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">Map Statistics</p>
-              <p className="mt-1 text-sm font-light tracking-wide text-slate-200">Simulation Telemetry</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">Map Statistics</p>
+                <p className="mt-1 text-sm font-light tracking-wide text-slate-200">Simulation Telemetry</p>
 
-              <button
-                type="button"
-                onClick={() => onStartNewSimulation?.()}
-                className="mt-4 w-full rounded-xl bg-gradient-to-r from-cyan-500/30 via-blue-500/35 to-cyan-400/20 px-4 py-2.5 font-mono text-xs uppercase tracking-[0.14em] text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.32)] transition hover:brightness-110"
-              >
-                Start New Simulation
-              </button>
+                <button
+                  type="button"
+                  onClick={() => onStartNewSimulation?.()}
+                  className="mt-4 w-full rounded-xl bg-gradient-to-r from-cyan-500/30 via-blue-500/35 to-cyan-400/20 px-4 py-2.5 font-mono text-xs uppercase tracking-[0.14em] text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.32)] transition hover:brightness-110"
+                >
+                  Start New Simulation
+                </button>
 
-              <div className="mt-6 space-y-4 text-xs text-slate-400">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span>Red vs Blue Pressure</span>
-                    <span className="text-slate-300">{Math.round(redPressure)} / {Math.round(blueControl)}</span>
+                <div className="mt-6 space-y-4 text-xs text-slate-400">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span>Red vs Blue Pressure</span>
+                      <span className="text-slate-300">{Math.round(redPressure)} / {Math.round(blueControl)}</span>
+                    </div>
+                    <ProgressBar value={redPressure} tone="from-red-400 to-rose-300" />
                   </div>
-                  <ProgressBar value={redPressure} tone="from-red-400 to-rose-300" />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span>Exposure Level</span>
-                    <span className="text-slate-300">{Math.round(exposure)}%</span>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span>Exposure Level</span>
+                      <span className="text-slate-300">{Math.round(exposure)}%</span>
+                    </div>
+                    <ProgressBar value={exposure} tone="from-amber-400 to-orange-300" />
                   </div>
-                  <ProgressBar value={exposure} tone="from-amber-400 to-orange-300" />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span>System Health</span>
-                    <span className="text-slate-300">{systemHealth}%</span>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span>System Health</span>
+                      <span className="text-slate-300">{systemHealth}%</span>
+                    </div>
+                    <ProgressBar value={systemHealth} tone="from-emerald-400 to-cyan-300" />
                   </div>
-                  <ProgressBar value={systemHealth} tone="from-emerald-400 to-cyan-300" />
                 </div>
+
+                <div className="mt-7 space-y-2 text-xs">
+                  <div className="flex items-center justify-between text-slate-500">
+                    <span>Round Window</span>
+                    <span className="text-slate-200">{displayRound} / {totalRounds}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-500">
+                    <span>Red Score</span>
+                    <span className="text-red-300">{score.red ?? 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-500">
+                    <span>Blue Score</span>
+                    <span className="text-cyan-300">{score.blue ?? 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-500">
+                    <span>Latest Winner</span>
+                    <span className={winnerTone(recentRecords[0]?.winner ?? "Draw")}>{recentRecords[0]?.winner ?? "Draw"}</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => onViewReplay?.(recentRecords[0]?.id ?? "SIM-LIVE")}
+                  className="mt-6 w-full rounded-xl bg-white/[0.05] px-4 py-2 text-xs tracking-wide text-slate-200 transition hover:bg-white/[0.09]"
+                >
+                  View Replay Timeline
+                </button>
               </div>
 
-              <div className="mt-7 space-y-2 text-xs">
-                <div className="flex items-center justify-between text-slate-500">
-                  <span>Round Window</span>
-                  <span className="text-slate-200">{displayRound} / {totalRounds}</span>
-                </div>
-                <div className="flex items-center justify-between text-slate-500">
-                  <span>Red Score</span>
-                  <span className="text-red-300">{score.red ?? 0}</span>
-                </div>
-                <div className="flex items-center justify-between text-slate-500">
-                  <span>Blue Score</span>
-                  <span className="text-cyan-300">{score.blue ?? 0}</span>
-                </div>
-                <div className="flex items-center justify-between text-slate-500">
-                  <span>Latest Winner</span>
-                  <span className={winnerTone(recentRecords[0]?.winner ?? "Draw")}>{recentRecords[0]?.winner ?? "Draw"}</span>
-                </div>
-              </div>
+              <LiveScoreChart rounds={rounds} currentRoundIndex={roundIndex} totalRounds={totalRounds} />
 
-              <button
-                type="button"
-                onClick={() => onViewReplay?.(recentRecords[0]?.id ?? "SIM-LIVE")}
-                className="mt-6 w-full rounded-xl bg-white/[0.05] px-4 py-2 text-xs tracking-wide text-slate-200 transition hover:bg-white/[0.09]"
-              >
-                View Replay Timeline
-              </button>
+              <article className="relative min-h-[180px] overflow-hidden rounded-2xl bg-[#0a1120]/75 p-4 shadow-[0_14px_34px_rgba(2,8,24,0.3)]">
+                <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-amber-300/45 to-transparent" />
+                <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">Recent Critical Alerts</p>
+                <ul className="mt-3 cyber-scrollbar max-h-[190px] space-y-2 overflow-y-auto pr-1 text-xs text-slate-300">
+                  {alerts.map((item) => (
+                    <li key={item} className="rounded-lg bg-white/[0.03] px-3 py-2 leading-5 text-slate-300">
+                      <span className="mr-2 text-amber-300">[ALERT]</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </article>
             </div>
           </aside>
 
-          <div className="col-span-12 row-start-2 grid min-h-0 grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="col-span-12 row-start-2 grid min-h-0 grid-cols-1 gap-4 lg:grid-cols-2 xl:col-span-8">
             <article className="relative overflow-hidden rounded-2xl bg-[#0a1120]/75 p-4 shadow-[0_14px_34px_rgba(2,8,24,0.3)]">
               <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-red-300/45 to-transparent" />
               <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">Red Agent Tactics</p>
@@ -302,19 +320,6 @@ function HomeDashboard({
                   <p className="mt-1 text-slate-200">{Math.max(2, compromisedCount + 1)} active</p>
                 </div>
               </div>
-            </article>
-
-            <article className="relative overflow-hidden rounded-2xl bg-[#0a1120]/75 p-4 shadow-[0_14px_34px_rgba(2,8,24,0.3)]">
-              <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-amber-300/45 to-transparent" />
-              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">Recent Critical Alerts</p>
-              <ul className="mt-3 space-y-2 overflow-y-auto pr-1 text-xs text-slate-300">
-                {alerts.map((item) => (
-                  <li key={item} className="rounded-lg bg-white/[0.03] px-3 py-2 leading-5 text-slate-300">
-                    <span className="mr-2 text-amber-300">[ALERT]</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
             </article>
           </div>
         </section>

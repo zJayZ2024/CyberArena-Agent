@@ -108,12 +108,12 @@ function App() {
       return Math.max(...turns);
     }
 
-    return Math.max(frameCount, 1);
+    return Math.max(frameCount - 1, 1);
   }, [currentRound, frameCount, rounds]);
-  const rawRoundValue = Number(currentRound?.round ?? currentRound?.turn ?? safeIndex + 1);
+  const rawRoundValue = Number(safeIndex);
   const displayRound = Number.isFinite(rawRoundValue)
-    ? Math.min(Math.max(rawRoundValue, 1), totalRounds)
-    : Math.min(safeIndex + 1, totalRounds);
+    ? Math.min(Math.max(rawRoundValue, 0), totalRounds)
+    : Math.min(Math.max(safeIndex, 0), totalRounds);
 
   const score = currentRound?.world_state?.score ?? {
     red: currentRound?.red_score ?? 0,
@@ -204,6 +204,7 @@ function App() {
                 onTogglePlay={() => setPlaying((current) => !current)}
                 onNext={handleNext}
                 onSeek={handleSeek}
+                immersive
               />
 
               <HomeDashboard
@@ -230,19 +231,31 @@ function App() {
                 onTogglePlay={() => setPlaying((current) => !current)}
                 onNext={handleNext}
                 onSeek={handleSeek}
+                immersive
               />
 
               <main className="flex min-h-0 flex-1 overflow-hidden px-3 pb-3 pt-2">
                 <section className="min-w-0 flex-[3] overflow-hidden pr-3">
-                  <TopologyVisualizer round={currentRound} rounds={rounds} roundIndex={safeIndex} />
+                  <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] bg-[#060b16]/35">
+                    <span className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/35 to-transparent" />
+                    <span className="pointer-events-none absolute inset-x-12 bottom-0 h-px bg-gradient-to-r from-transparent via-red-400/45 to-transparent" />
+                    <div className="flex shrink-0 items-center justify-end gap-2 px-4 pt-3 text-[10px] font-mono uppercase tracking-[0.16em]">
+                      <span className="rounded-full border border-blue-500/35 bg-blue-950/30 px-2 py-0.5 text-blue-300">Normal</span>
+                      <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-red-300">Compromised</span>
+                      <span className="rounded-full bg-slate-500/20 px-2 py-0.5 text-slate-300">Down</span>
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-hidden p-2">
+                      <TopologyVisualizer round={currentRound} rounds={rounds} roundIndex={safeIndex} variant="embedded" />
+                    </div>
+                  </div>
                 </section>
 
-                <aside className="flex min-w-[350px] max-w-[420px] flex-1 overflow-hidden rounded-xl border border-[#1f2937] bg-[#0d1117]/90">
+                <aside className="flex min-w-[350px] max-w-[420px] flex-1 overflow-hidden">
                   <ReasoningPanel round={currentRound} />
                 </aside>
               </main>
 
-              <section className="h-40 shrink-0 border-t border-[#1f2937] bg-[#0a0f17] md:h-44 xl:h-48">
+              <section className="h-40 shrink-0 md:h-44 xl:h-48">
                 <TerminalLogs round={currentRound} />
               </section>
             </div>

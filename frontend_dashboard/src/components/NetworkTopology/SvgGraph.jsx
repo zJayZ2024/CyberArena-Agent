@@ -315,7 +315,9 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
   const [flowDetail, setFlowDetail] = useState(null);
   const graph = extractRoundGraph(round);
   const ws = graph.ws;
-  const turnNumber = Number(round?.round ?? round?.turn ?? ws?.round ?? idx + 1);
+  const turnNumber = Number.isFinite(Number(idx))
+    ? Number(idx)
+    : Number(round?.round ?? round?.turn ?? ws?.round ?? 0);
   const allowTurnActions = Number.isFinite(turnNumber) ? turnNumber > 0 : true;
   const score = ws.score ?? { red: 0, blue: 0 };
   const totalRounds = (() => {
@@ -351,8 +353,8 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
     return Math.max((Array.isArray(rounds) ? rounds.length : 1) - 1, 1);
   })();
   const displayRound = Number.isFinite(turnNumber)
-    ? Math.min(Math.max(Math.round(turnNumber), 1), totalRounds)
-    : 1;
+    ? Math.min(Math.max(Math.round(turnNumber), 0), totalRounds)
+    : 0;
   const displayPhase = String(ws.red_phase || "recon").toUpperCase();
   const targetNode = round?.red_action?.target_node || round?.red_action?.target;
   const defendNode = round?.blue_action?.target || round?.blue_action?.target_node;
@@ -431,7 +433,7 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
   };
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%", background: T.bg, borderRadius: 10, border: `1px solid ${T.border}`, overflow: "hidden" }}>
+    <div style={{ position: "relative", width: "100%", height: "100%", background: "transparent", overflow: "hidden" }}>
       <style>{`
         @keyframes cyberFlow { to { stroke-dashoffset: -18; } }
         @keyframes cyberPulseRed { 0%,100% { filter: drop-shadow(0 0 5px rgba(239,68,68,.4)); } 50% { filter: drop-shadow(0 0 16px rgba(239,68,68,.9)); } }
@@ -511,7 +513,7 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
           if (!a || !b) {
             return null;
           }
-          return <line key={`${edge.source}-${edge.target}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={T.gray} strokeWidth="0.8" opacity={0.35} />;
+          return <line key={`${edge.source}-${edge.target}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={T.gray} strokeWidth="0.8" opacity={0.36} />;
         })}
         <line x1={persistentInternetLink.x1} y1={persistentInternetLink.y1} x2={persistentInternetLink.x2} y2={persistentInternetLink.y2} stroke={T.redDim} strokeWidth="1.2" strokeDasharray="6 3" opacity="0.85" />
         {redEntryEdge && <AnimatedEdge x1={redEntryEdge.x1} y1={redEntryEdge.y1} x2={redEntryEdge.x2} y2={redEntryEdge.y2} color={T.red} dasharray="6 3" speed={0.38} markerId="ar" opacity={0.9} onClick={openAttackFlowDetail} title="Click to view attack flow detail" endPadding={24} />}
@@ -526,7 +528,6 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
             </div>
           </foreignObject>
           <text y={9} textAnchor="middle" fontFamily={T.fontMono} fontSize={8} fill={internetColor} fontWeight="700">INTERNET</text>
-          <text y={22} textAnchor="middle" fontFamily={T.fontMono} fontSize={6} fill="#67e8f9">ENTRY POINT</text>
         </g>
         {Object.values(graph.nodeConfigs).map((cfg) => {
           const nd = nodeData(cfg.id);
@@ -540,7 +541,7 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
         })()}
         <Base x={GRAPH_VIEW.redBaseX} y={GRAPH_VIEW.baseY} label="RED BASE" sublabel="ATTACKER" score={score.red} color={T.red} bg={T.redBg} glowColor={T.redGlow} Icon={IconTerminal} />
         <Base x={GRAPH_VIEW.blueBaseX} y={GRAPH_VIEW.baseY} label="BLUE BASE" sublabel="DEFENDER" score={score.blue} color={T.blue} bg={T.blueBg} glowColor={T.blueGlow} Icon={resolveNodeIcon("fw", "dmz")} />
-        <g transform={`translate(${GRAPH_VIEW.width / 2},8)`}>
+        <g transform={`translate(${GRAPH_VIEW.width / 2},0)`}>
           <rect x={-76} y={0} width={152} height={18} rx={4} fill={T.bgPanel} stroke={T.border} strokeWidth="0.5" />
           <text x={0} y={13} textAnchor="middle" fontFamily={T.fontMono} fontSize={8} fill={T.grayText} letterSpacing="1">
             {`ROUND ${displayRound} / ${totalRounds} - ${displayPhase}`}
