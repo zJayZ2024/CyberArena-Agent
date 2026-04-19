@@ -9,29 +9,49 @@
 }
 
 @layer utilities {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(71, 85, 105, 0.45) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(71, 85, 105, 0.45);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.65);
+  }
+
   .cyber-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: #475569 #0b1220;
+    scrollbar-color: rgba(71, 85, 105, 0.45) transparent;
   }
 
   .cyber-scrollbar::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 6px;
+    height: 6px;
   }
 
   .cyber-scrollbar::-webkit-scrollbar-track {
-    background: #0b1220;
-    border-left: 1px solid #1f2937;
+    background: transparent;
   }
 
   .cyber-scrollbar::-webkit-scrollbar-thumb {
-    border: 1px solid #64748b;
     border-radius: 999px;
-    background: linear-gradient(180deg, #334155, #1e293b);
+    background: rgba(71, 85, 105, 0.45);
   }
 
   .cyber-scrollbar::-webkit-scrollbar-thumb:hover {
-    border-color: #60a5fa;
-    background: linear-gradient(180deg, #3b82f6, #1d4ed8);
+    background: rgba(100, 116, 139, 0.65);
   }
 }

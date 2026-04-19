@@ -19,7 +19,7 @@ const MOCK_CARDS: ReasoningCard[] = [
     title: "RED Agent",
     action: "ExploitService",
     reasoning: "Pivot from web to app, then target storage exposure for credential harvesting.",
-    className: "border-red-500/40 bg-red-950/25",
+    className: "border-l-2 border-red-500/50 bg-red-950/20 shadow-[0_10px_24px_rgba(2,8,24,0.24)]",
     actionClassName: "text-red-300",
   },
   {
@@ -27,7 +27,7 @@ const MOCK_CARDS: ReasoningCard[] = [
     title: "BLUE Agent",
     action: "PatchNode",
     reasoning: "Patch high-score vulnerability on storage to reduce reachable kill chain depth.",
-    className: "border-blue-500/40 bg-blue-950/25",
+    className: "border-l-2 border-blue-500/50 bg-blue-950/20 shadow-[0_10px_24px_rgba(2,8,24,0.24)]",
     actionClassName: "text-blue-300",
   },
   {
@@ -35,7 +35,7 @@ const MOCK_CARDS: ReasoningCard[] = [
     title: "Referee",
     action: "ResolveRound",
     reasoning: "Evaluate prerequisites and score deltas deterministically from action metadata.",
-    className: "border-amber-500/40 bg-amber-950/25",
+    className: "border-l-2 border-amber-400/55 bg-amber-950/20 shadow-[0_10px_24px_rgba(2,8,24,0.24)]",
     actionClassName: "text-amber-300",
   },
 ];
@@ -58,7 +58,7 @@ function createCards(round: any): ReasoningCard[] {
       title: "RED Agent",
       action: round?.red_action?.action_type || round?.red_action?.technique || redLog?.action_type || "Recon",
       reasoning: round?.red_action?.reasoning || redLog?.thought || "No RED reasoning available in this round.",
-      className: "border-red-500/40 bg-red-950/25",
+      className: "border-l-2 border-red-500/50 bg-red-950/20 shadow-[0_10px_24px_rgba(2,8,24,0.24)]",
       actionClassName: "text-red-300",
     },
     {
@@ -66,7 +66,7 @@ function createCards(round: any): ReasoningCard[] {
       title: "BLUE Agent",
       action: round?.blue_action?.type || round?.blue_action?.action_type || blueLog?.action_type || "Monitor",
       reasoning: round?.blue_action?.reasoning || blueLog?.thought || "No BLUE reasoning available in this round.",
-      className: "border-blue-500/40 bg-blue-950/25",
+      className: "border-l-2 border-blue-500/50 bg-blue-950/20 shadow-[0_10px_24px_rgba(2,8,24,0.24)]",
       actionClassName: "text-blue-300",
     },
     {
@@ -74,7 +74,7 @@ function createCards(round: any): ReasoningCard[] {
       title: "Referee",
       action: refereeLog?.action_type || "ResolveRound",
       reasoning: refereeLog?.thought || round?.judge_result?.narrative || "No referee narrative available in this round.",
-      className: "border-amber-500/40 bg-amber-950/25",
+      className: "border-l-2 border-amber-400/55 bg-amber-950/20 shadow-[0_10px_24px_rgba(2,8,24,0.24)]",
       actionClassName: "text-amber-300",
     },
   ];
@@ -91,14 +91,14 @@ function ReasoningPanel({ round }: ReasoningPanelProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="border-b border-[#1f2937] px-4 py-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-400">Agent Reasoning Stream</p>
+      <div className="px-4 py-3">
+        <p className="font-mono text-[13px] uppercase tracking-[0.22em] text-slate-300">Agent Reasoning Stream</p>
         <p className="mt-1 text-xs text-slate-500">Round {roundLabel}</p>
       </div>
 
-      <div className="cyber-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
+      <div className="cyber-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3">
         {cards.map((card) => (
-          <article key={card.id} className={`rounded-lg border p-3 ${card.className}`}>
+          <article key={card.id} className={`rounded-xl p-3 ${card.className}`}>
             <div className="flex items-center justify-between">
               <h3 className="font-mono text-xs uppercase tracking-[0.14em] text-slate-200">{card.title}</h3>
               <span className={`font-mono text-[11px] ${card.actionClassName}`}>{card.action}</span>

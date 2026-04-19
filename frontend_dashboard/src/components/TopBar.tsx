@@ -1,15 +1,18 @@
 type TopBarProps = {
   roundIndex?: number;
+  displayRound?: number;
   totalRounds?: number;
+  frameCount?: number;
   redScore?: number;
   blueScore?: number;
   playing?: boolean;
   onTogglePlay?: () => void;
   onNext?: () => void;
   onSeek?: (index: number) => void;
+  immersive?: boolean;
 };
 
-function CyberArenaLogo() {
+export function CyberArenaLogo() {
   return (
     <div className="flex h-7 w-7 items-center justify-center rounded-md border border-[#3b82f6]/40 bg-[#080f1c] shadow-[0_0_12px_rgba(59,130,246,0.35)]">
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
@@ -35,34 +38,39 @@ function CyberArenaLogo() {
 }
 
 function TopBar({
-  roundIndex = 6,
+  roundIndex = 0,
+  displayRound = 0,
   totalRounds = 20,
+  frameCount = 20,
   redScore = 118,
   blueScore = 104,
   playing = false,
   onTogglePlay,
   onNext,
   onSeek,
+  immersive = false,
 }: TopBarProps) {
   const safeTotal = Math.max(totalRounds, 1);
-  const clampedIndex = Math.min(Math.max(roundIndex, 0), safeTotal - 1);
+  const safeFrameCount = Math.max(frameCount, 1);
+  const clampedIndex = Math.min(Math.max(roundIndex, 0), safeFrameCount - 1);
+  const clampedDisplayRound = Math.min(Math.max(displayRound, 0), safeTotal);
   const redRatio = redScore + blueScore > 0 ? redScore / (redScore + blueScore) : 0.5;
+  const headerClass = immersive ? "bg-transparent" : "border-b border-[#1f2937] bg-[#0d1117]/95";
+  const panelClass = immersive
+    ? "border-white/[0.08] bg-white/[0.02]"
+    : "border-[#1f2937] bg-[#07090f]";
+  const buttonClass = immersive
+    ? "border-white/[0.08] bg-white/[0.02]"
+    : "border-[#1f2937] bg-[#111827]";
+  const sliderBgClass = immersive ? "bg-white/[0.12]" : "bg-[#1f2937]";
 
   return (
-    <header className="h-16 shrink-0 border-b border-[#1f2937] bg-[#0d1117]/95 px-4">
-      <div className="grid h-full grid-cols-[240px_1fr_440px] items-center gap-4">
-        <div className="flex items-center gap-3">
-          <CyberArenaLogo />
-          <div className="leading-tight">
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-400">CyberArena-Agent</p>
-            <p className="text-xs text-slate-500">Attack/Defense Replay Console</p>
-          </div>
-        </div>
-
-        <div className="mx-auto flex w-full max-w-[520px] items-center justify-center gap-3 rounded-lg border border-[#1f2937] bg-[#07090f] px-4 py-2">
+    <header className={`h-16 shrink-0 px-4 ${headerClass}`}>
+      <div className="grid h-full grid-cols-[1fr_440px] items-center gap-4">
+        <div className={`mx-auto flex w-full max-w-[520px] items-center justify-center gap-3 rounded-lg border px-4 py-2 ${panelClass}`}>
           <span className="font-mono text-xs uppercase tracking-[0.18em] text-slate-500">Round</span>
           <span className="font-mono text-sm text-slate-100">
-            {clampedIndex + 1} / {safeTotal}
+            {clampedDisplayRound} / {safeTotal}
           </span>
 
           <div className="h-2 w-24 overflow-hidden rounded-full bg-[#1f2937]">
@@ -76,14 +84,14 @@ function TopBar({
         <div className="flex items-center justify-end gap-2">
           <button
             type="button"
-            className="rounded-md border border-[#1f2937] bg-[#111827] px-3 py-1.5 font-mono text-xs text-slate-200 transition hover:border-[#3b82f6] hover:text-[#3b82f6]"
+            className={`rounded-md border px-3 py-1.5 font-mono text-xs text-slate-200 transition hover:border-[#3b82f6] hover:text-[#3b82f6] ${buttonClass}`}
             onClick={onTogglePlay}
           >
             {playing ? "Pause" : "Play"}
           </button>
           <button
             type="button"
-            className="rounded-md border border-[#1f2937] bg-[#111827] px-3 py-1.5 font-mono text-xs text-slate-200 transition hover:border-[#3b82f6] hover:text-[#3b82f6]"
+            className={`rounded-md border px-3 py-1.5 font-mono text-xs text-slate-200 transition hover:border-[#3b82f6] hover:text-[#3b82f6] ${buttonClass}`}
             onClick={onNext}
           >
             Next
@@ -93,10 +101,10 @@ function TopBar({
             <input
               type="range"
               min={0}
-              max={Math.max(safeTotal - 1, 0)}
+              max={Math.max(safeFrameCount - 1, 0)}
               value={clampedIndex}
               onChange={(event) => onSeek?.(Number(event.target.value))}
-              className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-[#1f2937] accent-[#3b82f6]"
+              className={`h-1.5 w-full cursor-pointer appearance-none rounded-full accent-[#3b82f6] ${sliderBgClass}`}
             />
           </div>
         </div>
