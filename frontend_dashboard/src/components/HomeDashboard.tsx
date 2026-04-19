@@ -1,11 +1,13 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import LiveScoreChart from "./LiveScoreChart";
+import SimulationModal, { type SimulationLaunchConfig } from "./SimulationModal";
 import TopologyVisualizer from "./TopologyVisualizer";
 
 type HomeDashboardProps = {
-  onStartNewSimulation?: () => void;
+  onStartNewSimulation?: (config: SimulationLaunchConfig) => Promise<void> | void;
   onViewReplay?: (simulationId: string) => void;
+  runningSimulation?: boolean;
   rounds?: any[];
   currentRound?: any;
   roundIndex?: number;
@@ -42,11 +44,14 @@ function winnerTone(winner: SimulationRecord["winner"]) {
 function HomeDashboard({
   onStartNewSimulation,
   onViewReplay,
+  runningSimulation = false,
   rounds = [],
   currentRound,
   roundIndex = 0,
   totalRounds = 20,
 }: HomeDashboardProps) {
+  const [simulationModalOpen, setSimulationModalOpen] = useState(false);
+
   const worldState = currentRound?.world_state ?? {};
   const score = worldState.score ?? { red: currentRound?.red_score ?? 0, blue: currentRound?.blue_score ?? 0 };
   const totalScore = (score.red ?? 0) + (score.blue ?? 0);
@@ -65,8 +70,16 @@ function HomeDashboard({
 
   const scenarioName = useMemo(() => {
     const fromRound = currentRound?.scenario ?? rounds[0]?.scenario;
-    return fromRound || "Level 1 Basic Web";
+    return fromRound || "level_2_ransomware";
   }, [currentRound, rounds]);
+
+  const scenarioId = useMemo(() => {
+    return String(scenarioName)
+      .trim()
+      .replace(/\.json$/i, "")
+      .replace(/\s+/g, "_")
+      .toLowerCase();
+  }, [scenarioName]);
 
   const recentRecords = useMemo<SimulationRecord[]>(() => {
     const nowRecord: SimulationRecord = {
@@ -164,9 +177,15 @@ function HomeDashboard({
 
   const systemHealth = Math.max(0, Math.min(100, Math.round(availability - compromisedCount * 6)));
 
+  const handleLaunchSimulation = (config: SimulationLaunchConfig) => {
+    void onStartNewSimulation?.(config);
+    setSimulationModalOpen(false);
+  };
+
   return (
-    <div className="h-full overflow-hidden px-6 py-4">
-      <div className="flex h-full min-h-0 flex-col gap-4">
+    <>
+      <div className="h-full overflow-hidden px-6 py-4">
+        <div className="flex h-full min-h-0 flex-col gap-4">
         <section className="grid min-h-0 flex-1 grid-cols-12 grid-rows-[minmax(0,1fr)_220px] gap-4">
           <div className="col-span-12 row-start-1 min-h-0 xl:col-span-8">
             <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] bg-[#0b1222]/55 px-6 py-5 shadow-[0_22px_45px_rgba(2,8,24,0.4)]">
@@ -206,10 +225,11 @@ function HomeDashboard({
 
                 <button
                   type="button"
-                  onClick={() => onStartNewSimulation?.()}
+                  onClick={() => setSimulationModalOpen(true)}
+                  disabled={runningSimulation}
                   className="mt-4 w-full rounded-xl bg-gradient-to-r from-cyan-500/30 via-blue-500/35 to-cyan-400/20 px-4 py-2.5 font-mono text-xs uppercase tracking-[0.14em] text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.32)] transition hover:brightness-110"
                 >
-                  Start New Simulation
+                  {runningSimulation ? "Simulation Running..." : "Start New Simulation"}
                 </button>
 
                 <div className="mt-6 space-y-4 text-xs text-slate-400">
@@ -266,10 +286,10 @@ function HomeDashboard({
 
               <LiveScoreChart rounds={rounds} currentRoundIndex={roundIndex} totalRounds={totalRounds} />
 
-              <article className="relative min-h-[180px] overflow-hidden rounded-2xl bg-[#0a1120]/75 p-4 shadow-[0_14px_34px_rgba(2,8,24,0.3)]">
+              <article className="relative flex h-[220px] flex-col overflow-hidden rounded-2xl bg-[#0a1120]/75 p-4 shadow-[0_14px_34px_rgba(2,8,24,0.3)]">
                 <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-amber-300/45 to-transparent" />
                 <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">Recent Critical Alerts</p>
-                <ul className="mt-3 cyber-scrollbar max-h-[190px] space-y-2 overflow-y-auto pr-1 text-xs text-slate-300">
+                <ul className="mt-3 cyber-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 text-xs text-slate-300">
                   {alerts.map((item) => (
                     <li key={item} className="rounded-lg bg-white/[0.03] px-3 py-2 leading-5 text-slate-300">
                       <span className="mr-2 text-amber-300">[ALERT]</span>
@@ -322,7 +342,16 @@ function HomeDashboard({
           </div>
         </section>
       </div>
-    </div>
+      </div>
+
+      <SimulationModal
+        open={simulationModalOpen}
+        defaultRounds={Math.max(5, Math.min(30, totalRounds || 20))}
+        defaultScenario={scenarioId}
+        onCancel={() => setSimulationModalOpen(false)}
+        onLaunch={handleLaunchSimulation}
+      />
+    </>
   );
 }
 

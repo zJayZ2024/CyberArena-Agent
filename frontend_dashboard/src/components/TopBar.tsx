@@ -10,6 +10,7 @@ type TopBarProps = {
   onNext?: () => void;
   onSeek?: (index: number) => void;
   immersive?: boolean;
+  simulationRunning?: boolean;
 };
 
 export function CyberArenaLogo() {
@@ -49,6 +50,7 @@ function TopBar({
   onNext,
   onSeek,
   immersive = false,
+  simulationRunning = false,
 }: TopBarProps) {
   const safeTotal = Math.max(totalRounds, 1);
   const safeFrameCount = Math.max(frameCount, 1);
@@ -82,6 +84,11 @@ function TopBar({
         </div>
 
         <div className="flex items-center justify-end gap-2">
+          {simulationRunning ? (
+            <span className="rounded-md border border-amber-400/30 bg-amber-500/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-amber-200">
+              Simulating...
+            </span>
+          ) : null}
           <button
             type="button"
             className={`rounded-md border px-3 py-1.5 font-mono text-xs text-slate-200 transition hover:border-[#3b82f6] hover:text-[#3b82f6] ${buttonClass}`}
