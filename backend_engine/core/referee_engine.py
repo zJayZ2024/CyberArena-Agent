@@ -1174,16 +1174,24 @@ class RefereeEngine:
         node_map[vuln_id] = max(existing, confidence)
 
     def _update_winner_lock(self, state: WorldState) -> None:
-        if state.winner_locked:
-            return
         core_assets = [node_name for node_name in state.core_assets if node_name in state.network_nodes] or ["db"]
-        for node_name in core_assets:
-            node = state.network_nodes.get(node_name)
-            if node is not None and node.status == "Compromised":
-                state.winner_locked = True
-                state.winner_side = "Red"
-                state.winner_reason = f"Red controlled core asset: {node_name}"
-                return
+        compromised_core_assets = [
+            node_name
+            for node_name in core_assets
+            if (state.network_nodes.get(node_name) is not None and state.network_nodes[node_name].status == "Compromised")
+        ]
+        if compromised_core_assets:
+            winner_core = compromised_core_assets[0]
+            state.winner_locked = True
+            state.winner_side = "Red"
+            state.winner_reason = f"Red controlled core asset: {winner_core}"
+            return
+
+        # Winner lock rollback: if Red no longer controls any core asset, unlock the result.
+        if state.winner_locked and state.winner_side == "Red":
+            state.winner_locked = False
+            state.winner_side = None
+            state.winner_reason = ""
 
     def _synchronize_known_vulnerability_maps(self, state: WorldState) -> None:
         for node_name in list(state.red_known_vulnerabilities.keys()):
@@ -1463,6 +1471,11 @@ class RefereeEngine:
         locale: str = "zh",
     ) -> ActionResult | None:
         if red.action_type not in RED_HIGH_IMPACT_ACTIONS:
+            return None
+        # LateralMove is validated at action execution time against the round-start snapshot.
+        # Do not retroactively cancel it after Blue settlement, otherwise depth progression is
+        # consistently starved in simultaneous rounds.
+        if red.action_type == "LateralMove":
             return None
         action = ACTION_REGISTRY.get(red.action_type)
         if action is None:
@@ -1845,7 +1858,17 @@ class RefereeEngine:
         target = red.target
         if not target or target not in state.network_nodes:
             return True
-        return bool(_compromised_strict_predecessors(state, target))
+        if _compromised_strict_predecessors(state, target):
+            return True
+
+        pivot_source = str(red_result.metadata.get("pivot_source", "") or "")
+        pivot_candidates_raw = red_result.metadata.get("pivot_candidates", [])
+        if isinstance(pivot_candidates_raw, list):
+            pivot_candidates = {str(item) for item in pivot_candidates_raw if isinstance(item, str) and item}
+            if pivot_source and pivot_source in pivot_candidates:
+                # Accept in-flight pivot chain resolved during the action phase of this round.
+                return True
+        return False
 
     def _is_same_round_hard_interrupt(
         self,
