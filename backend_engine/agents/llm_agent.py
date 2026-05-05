@@ -5,8 +5,17 @@ import time
 from pathlib import Path
 from typing import Iterable
 
-from dotenv import load_dotenv
-from openai import OpenAI
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:  # pragma: no cover - environment compatibility fallback
+    def load_dotenv(*args, **kwargs):  # type: ignore[no-redef]
+        return False
+
+
+try:
+    from openai import OpenAI
+except ModuleNotFoundError:  # pragma: no cover - environment compatibility fallback
+    OpenAI = None  # type: ignore[assignment]
 
 from backend_engine.core.models import AgentDecision, WorldState
 from backend_engine.engine.actions import ACTION_REGISTRY, ActionContext
@@ -40,7 +49,9 @@ class BaseLLMAgent:
         base_url = os.getenv("OPENAI_BASE_URL")
         model_name = os.getenv("LLM_MODEL_NAME", "ecnu-max")
         self.model_name = model_name
-        self.client = OpenAI(api_key=api_key, base_url=base_url) if api_key else None
+        if api_key and OpenAI is None:
+            raise LLMDecisionError("检测到 OPENAI_API_KEY，但未安装 openai 包。")
+        self.client = OpenAI(api_key=api_key, base_url=base_url) if (api_key and OpenAI is not None) else None
 
     def decide(
         self,

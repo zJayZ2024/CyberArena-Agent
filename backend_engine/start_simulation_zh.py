@@ -62,13 +62,14 @@ def run_simulation(
     *,
     strict_llm: bool = True,
     use_probability: bool = False,
+    random_seed: int | None = None,
     output_lite_path: Path | None = None,
     continue_after_winner_locked: bool = True,
 ) -> dict:
     state = load_scenario(scenario_path)
     red_agent = RedAgent(strict_llm=strict_llm)
     blue_agent = BlueAgent(strict_llm=strict_llm)
-    referee = RefereeEngine(use_probability=use_probability)
+    referee = RefereeEngine(use_probability=use_probability, random_seed=random_seed)
     state = referee.prepare_state(state)
 
     frames = [state.model_dump(mode="json")]
@@ -148,6 +149,12 @@ def main() -> None:
         help="启用漏洞 exploit_prob/patch_prob 概率门控（默认关闭）。",
     )
     parser.add_argument(
+        "--random_seed",
+        type=int,
+        default=None,
+        help="可选：为裁判概率门控随机数设置固定 seed。",
+    )
+    parser.add_argument(
         "--allow_fallback",
         action="store_true",
         help="允许红蓝在 LLM 决策失败时回退规则策略（默认关闭，严格走 LLM）。",
@@ -165,6 +172,7 @@ def main() -> None:
         output_path=Path(args.output),
         strict_llm=not args.allow_fallback,
         use_probability=args.use_probability,
+        random_seed=args.random_seed,
         output_lite_path=Path(args.output_lite) if args.output_lite else None,
         continue_after_winner_locked=not args.stop_on_winner,
     )
