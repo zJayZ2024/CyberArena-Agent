@@ -2,3 +2,9 @@
 __pycache__/
 node_modules/
 backend_engine/results/simulation_*.json
+backend_engine/results/
+.venv/
+PPTskill/
+PPT/
+.codex/
+openspec/
