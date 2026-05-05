@@ -6,3 +6,5 @@ backend_engine/results/
 .venv/
 PPTskill/
 PPT/
+.codex/
+openspec/
