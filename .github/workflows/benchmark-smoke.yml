@@ -1,0 +1,67 @@
+name: benchmark-smoke
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  smoke-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BENCHMARK_DIR: backend_engine/results/benchmark
+      BENCHMARK_JSON: backend_engine/results/benchmark/benchmark.json
+      BENCHMARK_MD: backend_engine/results/benchmark/benchmark.md
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Run benchmark smoke
+        run: uv run python -m backend_engine.benchmark.run_benchmark --smoke
+
+      - name: Validate benchmark artifacts
+        shell: bash
+        run: |
+          test -s "$BENCHMARK_JSON"
+          test -s "$BENCHMARK_MD"
+          echo "Smoke benchmark artifacts are present."
+
+      - name: Print benchmark summary
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("backend_engine/results/benchmark/benchmark.json")
+          payload = json.loads(path.read_text(encoding="utf-8"))
+          summary = payload.get("summary", {})
+          print("round_success_rate=", summary.get("round_success_rate"))
+          print("illegal_action_rate=", summary.get("illegal_action_rate"))
+          print("avg_response_latency_ms=", summary.get("avg_response_latency_ms"))
+          print("avg_replay_export_duration_ms=", summary.get("avg_replay_export_duration_ms"))
+          PY
+
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-smoke-report
+          path: ${{ env.BENCHMARK_DIR }}
+          if-no-files-found: warn
+          retention-days: 7
+

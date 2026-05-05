@@ -41,3 +41,17 @@ python -m backend_engine.benchmark.run_benchmark \
 - 平均响应时延：单次模拟总耗时 / 执行回合数
 - 回放导出耗时：`build_replay_lite + 写盘` 耗时
 
+## CI 质量门禁（Smoke）
+
+- 工作流文件：`.github/workflows/benchmark-smoke.yml`
+- 触发条件：`push`、`pull_request`、`workflow_dispatch`
+- CI 命令：`uv run python -m backend_engine.benchmark.run_benchmark --smoke`
+- 产物校验：`benchmark.json` 与 `benchmark.md` 必须存在且非空
+- 结果归档：`backend_engine/results/benchmark/` 将上传为 CI artifact
+
+本地复现同 CI 行为：
+
+```bash
+uv sync --locked
+uv run python -m backend_engine.benchmark.run_benchmark --smoke
+```
