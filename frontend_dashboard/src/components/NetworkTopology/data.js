@@ -1,9 +1,9 @@
 export const DEFAULT_ROUNDS = [
   {
     round: 1,
-    red_action: { technique: "Port Scan", target_node: "fw", technique_id: "T1046", reasoning: "Initial recon - map open ports on internet-facing gateway before selecting attack vector." },
-    judge_result: { success: true, damage: 5, logs: ["[WARN] Port scan detected: 254 probes/3s", "[INFO] Open: 80, 443, 22, 53"], node_status_change: "scanning", success_prob: 0.9 },
-    blue_action: { type: "ids_update", target: "fw", rule_or_code: "alert tcp any -> $HOME_NET any (msg:\"PortScan\"; detection_filter:track by_src,count 100,seconds 3;)", action_cost: 2, effectiveness: 0.6, reasoning: "IDS signature update to track scan pattern." },
+    red_action: { technique: "Port Scan", target_node: "fw", technique_id: "T1046", reasoning: "初始侦察：在选择攻击向量前，先枚举面向互联网网关的开放端口。" },
+    judge_result: { success: true, damage: 5, logs: ["[WARN] 检测到端口扫描：3 秒内 254 次探测", "[INFO] 开放端口：80、443、22、53"], node_status_change: "scanning", success_prob: 0.9 },
+    blue_action: { type: "ids_update", target: "fw", rule_or_code: "alert tcp any -> $HOME_NET any (msg:\"PortScan\"; detection_filter:track by_src,count 100,seconds 3;)", action_cost: 2, effectiveness: 0.6, reasoning: "更新 IDS 签名以跟踪扫描模式。" },
     world_state: {
       round: 1,
       nodes: [
@@ -29,9 +29,9 @@ export const DEFAULT_ROUNDS = [
   },
   {
     round: 2,
-    red_action: { technique: "SQL Injection", target_node: "web", technique_id: "T1190", reasoning: "Port 80 is open. Attempt SQLi on login endpoint - highest yield given patch_level 0.5." },
-    judge_result: { success: true, damage: 20, logs: ["[CRIT] SQLi on /api/login", "[WARN] Unusual DB queries from WEB"], node_status_change: "compromised", success_prob: 0.72 },
-    blue_action: { type: "firewall_rule", target: "web", rule_or_code: "iptables -A INPUT -p tcp --dport 80 -m limit --limit 30/min -j ACCEPT\n# Rate-limit HTTP", action_cost: 1, effectiveness: 0.55, reasoning: "Deploy HTTP rate-limit to slow injection attempts." },
+    red_action: { technique: "SQL Injection", target_node: "web", technique_id: "T1190", reasoning: "80 端口开放。尝试攻击登录接口的 SQL 注入，在当前 patch_level 0.5 下收益最高。" },
+    judge_result: { success: true, damage: 20, logs: ["[CRIT] /api/login 出现 SQL 注入", "[WARN] WEB 发起异常数据库查询"], node_status_change: "compromised", success_prob: 0.72 },
+    blue_action: { type: "firewall_rule", target: "web", rule_or_code: "iptables -A INPUT -p tcp --dport 80 -m limit --limit 30/min -j ACCEPT\n# Rate-limit HTTP", action_cost: 1, effectiveness: 0.55, reasoning: "部署 HTTP 限速规则以放缓注入尝试。" },
     world_state: {
       round: 2,
       nodes: [
@@ -57,9 +57,9 @@ export const DEFAULT_ROUNDS = [
   },
   {
     round: 3,
-    red_action: { technique: "Lateral Movement", target_node: "app", technique_id: "T1021", reasoning: "Web server compromised. Pivot to app using stored credentials found in /var/www/config." },
-    judge_result: { success: false, damage: 0, logs: ["[INFO] Lateral move attempt blocked", "[OK] WAF rule matched - connection dropped"], node_status_change: null, success_prob: 0.38 },
-    blue_action: { type: "patch", target: "app", rule_or_code: "# Emergency patch applied\napt-get install --only-upgrade tomcat10\n# CVE-2023-1234 remediated", action_cost: 3, effectiveness: 0.9, reasoning: "App is likely next pivot target. Apply emergency patch while attack is still on web." },
+    red_action: { technique: "Lateral Movement", target_node: "app", technique_id: "T1021", reasoning: "Web 服务器已失陷。利用 /var/www/config 中发现的凭据向 app 横向移动。" },
+    judge_result: { success: false, damage: 0, logs: ["[INFO] 横向移动尝试被阻断", "[OK] 命中 WAF 规则，连接已丢弃"], node_status_change: null, success_prob: 0.38 },
+    blue_action: { type: "patch", target: "app", rule_or_code: "# Emergency patch applied\napt-get install --only-upgrade tomcat10\n# CVE-2023-1234 remediated", action_cost: 3, effectiveness: 0.9, reasoning: "app 很可能是下一个跳板目标，在攻击仍停留于 web 时执行紧急修补。" },
     world_state: {
       round: 3,
       nodes: [
@@ -85,9 +85,9 @@ export const DEFAULT_ROUNDS = [
   },
   {
     round: 4,
-    red_action: { technique: "Credential Dump", target_node: "storage", technique_id: "T1003", reasoning: "App patched. Try storage via SMB using credentials cached in web memory." },
-    judge_result: { success: true, damage: 15, logs: ["[CRIT] Unauthorized SMB login to STORAGE", "[WARN] sudo commands executed", "[INFO] /etc/shadow accessed"], node_status_change: "compromised", success_prob: 0.61 },
-    blue_action: { type: "ids_update", target: "db", rule_or_code: "alert tcp $INTERNAL_NET any -> $DB_SERVERS 3306 (msg:\"Suspicious DB Access\"; threshold:type both,track by_src,count 5,seconds 60;)", action_cost: 2, effectiveness: 0.75, reasoning: "Storage compromised - DB is now reachable. Pre-emptive IDS rule on DB port 3306." },
+    red_action: { technique: "Credential Dump", target_node: "storage", technique_id: "T1003", reasoning: "app 已被修补。改用 web 内存中缓存的凭据，通过 SMB 尝试进入 storage。" },
+    judge_result: { success: true, damage: 15, logs: ["[CRIT] STORAGE 出现未授权 SMB 登录", "[WARN] 执行了 sudo 命令", "[INFO] /etc/shadow 被访问"], node_status_change: "compromised", success_prob: 0.61 },
+    blue_action: { type: "ids_update", target: "db", rule_or_code: "alert tcp $INTERNAL_NET any -> $DB_SERVERS 3306 (msg:\"Suspicious DB Access\"; threshold:type both,track by_src,count 5,seconds 60;)", action_cost: 2, effectiveness: 0.75, reasoning: "storage 已失陷，DB 已变得可达。提前在 DB 3306 端口部署 IDS 规则。" },
     world_state: {
       round: 4,
       nodes: [
@@ -113,9 +113,9 @@ export const DEFAULT_ROUNDS = [
   },
   {
     round: 5,
-    red_action: { technique: "Data Exfiltration", target_node: "db", technique_id: "T1041", reasoning: "Full path: web->storage->db. Using storage credentials to access MySQL 3306. Target: customer PII table." },
-    judge_result: { success: true, damage: 35, logs: ["[CRIT] Bulk SELECT on users table - 50k rows", "[CRIT] Data exfil detected: 12MB outbound", "[ERR] Rate limit exceeded"], node_status_change: "compromised", success_prob: 0.68 },
-    blue_action: { type: "firewall_rule", target: "db", rule_or_code: "iptables -I OUTPUT -p tcp --dport 443 -m owner --uid-owner mysql -j DROP\n# Block DB outbound", action_cost: 2, effectiveness: 0.8, reasoning: "Database actively exfiltrating. Emergency outbound block on mysql process traffic." },
+    red_action: { technique: "Data Exfiltration", target_node: "db", technique_id: "T1041", reasoning: "完整路径为 web->storage->db。使用 storage 凭据访问 MySQL 3306，目标是客户 PII 表。" },
+    judge_result: { success: true, damage: 35, logs: ["[CRIT] users 表出现批量 SELECT，约 5 万行", "[CRIT] 检测到数据外传：12MB 出站", "[ERR] 超出速率限制"], node_status_change: "compromised", success_prob: 0.68 },
+    blue_action: { type: "firewall_rule", target: "db", rule_or_code: "iptables -I OUTPUT -p tcp --dport 443 -m owner --uid-owner mysql -j DROP\n# Block DB outbound", action_cost: 2, effectiveness: 0.8, reasoning: "数据库正在主动外传。紧急阻断 mysql 进程的出站流量。" },
     world_state: {
       round: 5,
       nodes: [

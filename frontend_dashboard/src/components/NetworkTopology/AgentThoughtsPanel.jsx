@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { T } from "./constants";
+import { translateAction, translateRole, translateStatus } from "../../utils/localization";
 
 function CollapsibleSection({ title, children, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -30,6 +31,7 @@ function CollapsibleSection({ title, children, defaultOpen = false }) {
 
 function AgentCard({ log }) {
   const agentType = log.agent_type || log.metadata?.agent_type || "Unknown";
+  const displayAgent = translateRole(agentType, "未知");
   const color = agentType === "Red" ? T.red : agentType === "Blue" ? T.blue : T.amber;
   const bg = agentType === "Red" ? T.redBg : agentType === "Blue" ? T.blueBg : T.amberBg;
 
@@ -50,7 +52,7 @@ function AgentCard({ log }) {
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
         <div style={{ color, fontSize: 9, letterSpacing: 1, fontWeight: 600 }}>
-          {agentType} · {log.action_type || meta.action_type || "Action"}
+          {displayAgent} · {translateAction(log.action_type || meta.action_type || "Action", log.action_type || meta.action_type || "动作")}
         </div>
         {intercepted != null && (
           <div
@@ -63,21 +65,21 @@ function AgentCard({ log }) {
               border: `0.5px solid ${intercepted ? T.green : T.red}`,
             }}
           >
-            {intercepted ? `INTERCEPTED${meta.intercepted_by ? ` BY ${meta.intercepted_by}` : ""}` : "NOT INTERCEPTED"}
+            {intercepted ? `已拦截${meta.intercepted_by ? ` · ${translateRole(meta.intercepted_by, meta.intercepted_by)}` : ""}` : "未拦截"}
           </div>
         )}
       </div>
 
       <div style={{ color: T.grayText, fontSize: 10, lineHeight: 1.5, marginBottom: 6 }}>
-        <span style={{ color: T.grayDim }}>Thought:</span> {log.thought || "-"}
+        <span style={{ color: T.grayDim }}>思考：</span> {log.thought || "-"}
       </div>
 
       <div style={{ color: T.grayText, fontSize: 10, lineHeight: 1.5, marginBottom: 6 }}>
-        <span style={{ color: T.grayDim }}>Payload:</span> {log.payload || "-"}
+        <span style={{ color: T.grayDim }}>载荷：</span> {log.payload || "-"}
       </div>
 
       <div style={{ color: color, fontSize: 9, lineHeight: 1.5, marginBottom: 4, opacity: 0.9 }}>
-        <span style={{ color: T.grayDim }}>Result:</span> {log.referee_result || "-"}
+        <span style={{ color: T.grayDim }}>结果：</span> {log.referee_result || "-"}
       </div>
 
       {(hasProb || hasRoll || meta.score_value != null || meta.previous_status) && (
@@ -93,26 +95,26 @@ function AgentCard({ log }) {
         >
           {hasProb && (
             <div>
-              <div style={{ color: T.grayDim, fontSize: 8 }}>PROBABILITY</div>
+              <div style={{ color: T.grayDim, fontSize: 8 }}>概率</div>
               <div style={{ color: T.grayText, fontSize: 10, fontWeight: 600 }}>{(meta.probability * 100).toFixed(1)}%</div>
             </div>
           )}
           {hasRoll && (
             <div>
-              <div style={{ color: T.grayDim, fontSize: 8 }}>ROLL</div>
-              <div style={{ color: hasRoll <= meta.probability ? T.green : T.red, fontSize: 10, fontWeight: 600 }}>{meta.roll.toFixed(3)}</div>
+              <div style={{ color: T.grayDim, fontSize: 8 }}>掷点</div>
+              <div style={{ color: meta.roll <= meta.probability ? T.green : T.red, fontSize: 10, fontWeight: 600 }}>{meta.roll.toFixed(3)}</div>
             </div>
           )}
           {meta.score_value != null && (
             <div>
-              <div style={{ color: T.grayDim, fontSize: 8 }}>SCORE</div>
+              <div style={{ color: T.grayDim, fontSize: 8 }}>得分</div>
               <div style={{ color: T.grayText, fontSize: 10, fontWeight: 600 }}>{meta.score_value}</div>
             </div>
           )}
           {meta.previous_status && (
             <div>
-              <div style={{ color: T.grayDim, fontSize: 8 }}>PREV STATUS</div>
-              <div style={{ color: T.grayText, fontSize: 10, fontWeight: 600 }}>{meta.previous_status}</div>
+              <div style={{ color: T.grayDim, fontSize: 8 }}>前态</div>
+              <div style={{ color: T.grayText, fontSize: 10, fontWeight: 600 }}>{translateStatus(meta.previous_status, meta.previous_status)}</div>
             </div>
           )}
         </div>
@@ -138,14 +140,14 @@ function AgentThoughtsPanel({ round }) {
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: 1.2, color: T.grayText, textTransform: "uppercase" }}>
-          Agent Thoughts
+          智能体思考
         </div>
-        <div style={{ fontFamily: T.fontMono, fontSize: 9, color: T.grayDim }}>{logs.length} entries</div>
+        <div style={{ fontFamily: T.fontMono, fontSize: 9, color: T.grayDim }}>{logs.length} 条</div>
       </div>
 
       <div style={{ maxHeight: 340, overflowY: "auto" }}>
         {logs.length === 0 && (
-          <div style={{ color: T.grayDim, fontSize: 10, fontFamily: T.fontMono, padding: "8px 0" }}>No action logs for this round.</div>
+          <div style={{ color: T.grayDim, fontSize: 10, fontFamily: T.fontMono, padding: "8px 0" }}>本回合没有动作日志。</div>
         )}
         {displayLogs.map((log, i) => (
           <AgentCard key={i} log={log} />
@@ -166,7 +168,7 @@ function AgentThoughtsPanel({ round }) {
               textAlign: "center",
             }}
           >
-            {expanded ? "SHOW LESS" : `SHOW ALL ${logs.length} ENTRIES`}
+            {expanded ? "收起" : `查看全部 ${logs.length} 条`}
           </button>
         )}
       </div>

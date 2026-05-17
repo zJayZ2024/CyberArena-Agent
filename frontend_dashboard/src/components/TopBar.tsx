@@ -68,7 +68,7 @@ function TopBar({
     <header className={`h-16 shrink-0 px-4 ${headerClass}`}>
       <div className="grid h-full grid-cols-[1fr_440px] items-center gap-4">
         <div className={`mx-auto flex w-full max-w-[520px] items-center justify-center gap-3 rounded-lg border px-4 py-2 ${panelClass}`}>
-          <span className="font-mono text-xs uppercase tracking-[0.18em] text-slate-500">Round</span>
+          <span className="font-mono text-xs uppercase tracking-[0.18em] text-slate-500">回合</span>
           <span className="font-mono text-sm text-slate-100">
             {clampedDisplayRound} / {safeTotal}
           </span>
@@ -76,9 +76,9 @@ function TopBar({
           <div className="h-2 w-24 overflow-hidden rounded-full bg-[#1f2937]">
             <div className="h-full rounded-full bg-[#ef4444]" style={{ width: `${Math.round(redRatio * 100)}%` }} />
           </div>
-          <span className="font-mono text-xs text-red-400">RED {redScore}</span>
+          <span className="font-mono text-xs text-red-400">红方 {redScore}</span>
           <span className="text-slate-600">:</span>
-          <span className="font-mono text-xs text-blue-400">BLUE {blueScore}</span>
+          <span className="font-mono text-xs text-blue-400">蓝方 {blueScore}</span>
         </div>
 
         <div className="flex items-center justify-end gap-2">
@@ -87,14 +87,14 @@ function TopBar({
             className={`rounded-md border px-3 py-1.5 font-mono text-xs text-slate-200 transition hover:border-[#3b82f6] hover:text-[#3b82f6] ${buttonClass}`}
             onClick={onTogglePlay}
           >
-            {playing ? "Pause" : "Play"}
+            {playing ? "暂停" : "播放"}
           </button>
           <button
             type="button"
             className={`rounded-md border px-3 py-1.5 font-mono text-xs text-slate-200 transition hover:border-[#3b82f6] hover:text-[#3b82f6] ${buttonClass}`}
             onClick={onNext}
           >
-            Next
+            下一步
           </button>
 
           <div className="ml-2 w-56">

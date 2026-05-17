@@ -191,14 +191,14 @@ function LiveScoreChart({
   return (
     <article className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
       <div className="mb-2 flex items-start justify-between gap-2">
-        <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-400">Score Tendency (Red vs Blue)</p>
+        <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-400">得分趋势（红方 vs 蓝方）</p>
         <div className="text-right font-mono leading-5">
-          <p className="text-sm text-red-400">RED: {displayRed}</p>
-          <p className="text-sm text-blue-400">BLUE: {displayBlue}</p>
+          <p className="text-sm text-red-400">红方：{displayRed}</p>
+          <p className="text-sm text-blue-400">蓝方：{displayBlue}</p>
         </div>
       </div>
 
-      <svg className="h-44 w-full bg-transparent" viewBox={`0 0 ${view.width} ${view.height}`} preserveAspectRatio="none" role="img" aria-label="Live red and blue score trend">
+      <svg className="h-44 w-full bg-transparent" viewBox={`0 0 ${view.width} ${view.height}`} preserveAspectRatio="none" role="img" aria-label="红蓝双方实时得分趋势">
         <defs>
           <filter id={redGlowId} x="-40%" y="-40%" width="180%" height="180%">
             <feGaussianBlur stdDeviation="2.2" result="redBlur" />
@@ -252,10 +252,10 @@ function LiveScoreChart({
         ) : null}
 
         <text x={padding.left} y={view.height - 6} fontSize="10" fill="#64748b" fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace">
-          Round 0
+          回合 0
         </text>
         <text x={view.width - padding.right} y={view.height - 6} textAnchor="end" fontSize="10" fill="#64748b" fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace">
-          Round {safeTotalRounds}
+          回合 {safeTotalRounds}
         </text>
       </svg>
     </article>

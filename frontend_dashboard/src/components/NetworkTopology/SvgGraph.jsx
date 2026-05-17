@@ -11,6 +11,7 @@ import {
   buildZoneConfigs,
   resolveNodeIcon,
 } from "./constants";
+import { isHighSeverity, isSevere, translateAction, translatePhase, translateSeverity } from "../../utils/localization";
 
 function Base({ x, y, label, sublabel, score, color, bg, glowColor, Icon }) {
   return (
@@ -25,7 +26,7 @@ function Base({ x, y, label, sublabel, score, color, bg, glowColor, Icon }) {
       </foreignObject>
       <text y={12} textAnchor="middle" fontFamily={T.fontMono} fontSize={8} fill={color} fontWeight="600">{sublabel}</text>
       <rect x={-24} y={34} width={48} height={18} rx={4} fill={`${color}18`} stroke={color} strokeWidth="0.8" />
-      <text x={0} y={47} textAnchor="middle" fontFamily={T.fontMono} fontSize={9} fill={color} fontWeight="700">{score} pts</text>
+      <text x={0} y={47} textAnchor="middle" fontFamily={T.fontMono} fontSize={9} fill={color} fontWeight="700">{score} 分</text>
     </g>
   );
 }
@@ -34,11 +35,11 @@ function Tooltip({ cfg, status, atkCnt, defCnt, vulnDetails = {} }) {
   const st = STATUS_STYLES[status] || STATUS_STYLES[String(status || "").toLowerCase()] || STATUS_STYLES.Normal;
   const vulnEntries = Object.entries(vulnDetails);
   const lines = [
-    `Zone:     ${String(cfg.zone || "core").toUpperCase()}`,
-    `Ports:    ${(cfg.ports || []).join(", ") || "none"}`,
-    `Status:   ${st.label}`,
-    `Attacks:  ${atkCnt}   Defenses: ${defCnt}`,
-    ...(vulnEntries.length ? [] : (cfg.vulns || []).map((v) => `Vuln: ${v}`)),
+    `区域：${String(cfg.zone || "core").toUpperCase()}`,
+    `端口：${(cfg.ports || []).join(", ") || "无"}`,
+    `状态：${st.label}`,
+    `攻击：${atkCnt}   防御：${defCnt}`,
+    ...(vulnEntries.length ? [] : (cfg.vulns || []).map((v) => `漏洞：${v}`)),
   ];
   const w = 220;
   const lh = 14;
@@ -54,16 +55,16 @@ function Tooltip({ cfg, status, atkCnt, defCnt, vulnDetails = {} }) {
       <rect width={w} height={20} rx={6} fill={`${st.border}20`} />
       <rect width={w} height={4} y={16} fill={T.bgPanel} />
       <text x={pad} y={14} fontFamily={T.fontMono} fontSize={9} fill={st.border} fontWeight="700">{cfg.label} - {cfg.id}</text>
-      {lines.map((line, index) => <text key={`${line}-${index}`} x={pad} y={pad + 24 + index * lh} fontFamily={T.fontMono} fontSize={8} fill={line.startsWith("Vuln") ? T.amber : T.grayText}>{line}</text>)}
+      {lines.map((line, index) => <text key={`${line}-${index}`} x={pad} y={pad + 24 + index * lh} fontFamily={T.fontMono} fontSize={8} fill={line.startsWith("漏洞") ? T.amber : T.grayText}>{line}</text>)}
       {vulnEntries.map(([vid, vuln], i) => {
         const y = pad + 24 + lines.length * lh + 6 + i * 36;
         const exploitProb = typeof vuln?.exploit_prob === "number" ? vuln.exploit_prob : 0;
         return (
           <g key={vid}>
             <rect x={pad} y={y} width={w - pad * 2} height={32} rx={3} fill={T.bg} stroke={T.border} />
-            <text x={pad + 6} y={y + 12} fontFamily={T.fontMono} fontSize={8} fill={vuln?.severity === "Critical" ? T.red : vuln?.severity === "High" ? T.amber : T.grayText}>{vuln?.severity || "Unknown"}</text>
+            <text x={pad + 6} y={y + 12} fontFamily={T.fontMono} fontSize={8} fill={isSevere(vuln?.severity) ? T.red : isHighSeverity(vuln?.severity) ? T.amber : T.grayText}>{translateSeverity(vuln?.severity)}</text>
             <text x={pad + 6} y={y + 24} fontFamily={T.fontMono} fontSize={7} fill={T.grayText}>{vid}</text>
-            <text x={w - pad - 6} y={y + 18} textAnchor="end" fontFamily={T.fontMono} fontSize={8} fill={T.grayDim}>exp {(exploitProb * 100).toFixed(0)}%</text>
+            <text x={w - pad - 6} y={y + 18} textAnchor="end" fontFamily={T.fontMono} fontSize={8} fill={T.grayDim}>利用 {(exploitProb * 100).toFixed(0)}%</text>
           </g>
         );
       })}
@@ -238,7 +239,7 @@ function pathToEdges(path, nodeConfigs) {
     .filter(Boolean);
 }
 
-function extractCommandText(action = {}, fallback = "No command payload available for this round.") {
+function extractCommandText(action = {}, fallback = "本回合没有可用的命令载荷。") {
   const candidates = [
     action?.payload,
     action?.rule_or_code,
@@ -355,7 +356,7 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
   const displayRound = Number.isFinite(turnNumber)
     ? Math.min(Math.max(Math.round(turnNumber), 0), totalRounds)
     : 0;
-  const displayPhase = String(ws.red_phase || "recon").toUpperCase();
+  const displayPhase = translatePhase(ws.red_phase || "recon");
   const targetNode = round?.red_action?.target_node || round?.red_action?.target;
   const defendNode = round?.blue_action?.target || round?.blue_action?.target_node;
   const activePathIds = targetNode && graph.nodeConfigs[targetNode]
@@ -404,14 +405,14 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
     setFlowDetail(null);
   }, [idx, round?.round, round?.turn]);
 
-  const attackPathFromInternet = hasCurrentRedAction ? ["internet", ...activePathIds] : [];
+  const attackPathFromInternet = hasCurrentRedAction ? ["互联网", ...activePathIds] : [];
   const openAttackFlowDetail = () => {
     if (!hasCurrentRedAction) {
       return;
     }
     setFlowDetail({
-      type: "ATTACK FLOW",
-      start: "internet",
+      type: "攻击路径",
+      start: "互联网",
       target: targetNode,
       route: attackPathFromInternet.join(" -> "),
       payload: extractCommandText(round?.red_action),
@@ -423,10 +424,10 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
       return;
     }
     setFlowDetail({
-      type: "DEFENSE FLOW",
-      start: "blue_base",
+      type: "防御路径",
+      start: "蓝方基地",
       target: defendNode,
-      route: `blue_base -> ${defendNode}`,
+      route: `蓝方基地 -> ${defendNode}`,
       payload: extractCommandText(round?.blue_action),
       color: T.blue,
     });
@@ -446,7 +447,7 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
       {specialEvent && <div style={{ position: "absolute", top: 0, left: 0, right: 0, background: `${T.amber}20`, borderBottom: `1px solid ${T.amber}55`, padding: "5px 12px", display: "flex", alignItems: "center", gap: 8, zIndex: 15, fontFamily: T.fontMono, fontSize: 11 }}>
         <IconAlert size={12} color={T.amber} />
         <span style={{ color: T.amber, fontWeight: 600, animation: "cyberBlink 1s ease infinite" }}>
-          {specialEvent === "zero_day" ? "ALERT ZERO-DAY EXPLOIT DETECTED - UNPATCHED VECTOR ACTIVE" : specialEvent === "ddos" ? "ALERT DDoS SATURATION - BLUE AGENT ACTION POINTS HALVED" : "ALERT INTEL LEAK - RED AGENT HAS CURRENT DEFENSE BLUEPRINT"}
+          {specialEvent === "zero_day" ? "告警：检测到零日利用，未修补向量活跃" : specialEvent === "ddos" ? "告警：DDoS 饱和，蓝方行动点减半" : "告警：情报泄露，红方已掌握当前防御蓝图"}
         </span>
       </div>}
 
@@ -516,9 +517,9 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
           return <line key={`${edge.source}-${edge.target}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={T.gray} strokeWidth="0.8" opacity={0.36} />;
         })}
         <line x1={persistentInternetLink.x1} y1={persistentInternetLink.y1} x2={persistentInternetLink.x2} y2={persistentInternetLink.y2} stroke={T.redDim} strokeWidth="1.2" strokeDasharray="6 3" opacity="0.85" />
-        {redEntryEdge && <AnimatedEdge x1={redEntryEdge.x1} y1={redEntryEdge.y1} x2={redEntryEdge.x2} y2={redEntryEdge.y2} color={T.red} dasharray="6 3" speed={0.38} markerId="ar" opacity={0.9} onClick={openAttackFlowDetail} title="Click to view attack flow detail" endPadding={24} />}
-        {attackEdges.map(({ a, b }, i) => <AnimatedEdge key={`${a.id}-${b.id}-${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} color={T.red} dasharray="6 3" speed={0.38} markerId="ar" opacity={0.9} onClick={openAttackFlowDetail} title="Click to view attack flow detail" endPadding={24} />)}
-        {defEdge && <AnimatedEdge x1={defEdge.x1} y1={defEdge.y1} x2={defEdge.x2} y2={defEdge.y2} color={T.blue} dasharray="7 3" speed={0.55} markerId="ab" opacity={0.85} onClick={openDefenseFlowDetail} title="Click to view defense flow detail" endPadding={24} />}
+        {redEntryEdge && <AnimatedEdge x1={redEntryEdge.x1} y1={redEntryEdge.y1} x2={redEntryEdge.x2} y2={redEntryEdge.y2} color={T.red} dasharray="6 3" speed={0.38} markerId="ar" opacity={0.9} onClick={openAttackFlowDetail} title="查看攻击路径详情" endPadding={24} />}
+        {attackEdges.map(({ a, b }, i) => <AnimatedEdge key={`${a.id}-${b.id}-${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} color={T.red} dasharray="6 3" speed={0.38} markerId="ar" opacity={0.9} onClick={openAttackFlowDetail} title="查看攻击路径详情" endPadding={24} />)}
+        {defEdge && <AnimatedEdge x1={defEdge.x1} y1={defEdge.y1} x2={defEdge.x2} y2={defEdge.y2} color={T.blue} dasharray="7 3" speed={0.55} markerId="ab" opacity={0.85} onClick={openDefenseFlowDetail} title="查看防御路径详情" endPadding={24} />}
         <g transform={`translate(${internetCfg.x},${internetCfg.y})`}>
           <circle r={24} cx={0} cy={0} fill="#06141a" stroke={internetColor} strokeWidth="1.8" />
           <circle r={30} cx={0} cy={0} fill="none" stroke={internetColor} strokeWidth="0.9" strokeDasharray="3 3" opacity="0.7" />
@@ -527,7 +528,7 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
               <InternetIcon size={14} color={internetColor} />
             </div>
           </foreignObject>
-          <text y={9} textAnchor="middle" fontFamily={T.fontMono} fontSize={8} fill={internetColor} fontWeight="700">INTERNET</text>
+          <text y={9} textAnchor="middle" fontFamily={T.fontMono} fontSize={8} fill={internetColor} fontWeight="700">互联网</text>
         </g>
         {Object.values(graph.nodeConfigs).map((cfg) => {
           const nd = nodeData(cfg.id);
@@ -539,22 +540,22 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
           const networkNode = graph.networkNodes?.[hoveredNode] ?? {};
           return <Tooltip cfg={cfg} status={nodeStatus(hoveredNode)} atkCnt={nd.attack_count ?? 0} defCnt={nd.defense_count ?? 0} vulnDetails={networkNode.vulnerabilities ?? {}} />;
         })()}
-        <Base x={GRAPH_VIEW.redBaseX} y={GRAPH_VIEW.baseY} label="RED BASE" sublabel="ATTACKER" score={score.red} color={T.red} bg={T.redBg} glowColor={T.redGlow} Icon={IconTerminal} />
-        <Base x={GRAPH_VIEW.blueBaseX} y={GRAPH_VIEW.baseY} label="BLUE BASE" sublabel="DEFENDER" score={score.blue} color={T.blue} bg={T.blueBg} glowColor={T.blueGlow} Icon={resolveNodeIcon("fw", "dmz")} />
+        <Base x={GRAPH_VIEW.redBaseX} y={GRAPH_VIEW.baseY} label="红方基地" sublabel="攻击者" score={score.red} color={T.red} bg={T.redBg} glowColor={T.redGlow} Icon={IconTerminal} />
+        <Base x={GRAPH_VIEW.blueBaseX} y={GRAPH_VIEW.baseY} label="蓝方基地" sublabel="防守者" score={score.blue} color={T.blue} bg={T.blueBg} glowColor={T.blueGlow} Icon={resolveNodeIcon("fw", "dmz")} />
         <g transform={`translate(${GRAPH_VIEW.width / 2},0)`}>
           <rect x={-76} y={0} width={152} height={18} rx={4} fill={T.bgPanel} stroke={T.border} strokeWidth="0.5" />
           <text x={0} y={13} textAnchor="middle" fontFamily={T.fontMono} fontSize={8} fill={T.grayText} letterSpacing="1">
-            {`ROUND ${displayRound} / ${totalRounds} - ${displayPhase}`}
+            {`回合 ${displayRound} / ${totalRounds} - ${displayPhase}`}
           </text>
         </g>
         <g transform={`translate(${Math.floor(GRAPH_VIEW.width / 2) - 120},${GRAPH_VIEW.height - 20})`}>
-          <text fontFamily={T.fontMono} fontSize={7} fill={T.grayDim} x={0} y={0}>AVAIL</text>
+          <text fontFamily={T.fontMono} fontSize={7} fill={T.grayDim} x={0} y={0}>可用性</text>
           <rect x={34} y={-8} width={100} height={7} rx={2} fill={T.bgPanel} stroke={T.border} strokeWidth="0.5" />
           <rect x={34} y={-8} width={100 * (ws.availability ?? 1)} height={7} rx={2} fill={T.green} opacity="0.7" />
           <text fontFamily={T.fontMono} fontSize={7} fill={T.green} x={138} y={0}>{Math.round((ws.availability ?? 1) * 100)}%</text>
         </g>
         <g transform={`translate(${Math.floor(GRAPH_VIEW.width / 2) + 80},${GRAPH_VIEW.height - 32})`}>
-          {[[T.red, true, "Attack"], [T.blue, false, "Defense"], [T.gray, false, "Network"]].map(([color, dashed, label], i) => <g key={`${label}-${i}`} transform={`translate(${i * 90},0)`}><line x1={0} y1={8} x2={20} y2={8} stroke={color} strokeWidth={1.2} strokeDasharray={dashed ? "4 2" : "none"} opacity="0.8" /><text x={24} y={12} fontFamily={T.fontMono} fontSize={7} fill={T.grayDim}>{label}</text></g>)}
+          {[[T.red, true, "攻击"], [T.blue, false, "防御"], [T.gray, false, "网络"]].map(([color, dashed, label], i) => <g key={`${label}-${i}`} transform={`translate(${i * 90},0)`}><line x1={0} y1={8} x2={20} y2={8} stroke={color} strokeWidth={1.2} strokeDasharray={dashed ? "4 2" : "none"} opacity="0.8" /><text x={24} y={12} fontFamily={T.fontMono} fontSize={7} fill={T.grayDim}>{label}</text></g>)}
         </g>
       </svg>
       {flowDetail && (
@@ -562,15 +563,15 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
             <div style={{ fontFamily: T.fontMono, fontSize: 11, color: flowDetail.color, fontWeight: 700, letterSpacing: 0.6 }}>{flowDetail.type}</div>
             <button type="button" onClick={() => setFlowDetail(null)} style={{ fontFamily: T.fontMono, fontSize: 10, color: T.grayText, background: "transparent", border: `1px solid ${T.border}`, borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>
-              CLOSE
+              关闭
             </button>
           </div>
           <div style={{ fontFamily: T.fontMono, fontSize: 10, color: T.grayText, lineHeight: 1.6 }}>
-            <div>START: <span style={{ color: "#e5e7eb" }}>{flowDetail.start}</span></div>
-            <div>TARGET: <span style={{ color: "#e5e7eb" }}>{flowDetail.target}</span></div>
-            <div>ROUTE: <span style={{ color: "#e5e7eb" }}>{flowDetail.route}</span></div>
+            <div>起点：<span style={{ color: "#e5e7eb" }}>{flowDetail.start}</span></div>
+            <div>目标：<span style={{ color: "#e5e7eb" }}>{flowDetail.target}</span></div>
+            <div>路径：<span style={{ color: "#e5e7eb" }}>{flowDetail.route}</span></div>
           </div>
-          <div style={{ marginTop: 8, fontFamily: T.fontMono, fontSize: 10, color: T.grayDim }}>PAYLOAD / COMMAND</div>
+          <div style={{ marginTop: 8, fontFamily: T.fontMono, fontSize: 10, color: T.grayDim }}>载荷 / 命令</div>
           <pre style={{ marginTop: 4, marginBottom: 0, maxHeight: 120, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word", background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: 8, fontFamily: T.fontMono, fontSize: 10, color: "#e5e7eb" }}>
             {flowDetail.payload}
           </pre>

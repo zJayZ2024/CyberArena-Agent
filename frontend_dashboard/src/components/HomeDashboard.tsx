@@ -2,6 +2,7 @@ import { useMemo } from "react";
 
 import LiveScoreChart from "./LiveScoreChart";
 import TopologyVisualizer from "./TopologyVisualizer";
+import { translateAction, translateRelativeTime, translateScenarioName, translateWinner } from "../utils/localization";
 
 type HomeDashboardProps = {
   onStartNewSimulation?: () => void;
@@ -65,7 +66,7 @@ function HomeDashboard({
 
   const scenarioName = useMemo(() => {
     const fromRound = currentRound?.scenario ?? rounds[0]?.scenario;
-    return fromRound || "Level 1 Basic Web";
+    return translateScenarioName(fromRound || "Level 1 Basic Web");
   }, [currentRound, rounds]);
 
   const recentRecords = useMemo<SimulationRecord[]>(() => {
@@ -154,11 +155,11 @@ function HomeDashboard({
     }
 
     return [
-      "ALERT: Suspicious lateral movement attempts observed on app-tier.",
-      "CRITICAL: Web service vulnerability remains exposed (CVE metadata pending).",
-      "ALERT: Firewall policy drift detected against baseline profile.",
-      "WARN: Database node reported elevated authentication failures.",
-      "ALERT: Blue patch queue backlog is increasing under attack load.",
+      "告警：应用层出现可疑横向移动尝试。",
+      "严重：网站服务漏洞仍暴露（CVE 元数据待确认）。",
+      "告警：防火墙策略与基线出现偏移。",
+      "警告：数据库节点认证失败次数升高。",
+      "告警：蓝方修补队列在攻击压力下持续积压。",
     ];
   }, [currentRound]);
 
@@ -173,21 +174,21 @@ function HomeDashboard({
               <span className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/45 to-transparent" />
 
               <div className="shrink-0">
-                <p className="font-mono text-[10px] uppercase tracking-[0.26em] text-slate-500">Live Operations</p>
-                <h1 className="mt-2 text-[2rem] font-light tracking-wide text-slate-100">Live Simulation</h1>
+                <p className="font-mono text-[10px] uppercase tracking-[0.26em] text-slate-500">实时态势</p>
+                <h1 className="mt-2 text-[2rem] font-light tracking-wide text-slate-100">实时仿真</h1>
                 <p className="mt-2 text-sm text-slate-400">
-                  Round {displayRound} / {totalRounds} | Compromised nodes: {compromisedCount} | Status:{" "}
+                  回合 {displayRound} / {totalRounds} | 失陷节点：{compromisedCount} | 状态：{" "}
                   <span className={compromisedCount > 0 ? "text-amber-300" : "text-emerald-300"}>
-                    {compromisedCount > 0 ? "Threat Active" : "Stable"}
+                    {compromisedCount > 0 ? "威胁活跃" : "稳定"}
                   </span>
                 </p>
               </div>
 
               <div className="mt-5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] bg-[#060b16]/35">
                 <div className="flex shrink-0 items-center justify-end gap-2 px-4 pt-3 text-[10px] font-mono uppercase tracking-[0.16em]">
-                  <span className="rounded-full border border-blue-500/35 bg-blue-950/30 px-2 py-0.5 text-blue-300">Normal</span>
-                  <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-red-300">Compromised</span>
-                  <span className="rounded-full bg-slate-500/20 px-2 py-0.5 text-slate-300">Down</span>
+                  <span className="rounded-full border border-blue-500/35 bg-blue-950/30 px-2 py-0.5 text-blue-300">正常</span>
+                  <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-red-300">已失陷</span>
+                  <span className="rounded-full bg-slate-500/20 px-2 py-0.5 text-slate-300">离线</span>
                 </div>
                 <div className="min-h-0 flex-1 overflow-hidden p-2">
                   <TopologyVisualizer round={currentRound} rounds={rounds} roundIndex={roundIndex} variant="embedded" />
@@ -201,35 +202,35 @@ function HomeDashboard({
               <div className="relative min-h-0 flex-1 overflow-y-auto rounded-[28px] bg-[#0b1222]/62 px-5 py-5 shadow-[0_18px_38px_rgba(2,8,24,0.36)]">
                 <span className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-blue-300/40 to-transparent" />
 
-                <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">Map Statistics</p>
-                <p className="mt-1 text-sm font-light tracking-wide text-slate-200">Simulation Telemetry</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">拓扑统计</p>
+                <p className="mt-1 text-sm font-light tracking-wide text-slate-200">仿真遥测</p>
 
                 <button
                   type="button"
                   onClick={() => onStartNewSimulation?.()}
                   className="mt-4 w-full rounded-xl bg-gradient-to-r from-cyan-500/30 via-blue-500/35 to-cyan-400/20 px-4 py-2.5 font-mono text-xs uppercase tracking-[0.14em] text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.32)] transition hover:brightness-110"
                 >
-                  Start New Simulation
+                  新建仿真
                 </button>
 
                 <div className="mt-6 space-y-4 text-xs text-slate-400">
                   <div>
                     <div className="flex items-center justify-between">
-                      <span>Red vs Blue Pressure</span>
+                      <span>红蓝压力对比</span>
                       <span className="text-slate-300">{Math.round(redPressure)} / {Math.round(blueControl)}</span>
                     </div>
                     <ProgressBar value={redPressure} tone="from-red-400 to-rose-300" />
                   </div>
                   <div>
                     <div className="flex items-center justify-between">
-                      <span>Exposure Level</span>
+                      <span>暴露水平</span>
                       <span className="text-slate-300">{Math.round(exposure)}%</span>
                     </div>
                     <ProgressBar value={exposure} tone="from-amber-400 to-orange-300" />
                   </div>
                   <div>
                     <div className="flex items-center justify-between">
-                      <span>System Health</span>
+                      <span>系统健康度</span>
                       <span className="text-slate-300">{systemHealth}%</span>
                     </div>
                     <ProgressBar value={systemHealth} tone="from-emerald-400 to-cyan-300" />
@@ -238,20 +239,20 @@ function HomeDashboard({
 
                 <div className="mt-7 space-y-2 text-xs">
                   <div className="flex items-center justify-between text-slate-500">
-                    <span>Round Window</span>
+                    <span>回合窗口</span>
                     <span className="text-slate-200">{displayRound} / {totalRounds}</span>
                   </div>
                   <div className="flex items-center justify-between text-slate-500">
-                    <span>Red Score</span>
+                    <span>红方得分</span>
                     <span className="text-red-300">{score.red ?? 0}</span>
                   </div>
                   <div className="flex items-center justify-between text-slate-500">
-                    <span>Blue Score</span>
+                    <span>蓝方得分</span>
                     <span className="text-cyan-300">{score.blue ?? 0}</span>
                   </div>
                   <div className="flex items-center justify-between text-slate-500">
-                    <span>Latest Winner</span>
-                    <span className={winnerTone(recentRecords[0]?.winner ?? "Draw")}>{recentRecords[0]?.winner ?? "Draw"}</span>
+                    <span>当前领先</span>
+                    <span className={winnerTone(recentRecords[0]?.winner ?? "Draw")}>{translateWinner(recentRecords[0]?.winner ?? "Draw")}</span>
                   </div>
                 </div>
 
@@ -260,7 +261,7 @@ function HomeDashboard({
                   onClick={() => onViewReplay?.(recentRecords[0]?.id ?? "SIM-LIVE")}
                   className="mt-6 w-full rounded-xl bg-white/[0.05] px-4 py-2 text-xs tracking-wide text-slate-200 transition hover:bg-white/[0.09]"
                 >
-                  View Replay Timeline
+                  查看回放时间线
                 </button>
               </div>
 
@@ -268,11 +269,11 @@ function HomeDashboard({
 
               <article className="relative min-h-[180px] overflow-hidden rounded-2xl bg-[#0a1120]/75 p-4 shadow-[0_14px_34px_rgba(2,8,24,0.3)]">
                 <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-amber-300/45 to-transparent" />
-                <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">Recent Critical Alerts</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">近期关键告警</p>
                 <ul className="mt-3 cyber-scrollbar max-h-[190px] space-y-2 overflow-y-auto pr-1 text-xs text-slate-300">
                   {alerts.map((item) => (
                     <li key={item} className="rounded-lg bg-white/[0.03] px-3 py-2 leading-5 text-slate-300">
-                      <span className="mr-2 text-amber-300">[ALERT]</span>
+                      <span className="mr-2 text-amber-300">[告警]</span>
                       {item}
                     </li>
                   ))}
@@ -284,12 +285,12 @@ function HomeDashboard({
           <div className="col-span-12 row-start-2 grid min-h-0 grid-cols-1 gap-4 lg:grid-cols-2 xl:col-span-8">
             <article className="relative overflow-hidden rounded-2xl bg-[#0a1120]/75 p-4 shadow-[0_14px_34px_rgba(2,8,24,0.3)]">
               <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-red-300/45 to-transparent" />
-              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">Red Agent Tactics</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">红方战术分布</p>
               <div className="mt-4 space-y-3 text-xs">
                 {tactics.map((item) => (
                   <div key={item.label}>
                     <div className="flex items-center justify-between text-slate-400">
-                      <span className="truncate pr-3">{item.label}</span>
+                      <span className="truncate pr-3">{translateAction(item.label, item.label)}</span>
                       <span className="text-red-300">{item.value}%</span>
                     </div>
                     <ProgressBar value={item.value} tone="from-red-400 to-rose-300" />
@@ -300,22 +301,22 @@ function HomeDashboard({
 
             <article className="relative overflow-hidden rounded-2xl bg-[#0a1120]/75 p-4 shadow-[0_14px_34px_rgba(2,8,24,0.3)]">
               <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/45 to-transparent" />
-              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">Blue Agent Block Rate</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">蓝方拦截率</p>
               <div className="mt-4">
                 <p className="text-4xl font-light tracking-wide text-cyan-200">{blueBlockRate}%</p>
-                <p className="mt-2 text-xs text-slate-400">Recent 10-turn defensive interception efficiency.</p>
+                <p className="mt-2 text-xs text-slate-400">最近 10 回合的防御拦截效率。</p>
                 <div className="mt-4">
                   <ProgressBar value={blueBlockRate} tone="from-cyan-300 to-blue-300" />
                 </div>
               </div>
               <div className="mt-6 grid grid-cols-2 gap-3 text-xs">
                 <div className="rounded-xl bg-white/[0.03] px-3 py-2">
-                  <p className="text-slate-500">Intercepted</p>
+                  <p className="text-slate-500">已拦截</p>
                   <p className="mt-1 text-cyan-200">{Math.max(1, Math.round((blueBlockRate / 100) * 10))}/10</p>
                 </div>
                 <div className="rounded-xl bg-white/[0.03] px-3 py-2">
-                  <p className="text-slate-500">Patch Queue</p>
-                  <p className="mt-1 text-slate-200">{Math.max(2, compromisedCount + 1)} active</p>
+                  <p className="text-slate-500">修补队列</p>
+                  <p className="mt-1 text-slate-200">{Math.max(2, compromisedCount + 1)} 项活跃</p>
                 </div>
               </div>
             </article>

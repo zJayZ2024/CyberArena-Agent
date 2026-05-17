@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import HomeDashboard from "./components/HomeDashboard";
 import ReasoningPanel from "./components/ReasoningPanel";
+import ScenarioSelection, { type ScenarioCatalogItem } from "./components/ScenarioSelection";
 import TerminalLogs from "./components/TerminalLogs";
 import TopBar, { CyberArenaLogo } from "./components/TopBar";
 import TopologyVisualizer from "./components/TopologyVisualizer";
@@ -12,10 +13,10 @@ const FALLBACK_ROUNDS = normalizeRoundsPayload(DEFAULT_ROUNDS);
 type AppTabKey = "dashboard" | "replay" | "scenarios" | "settings";
 
 const NAV_ITEMS: Array<{ key: AppTabKey; label: string; subtitle: string }> = [
-  { key: "dashboard", label: "Dashboard", subtitle: "Overview" },
-  { key: "replay", label: "Simulation Replay", subtitle: "Attack/Defense Playback" },
-  { key: "scenarios", label: "Scenarios", subtitle: "Scenario Config" },
-  { key: "settings", label: "Settings", subtitle: "System Controls" },
+  { key: "dashboard", label: "仪表盘", subtitle: "总览" },
+  { key: "replay", label: "仿真回放", subtitle: "攻防过程回放" },
+  { key: "scenarios", label: "场景配置", subtitle: "拓扑选择" },
+  { key: "settings", label: "设置", subtitle: "系统控制" },
 ];
 
 function PlaceholderPage({ title, description }: { title: string; description: string }) {
@@ -23,7 +24,7 @@ function PlaceholderPage({ title, description }: { title: string; description: s
     <div className="flex h-full items-center justify-center p-8">
       <div className="w-full max-w-2xl rounded-2xl bg-white/[0.04] p-8 text-center shadow-[0_20px_45px_rgba(2,8,22,0.4)]">
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-slate-500">{title}</p>
-        <h2 className="mt-3 text-2xl font-semibold text-slate-100">Module Under Construction</h2>
+        <h2 className="mt-3 text-2xl font-semibold text-slate-100">模块建设中</h2>
         <p className="mt-3 text-sm leading-7 text-slate-400">{description}</p>
       </div>
     </div>
@@ -35,6 +36,7 @@ function App() {
   const [rounds, setRounds] = useState(() => FALLBACK_ROUNDS);
   const [roundIndex, setRoundIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [selectedScenario, setSelectedScenario] = useState<ScenarioCatalogItem | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,8 +53,8 @@ function App() {
         }
       })
       .catch((error) => {
-        // Keep local mock rounds when replay payload is unavailable.
-        console.error("Failed to load replay data, fallback to mock rounds:", error);
+        // 回放数据不可用时，继续使用本地示例帧。
+        console.error("回放数据加载失败，使用本地示例帧：", error);
       });
 
     return () => {
@@ -135,10 +137,21 @@ function App() {
     setActiveTab("replay");
   };
 
-  const handleStartNewSimulation = () => {
-    console.log("Start New Simulation clicked");
+  const handleStartScenario = (scenario: ScenarioCatalogItem) => {
+    const normalized = normalizeRoundsPayload([scenario.initial_frame]);
+    setSelectedScenario(scenario);
+    setRounds(normalized.length ? normalized : FALLBACK_ROUNDS);
     setActiveTab("replay");
     setRoundIndex(0);
+    setPlaying(false);
+  };
+
+  const handleStartNewSimulation = () => {
+    if (selectedScenario) {
+      handleStartScenario(selectedScenario);
+      return;
+    }
+    setActiveTab("scenarios");
     setPlaying(false);
   };
 
@@ -156,8 +169,8 @@ function App() {
               <p className="ml-8 font-mono text-[12px] uppercase tracking-[0.2em] text-cyan-200">MACSim</p>
             </div>
             <div className="mt-4">
-              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-300">Multi-Agent CyberSec Simulator</p>
-              <p className="text-[11px] text-slate-500">Attack/Defense Replay Console</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-300">多智能体网络安全仿真器</p>
+              <p className="text-[11px] text-slate-500">攻防回放控制台</p>
             </div>
           </div>
 
@@ -240,9 +253,9 @@ function App() {
                     <span className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/35 to-transparent" />
                     <span className="pointer-events-none absolute inset-x-12 bottom-0 h-px bg-gradient-to-r from-transparent via-red-400/45 to-transparent" />
                     <div className="flex shrink-0 items-center justify-end gap-2 px-4 pt-3 text-[10px] font-mono uppercase tracking-[0.16em]">
-                      <span className="rounded-full border border-blue-500/35 bg-blue-950/30 px-2 py-0.5 text-blue-300">Normal</span>
-                      <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-red-300">Compromised</span>
-                      <span className="rounded-full bg-slate-500/20 px-2 py-0.5 text-slate-300">Down</span>
+                      <span className="rounded-full border border-blue-500/35 bg-blue-950/30 px-2 py-0.5 text-blue-300">正常</span>
+                      <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-red-300">已失陷</span>
+                      <span className="rounded-full bg-slate-500/20 px-2 py-0.5 text-slate-300">离线</span>
                     </div>
                     <div className="min-h-0 flex-1 overflow-hidden p-2">
                       <TopologyVisualizer round={currentRound} rounds={rounds} roundIndex={safeIndex} variant="embedded" />
@@ -262,16 +275,17 @@ function App() {
           ) : null}
 
           {activeTab === "scenarios" ? (
-            <PlaceholderPage
-              title="Scenarios"
-              description="Scenarios placeholder has been added to navigation. This page can host scenario templates, parameter editing, and batch execution setup."
+            <ScenarioSelection
+              selectedScenario={selectedScenario}
+              onSelectScenario={setSelectedScenario}
+              onStartScenario={handleStartScenario}
             />
           ) : null}
 
           {activeTab === "settings" ? (
             <PlaceholderPage
-              title="Settings"
-              description="Settings placeholder has been added to navigation. This page can host model keys, inference parameters, log levels, and export strategy."
+              title="设置"
+              description="设置页已加入导航，后续可承载模型密钥、推理参数、日志级别和导出策略。"
             />
           ) : null}
         </section>

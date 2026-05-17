@@ -56,13 +56,13 @@ const CORE_KEYWORDS = ["app", "db", "database", "mysql", "postgres", "sql", "sto
 
 const ZONE_ORDER = ["external", "dmz", "office", "core"];
 const ZONE_LABELS = {
-  external: "EXTERNAL THREAT",
-  dmz: "DMZ ISOLATION - FW / WEB / VPN",
-  office: "OFFICE INTRANET - OFFICE_PC",
-  core: "CORE BUSINESS - APP / DEV / DB / STORAGE",
+  external: "外部威胁",
+  dmz: "DMZ 隔离区 - 防火墙 / 网站 / 远程接入",
+  office: "办公内网 - 办公终端",
+  core: "核心业务 - 应用 / 开发 / 数据库 / 存储",
 };
 const ZONE_NOTES = {
-  external: "RED STARTS FROM INTERNET; NOT A CONTESTABLE RESOURCE NODE",
+  external: "红方从互联网出发；该区域不是可争夺资源节点",
 };
 const ZONE_STYLES = {
   external: { color: T.gray, bg: "rgba(55,65,81,0.05)" },
@@ -102,19 +102,19 @@ const NODE_POSITION_HINTS = {
 };
 
 export const STATUS_STYLES = {
-  Normal: { border: T.blue, bg: T.bgNode, glow: "none", dot: T.green, label: "ONLINE" },
-  Scanning: { border: T.amber, bg: T.amberBg, glow: "0 0 10px rgba(245,158,11,.55)", dot: T.amber, label: "SCANNING" },
-  Compromised: { border: T.red, bg: T.redBg, glow: "0 0 14px rgba(239,68,68,.7)", dot: T.red, label: "COMPROMISED" },
-  Defended: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(34,197,94,.55)", dot: T.green, label: "HARDENED" },
-  Isolated: { border: "#64748b", bg: "#0b1220", glow: "none", dot: T.grayDim, label: "ISOLATED" },
-  Patched: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(34,197,94,.55)", dot: T.green, label: "PATCHED" },
-  normal: { border: T.blue, bg: T.bgNode, glow: "none", dot: T.green, label: "ONLINE" },
-  scanning: { border: T.amber, bg: T.amberBg, glow: "0 0 10px rgba(245,158,11,.55)", dot: T.amber, label: "SCANNING" },
-  compromised: { border: T.red, bg: T.redBg, glow: "0 0 14px rgba(239,68,68,.7)", dot: T.red, label: "COMPROMISED" },
-  defended: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(34,197,94,.55)", dot: T.green, label: "HARDENED" },
-  isolated: { border: "#64748b", bg: "#0b1220", glow: "none", dot: T.grayDim, label: "ISOLATED" },
-  patched: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(34,197,94,.55)", dot: T.green, label: "PATCHED" },
-  down: { border: "#64748b", bg: "#0b1220", glow: "none", dot: T.grayDim, label: "DOWN" },
+  Normal: { border: T.blue, bg: T.bgNode, glow: "none", dot: T.green, label: "正常" },
+  Scanning: { border: T.amber, bg: T.amberBg, glow: "0 0 10px rgba(245,158,11,.55)", dot: T.amber, label: "侦察中" },
+  Compromised: { border: T.red, bg: T.redBg, glow: "0 0 14px rgba(239,68,68,.7)", dot: T.red, label: "已失陷" },
+  Defended: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(34,197,94,.55)", dot: T.green, label: "已加固" },
+  Isolated: { border: "#64748b", bg: "#0b1220", glow: "none", dot: T.grayDim, label: "已隔离" },
+  Patched: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(34,197,94,.55)", dot: T.green, label: "已修补" },
+  normal: { border: T.blue, bg: T.bgNode, glow: "none", dot: T.green, label: "正常" },
+  scanning: { border: T.amber, bg: T.amberBg, glow: "0 0 10px rgba(245,158,11,.55)", dot: T.amber, label: "侦察中" },
+  compromised: { border: T.red, bg: T.redBg, glow: "0 0 14px rgba(239,68,68,.7)", dot: T.red, label: "已失陷" },
+  defended: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(34,197,94,.55)", dot: T.green, label: "已加固" },
+  isolated: { border: "#64748b", bg: "#0b1220", glow: "none", dot: T.grayDim, label: "已隔离" },
+  patched: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(34,197,94,.55)", dot: T.green, label: "已修补" },
+  down: { border: "#64748b", bg: "#0b1220", glow: "none", dot: T.grayDim, label: "离线" },
 };
 
 const IconShield = ({ size = 16, color = "#fff" }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>;
@@ -184,7 +184,7 @@ export function classifyZone(nodeId = "") {
 function abbreviateNodeId(nodeId = "") {
   const cleaned = String(nodeId || "").trim();
   if (!cleaned) {
-    return "NODE";
+    return "节点";
   }
   const parts = cleaned.split(/[^a-zA-Z0-9]+/).filter(Boolean);
   if (parts.length > 1) {
@@ -256,7 +256,7 @@ export function buildNodeConfigs(nodes = [], networkNodes = {}, zoneConfigs = []
       configs[nodeId] = {
         id: nodeId,
         label: abbreviateNodeId(nodeId),
-        sublabel: ports.length ? `:${ports[0]}` : "node",
+        sublabel: ports.length ? `:${ports[0]}` : "节点",
         zone: zone.id,
         x: Math.round(x),
         y: Math.round(y),

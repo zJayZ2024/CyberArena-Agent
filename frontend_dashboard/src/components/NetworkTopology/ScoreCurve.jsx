@@ -70,16 +70,16 @@ function ScoreCurve({ rounds, idx }) {
             textTransform: "uppercase",
           }}
         >
-          Reward Curve
+          奖励曲线
         </div>
         <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div style={{ width: 14, height: 2, background: T.red, borderRadius: 1 }} />
-            <span style={{ fontFamily: T.fontMono, fontSize: 10, color: T.grayText, textTransform: "uppercase" }}>ATK</span>
+            <span style={{ fontFamily: T.fontMono, fontSize: 10, color: T.grayText, textTransform: "uppercase" }}>攻击</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div style={{ width: 14, height: 2, background: T.blue, borderRadius: 1 }} />
-            <span style={{ fontFamily: T.fontMono, fontSize: 10, color: T.grayText, textTransform: "uppercase" }}>DEF</span>
+            <span style={{ fontFamily: T.fontMono, fontSize: 10, color: T.grayText, textTransform: "uppercase" }}>防御</span>
           </div>
         </div>
       </div>
@@ -178,7 +178,7 @@ function ScoreCurve({ rounds, idx }) {
             textAlign: "center",
           }}
         >
-          <div style={{ fontFamily: T.fontMono, fontSize: 9, color: T.grayDim, letterSpacing: 1, textTransform: "uppercase" }}>ATK</div>
+          <div style={{ fontFamily: T.fontMono, fontSize: 9, color: T.grayDim, letterSpacing: 1, textTransform: "uppercase" }}>攻击</div>
           <div style={{ fontFamily: T.fontMono, fontSize: 18, color: T.red, fontWeight: 600, marginTop: 4 }}>{currentRed}</div>
         </div>
         <div
@@ -190,7 +190,7 @@ function ScoreCurve({ rounds, idx }) {
             textAlign: "center",
           }}
         >
-          <div style={{ fontFamily: T.fontMono, fontSize: 9, color: T.grayDim, letterSpacing: 1, textTransform: "uppercase" }}>DEF</div>
+          <div style={{ fontFamily: T.fontMono, fontSize: 9, color: T.grayDim, letterSpacing: 1, textTransform: "uppercase" }}>防御</div>
           <div style={{ fontFamily: T.fontMono, fontSize: 18, color: T.blue, fontWeight: 600, marginTop: 4 }}>{currentBlue}</div>
         </div>
         <div
@@ -202,7 +202,7 @@ function ScoreCurve({ rounds, idx }) {
             textAlign: "center",
           }}
         >
-          <div style={{ fontFamily: T.fontMono, fontSize: 9, color: T.grayDim, letterSpacing: 1, textTransform: "uppercase" }}>AVAIL</div>
+          <div style={{ fontFamily: T.fontMono, fontSize: 9, color: T.grayDim, letterSpacing: 1, textTransform: "uppercase" }}>可用性</div>
           <div style={{ fontFamily: T.fontMono, fontSize: 18, color: T.green, fontWeight: 600, marginTop: 4 }}>{currentAvail}%</div>
         </div>
       </div>

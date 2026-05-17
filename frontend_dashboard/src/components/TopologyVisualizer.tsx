@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import SvgGraph from "./NetworkTopology/SvgGraph";
 import { T } from "./NetworkTopology/constants";
 import { DEFAULT_ROUNDS, normalizeRoundsPayload } from "./NetworkTopology/data";
+import { translateAction } from "../utils/localization";
 
 type TopologyVisualizerProps = {
   round?: any;
@@ -42,9 +43,10 @@ function TopologyVisualizer({
     }
 
     const turn = currentRound?.round ?? currentRound?.turn ?? safeIndex + 1;
-    const action = redAction.technique_id || redAction.action_type || redAction.technique || "Action";
-    const target = redAction.target_node || redAction.target || "unknown";
-    const statusLabel = judgeResult?.success === false ? "BLOCKED" : "OK";
+    const rawAction = redAction.technique_id || redAction.action_type || redAction.technique || "Action";
+    const action = translateAction(rawAction, rawAction);
+    const target = redAction.target_node || redAction.target || "未知";
+    const statusLabel = judgeResult?.success === false ? "已阻断" : "成功";
 
     setToast({
       visible: true,
@@ -80,11 +82,11 @@ function TopologyVisualizer({
     <div className={`flex h-full min-h-0 flex-col overflow-hidden ${variant === "default" ? "rounded-2xl bg-white/[0.01] shadow-inner shadow-black/35" : "bg-transparent"}`}>
       {variant === "default" ? (
         <div className="flex items-center justify-between bg-transparent px-4 pb-3 pt-4">
-          <p className="font-mono text-[13px] uppercase tracking-[0.22em] text-slate-300">Dynamic Network Topology</p>
+          <p className="font-mono text-[13px] uppercase tracking-[0.22em] text-slate-300">动态网络拓扑</p>
           <div className="flex items-center gap-2 font-mono text-[10px]">
-            <span className="rounded-full border border-blue-500/35 bg-blue-950/30 px-2 py-0.5 text-blue-300">Normal</span>
-            <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-red-300">Compromised</span>
-            <span className="rounded-full bg-slate-500/20 px-2 py-0.5 text-slate-300">Down / Isolated</span>
+            <span className="rounded-full border border-blue-500/35 bg-blue-950/30 px-2 py-0.5 text-blue-300">正常</span>
+            <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-red-300">已失陷</span>
+            <span className="rounded-full bg-slate-500/20 px-2 py-0.5 text-slate-300">离线 / 隔离</span>
           </div>
         </div>
       ) : null}
@@ -102,8 +104,8 @@ function TopologyVisualizer({
         {hoveredDetail && (
           <div className={`pointer-events-none absolute bottom-4 right-4 w-72 rounded-lg p-3 font-mono text-[11px] ${variant === "default" ? "bg-[#0d1117]/90 shadow-[0_8px_24px_rgba(2,8,28,0.45)]" : "bg-[#050814]/78 shadow-[0_8px_24px_rgba(2,8,28,0.45)]"}`}>
             <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400">{hoveredDetail.id}</p>
-            <p className="mt-2 text-slate-300">Ports: {hoveredDetail.exposedPorts.length ? hoveredDetail.exposedPorts.join(", ") : "none"}</p>
-            <p className="mt-1 text-slate-400">Vulns: {hoveredDetail.vulnerabilities.length ? hoveredDetail.vulnerabilities.slice(0, 3).join(", ") : "none"}</p>
+            <p className="mt-2 text-slate-300">端口：{hoveredDetail.exposedPorts.length ? hoveredDetail.exposedPorts.join(", ") : "无"}</p>
+            <p className="mt-1 text-slate-400">漏洞：{hoveredDetail.vulnerabilities.length ? hoveredDetail.vulnerabilities.slice(0, 3).join(", ") : "无"}</p>
           </div>
         )}
       </div>

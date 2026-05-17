@@ -22,8 +22,8 @@ function NetworkNode({ cfg, status, atkCnt = 0, defCnt = 0, isTarget, isDefended
       <circle cx={18} cy={18} r={4} fill={st.dot} />
       {atkCnt > 0 && <g transform="translate(-21,-21)"><circle r={7} fill={T.redBg} stroke={T.red} strokeWidth="0.8" /><text textAnchor="middle" y={3} fontFamily={T.fontMono} fontSize={7} fill={T.red} fontWeight="700">{atkCnt}</text></g>}
       {defCnt > 0 && <g transform="translate(21,-21)"><circle r={7} fill={T.blueBg} stroke={T.blue} strokeWidth="0.8" /><text textAnchor="middle" y={3} fontFamily={T.fontMono} fontSize={7} fill={T.blue} fontWeight="700">{defCnt}</text></g>}
-      {isTarget && <g transform="translate(0,-38)"><rect x={-20} y={-8} width={40} height={14} rx={3} fill={T.redBg} stroke={T.red} strokeWidth="0.8" /><text textAnchor="middle" y={2} fontFamily={T.fontMono} fontSize={7} fill={T.red}>TARGET</text></g>}
-      {isDefended && !isTarget && <g transform="translate(0,-38)"><rect x={-24} y={-8} width={48} height={14} rx={3} fill={T.greenBg} stroke={T.green} strokeWidth="0.8" /><text textAnchor="middle" y={2} fontFamily={T.fontMono} fontSize={7} fill={T.green}>HARDENED</text></g>}
+      {isTarget && <g transform="translate(0,-38)"><rect x={-20} y={-8} width={40} height={14} rx={3} fill={T.redBg} stroke={T.red} strokeWidth="0.8" /><text textAnchor="middle" y={2} fontFamily={T.fontMono} fontSize={7} fill={T.red}>目标</text></g>}
+      {isDefended && !isTarget && <g transform="translate(0,-38)"><rect x={-24} y={-8} width={48} height={14} rx={3} fill={T.greenBg} stroke={T.green} strokeWidth="0.8" /><text textAnchor="middle" y={2} fontFamily={T.fontMono} fontSize={7} fill={T.green}>已加固</text></g>}
     </g>
   );
 }

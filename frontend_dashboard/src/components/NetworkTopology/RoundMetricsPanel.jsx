@@ -1,4 +1,5 @@
 import { T } from "./constants";
+import { translateAction } from "../../utils/localization";
 
 function MetricCard({ label, value, color, subtext }) {
   return (
@@ -59,49 +60,49 @@ function RoundMetricsPanel({ round }) {
       }}
     >
       <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: 1.2, color: T.grayText, textTransform: "uppercase", marginBottom: 10 }}>
-        Round Metrics
+        回合指标
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 12 }}>
-        <MetricCard label="Health" value={`${systemHealth}%`} color={T.green} />
-        <MetricCard label="Exposure" value={`${exposure}%`} color={T.amber} />
-        <MetricCard label="Red" value={redScore} color={T.red} />
-        <MetricCard label="Blue" value={blueScore} color={T.blue} />
+        <MetricCard label="健康度" value={`${systemHealth}%`} color={T.green} />
+        <MetricCard label="暴露面" value={`${exposure}%`} color={T.amber} />
+        <MetricCard label="红方" value={redScore} color={T.red} />
+        <MetricCard label="蓝方" value={blueScore} color={T.blue} />
       </div>
 
       {(typeof redMeta.probability === "number" || typeof blueMeta.score_value === "number") && (
         <div style={{ marginBottom: 10, paddingTop: 10, borderTop: `0.5px solid ${T.border}` }}>
-          <div style={{ color: T.grayDim, fontSize: 8, letterSpacing: 0.5, marginBottom: 6 }}>PROBABILITY EVENTS</div>
+          <div style={{ color: T.grayDim, fontSize: 8, letterSpacing: 0.5, marginBottom: 6 }}>概率事件</div>
           {typeof redMeta.probability === "number" && (
-            <MiniBar label={`Red ${redMeta.action_type || "Action"} success probability`} value={redMeta.probability * 100} max={100} color={T.red} />
+            <MiniBar label={`红方 ${translateAction(redMeta.action_type || "Action", redMeta.action_type || "动作")} 成功概率`} value={redMeta.probability * 100} max={100} color={T.red} />
           )}
           {typeof redMeta.roll === "number" && (
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: T.fontMono, fontSize: 8, color: T.grayText, marginBottom: 6 }}>
-              <span>Roll result</span>
+              <span>掷点结果</span>
               <span style={{ color: redMeta.roll <= redMeta.probability ? T.green : T.red }}>{redMeta.roll.toFixed(3)}</span>
             </div>
           )}
           {typeof blueMeta.score_value === "number" && (
-            <MiniBar label={`Blue ${blueMeta.action_type || "Action"} score value`} value={blueMeta.score_value} max={Math.max(blueMeta.score_value, 30)} color={T.blue} />
+            <MiniBar label={`蓝方 ${translateAction(blueMeta.action_type || "Action", blueMeta.action_type || "动作")} 得分值`} value={blueMeta.score_value} max={Math.max(blueMeta.score_value, 30)} color={T.blue} />
           )}
         </div>
       )}
 
       {(scoreSummary.red_delta != null || scoreSummary.blue_delta != null) && (
         <div style={{ paddingTop: 10, borderTop: `0.5px solid ${T.border}` }}>
-          <div style={{ color: T.grayDim, fontSize: 8, letterSpacing: 0.5, marginBottom: 6 }}>SCORE DELTAS</div>
+          <div style={{ color: T.grayDim, fontSize: 8, letterSpacing: 0.5, marginBottom: 6 }}>得分变化</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontFamily: T.fontMono, fontSize: 8, color: T.grayDim }}>RED Δ</div>
+              <div style={{ fontFamily: T.fontMono, fontSize: 8, color: T.grayDim }}>红方 Δ</div>
               <div style={{ fontFamily: T.fontMono, fontSize: 12, color: T.red, fontWeight: 600 }}>+{scoreSummary.red_delta}</div>
             </div>
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontFamily: T.fontMono, fontSize: 8, color: T.grayDim }}>BLUE Δ</div>
+              <div style={{ fontFamily: T.fontMono, fontSize: 8, color: T.grayDim }}>蓝方 Δ</div>
               <div style={{ fontFamily: T.fontMono, fontSize: 12, color: T.blue, fontWeight: 600 }}>+{scoreSummary.blue_delta}</div>
             </div>
             {scoreSummary.interception_bonus != null && (
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: T.fontMono, fontSize: 8, color: T.grayDim }}>BONUS</div>
+                <div style={{ fontFamily: T.fontMono, fontSize: 8, color: T.grayDim }}>加成</div>
                 <div style={{ fontFamily: T.fontMono, fontSize: 12, color: T.green, fontWeight: 600 }}>+{scoreSummary.interception_bonus}</div>
               </div>
             )}

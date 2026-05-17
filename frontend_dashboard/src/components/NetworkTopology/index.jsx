@@ -80,7 +80,7 @@ function NetworkTopology({ initialRounds = DEFAULT_ROUNDS }) {
 
     setToast({
       visible: true,
-      text: `R${round.round}: ${ra.technique_id} ${ra.technique} -> ${ra.target_node} ${jr?.success ? "OK" : "BLOCKED"}`,
+      text: `R${round.round}: ${ra.technique_id} ${ra.technique} -> ${ra.target_node} ${jr?.success ? "成功" : "已阻断"}`,
       color: jr?.success ? T.red : T.grayDim,
     });
 
@@ -105,15 +105,15 @@ function NetworkTopology({ initialRounds = DEFAULT_ROUNDS }) {
           />
 
           <div className="controls">
-            <button type="button" className={`ctrl-btn${playing ? " active" : ""}`} onClick={() => setPlaying((current) => !current)}>{playing ? "PAUSE" : "PLAY"}</button>
-            <button type="button" className="ctrl-btn" onClick={() => { setPlaying(false); setIdx(0); }}>RESET</button>
-            <button type="button" className="ctrl-btn" onClick={() => setIdx((current) => Math.max(0, current - 1))} disabled={idx === 0}>PREV</button>
-            <button type="button" className="ctrl-btn" onClick={() => setIdx((current) => Math.min(rounds.length - 1, current + 1))} disabled={idx === rounds.length - 1}>NEXT</button>
+            <button type="button" className={`ctrl-btn${playing ? " active" : ""}`} onClick={() => setPlaying((current) => !current)}>{playing ? "暂停" : "播放"}</button>
+            <button type="button" className="ctrl-btn" onClick={() => { setPlaying(false); setIdx(0); }}>重置</button>
+            <button type="button" className="ctrl-btn" onClick={() => setIdx((current) => Math.max(0, current - 1))} disabled={idx === 0}>上一帧</button>
+            <button type="button" className="ctrl-btn" onClick={() => setIdx((current) => Math.min(rounds.length - 1, current + 1))} disabled={idx === rounds.length - 1}>下一帧</button>
             {[0.5, 1, 2].map((value) => <button type="button" key={value} className={`ctrl-btn${speed === value ? " active" : ""}`} onClick={() => setSpeed(value)}>{value}x</button>)}
           </div>
 
           <div className="info-row">
-            {rounds.map((item, i) => <div key={`${item.round}-${i}`} className="info-chip" style={{ cursor: "pointer", borderColor: i === idx ? T.blue : undefined, color: i === idx ? T.blue : undefined }} onClick={() => { setPlaying(false); setIdx(i); }}>R{item.round} {item.judge_result.success ? "OK" : "NO"} {item.red_action.technique_id}</div>)}
+            {rounds.map((item, i) => <div key={`${item.round}-${i}`} className="info-chip" style={{ cursor: "pointer", borderColor: i === idx ? T.blue : undefined, color: i === idx ? T.blue : undefined }} onClick={() => { setPlaying(false); setIdx(i); }}>R{item.round} {item.judge_result.success ? "成功" : "未成功"} {item.red_action.technique_id}</div>)}
           </div>
 
           <div style={{ marginTop: 16 }}>
@@ -125,7 +125,7 @@ function NetworkTopology({ initialRounds = DEFAULT_ROUNDS }) {
           </div>
 
           <div style={{ paddingTop: 10, color: "#4b5563", fontFamily: T.fontMono, fontSize: 10 }}>
-            DEV: call <code style={{ color: "#6b7280" }}>window.loadFrame(json)</code> to replace preview rounds with backend replay data.
+            开发提示：调用 <code style={{ color: "#6b7280" }}>window.loadFrame(json)</code> 可用后端回放数据替换预览帧。
           </div>
         </div>
 

@@ -1,4 +1,18 @@
 import { T } from "./constants";
+import { translateSeverity } from "../../utils/localization";
+
+const EVENT_TYPE_LABELS = {
+  ATK: "攻击",
+  DEF: "防御",
+  CRIT: "严重",
+  WARN: "警告",
+  INFO: "信息",
+  ALERT: "告警",
+};
+
+function eventTypeLabel(type) {
+  return EVENT_TYPE_LABELS[type] || translateSeverity(type, type);
+}
 
 function EventLog({ rounds, idx }) {
   const visibleRounds = rounds.slice(0, idx + 1);
@@ -9,11 +23,10 @@ function EventLog({ rounds, idx }) {
     const blue = r.blue_action;
     const judge = r.judge_result;
 
-    // ATK event
     const redLog = judge?.logs?.[0] || "";
     const redText = redLog
-      ? `${red.technique_id} ${red.technique} → ${red.target_node} ${redLog}`
-      : `${red.technique_id} ${red.technique} → ${red.target_node}`;
+      ? `${red.technique_id} ${red.technique} -> ${red.target_node} ${redLog}`
+      : `${red.technique_id} ${red.technique} -> ${red.target_node}`;
     events.push({
       round: r.round,
       type: "ATK",
@@ -24,8 +37,7 @@ function EventLog({ rounds, idx }) {
       dim: T.redDim,
     });
 
-    // DEF event
-    const target = blue.target || blue.target_node || "System";
+    const target = blue.target || blue.target_node || "系统";
     events.push({
       round: r.round,
       type: "DEF",
@@ -36,7 +48,6 @@ function EventLog({ rounds, idx }) {
       dim: T.blueDim,
     });
 
-    // Security alerts from this round
     (r.security_alerts || []).forEach((alert) => {
       events.push({
         round: r.round,
@@ -60,7 +71,6 @@ function EventLog({ rounds, idx }) {
         marginTop: 12,
       }}
     >
-      {/* Header */}
       <div
         style={{
           display: "flex",
@@ -78,14 +88,13 @@ function EventLog({ rounds, idx }) {
             textTransform: "uppercase",
           }}
         >
-          Event Log
+          事件日志
         </div>
         <div style={{ fontFamily: T.fontMono, fontSize: 9, color: T.grayDim }}>
-          {events.length} events
+          {events.length} 条事件
         </div>
       </div>
 
-      {/* List */}
       <div
         style={{
           display: "flex",
@@ -134,7 +143,7 @@ function EventLog({ rounds, idx }) {
                 marginTop: 2,
               }}
             >
-              {e.type}
+              {eventTypeLabel(e.type)}
             </span>
             <span
               style={{
