@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 
 import LiveScoreChart from "./LiveScoreChart";
 import TopologyVisualizer from "./TopologyVisualizer";
@@ -7,6 +7,7 @@ import { translateAction, translateRelativeTime, translateScenarioName, translat
 type HomeDashboardProps = {
   onStartNewSimulation?: () => void;
   onViewReplay?: (simulationId: string) => void;
+  replaySelector?: ReactNode;
   rounds?: any[];
   currentRound?: any;
   roundIndex?: number;
@@ -43,6 +44,7 @@ function winnerTone(winner: SimulationRecord["winner"]) {
 function HomeDashboard({
   onStartNewSimulation,
   onViewReplay,
+  replaySelector,
   rounds = [],
   currentRound,
   roundIndex = 0,
@@ -166,17 +168,17 @@ function HomeDashboard({
   const systemHealth = Math.max(0, Math.min(100, Math.round(availability - compromisedCount * 6)));
 
   return (
-    <div className="h-full overflow-hidden px-6 py-4">
+    <div className="h-full overflow-hidden px-5 py-3">
       <div className="flex h-full min-h-0 flex-col gap-4">
-        <section className="grid min-h-0 flex-1 grid-cols-12 grid-rows-[minmax(0,1fr)_220px] gap-4">
-          <div className="col-span-12 row-start-1 min-h-0 xl:col-span-8">
-            <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] bg-[#0b1222]/55 px-6 py-5 shadow-[0_22px_45px_rgba(2,8,24,0.4)]">
+        <section className="grid min-h-0 flex-1 grid-cols-12 grid-rows-[minmax(0,1fr)_180px] gap-4">
+          <div className="col-span-12 row-start-1 min-h-0 xl:col-span-9">
+            <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[26px] bg-[#0b1222]/55 px-5 py-4 shadow-[0_22px_45px_rgba(2,8,24,0.4)]">
               <span className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/45 to-transparent" />
 
               <div className="shrink-0">
                 <p className="font-mono text-[10px] uppercase tracking-[0.26em] text-slate-500">实时态势</p>
-                <h1 className="mt-2 text-[2rem] font-light tracking-wide text-slate-100">实时仿真</h1>
-                <p className="mt-2 text-sm text-slate-400">
+                <h1 className="mt-1 text-[1.85rem] font-light tracking-wide text-slate-100">实时仿真</h1>
+                <p className="mt-1 text-sm text-slate-400">
                   回合 {displayRound} / {totalRounds} | 失陷节点：{compromisedCount} | 状态：{" "}
                   <span className={compromisedCount > 0 ? "text-amber-300" : "text-emerald-300"}>
                     {compromisedCount > 0 ? "威胁活跃" : "稳定"}
@@ -184,26 +186,28 @@ function HomeDashboard({
                 </p>
               </div>
 
-              <div className="mt-5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] bg-[#060b16]/35">
-                <div className="flex shrink-0 items-center justify-end gap-2 px-4 pt-3 text-[10px] font-mono uppercase tracking-[0.16em]">
+              <div className="relative mt-3 min-h-0 flex-1 overflow-hidden rounded-[20px] bg-[#060b16]/35">
+                <div className="absolute right-4 top-3 z-10 flex items-center justify-end gap-2 text-[10px] font-mono uppercase tracking-[0.16em]">
                   <span className="rounded-full border border-blue-500/35 bg-blue-950/30 px-2 py-0.5 text-blue-300">正常</span>
                   <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-red-300">已失陷</span>
                   <span className="rounded-full bg-slate-500/20 px-2 py-0.5 text-slate-300">离线</span>
                 </div>
-                <div className="min-h-0 flex-1 overflow-hidden p-2">
+                <div className="h-full min-h-0 overflow-hidden p-1">
                   <TopologyVisualizer round={currentRound} rounds={rounds} roundIndex={roundIndex} variant="embedded" />
                 </div>
               </div>
             </div>
           </div>
 
-          <aside className="col-span-12 row-start-1 min-h-0 xl:col-span-4 xl:row-span-2">
+          <aside className="col-span-12 row-start-1 min-h-0 xl:col-span-3 xl:row-span-2">
             <div className="flex h-full min-h-0 flex-col gap-4">
               <div className="relative min-h-0 flex-1 overflow-y-auto rounded-[28px] bg-[#0b1222]/62 px-5 py-5 shadow-[0_18px_38px_rgba(2,8,24,0.36)]">
                 <span className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-blue-300/40 to-transparent" />
 
                 <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">拓扑统计</p>
                 <p className="mt-1 text-sm font-light tracking-wide text-slate-200">仿真遥测</p>
+
+                {replaySelector ? <div className="mt-4">{replaySelector}</div> : null}
 
                 <button
                   type="button"
@@ -282,7 +286,7 @@ function HomeDashboard({
             </div>
           </aside>
 
-          <div className="col-span-12 row-start-2 grid min-h-0 grid-cols-1 gap-4 lg:grid-cols-2 xl:col-span-8">
+          <div className="col-span-12 row-start-2 grid min-h-0 grid-cols-1 gap-4 lg:grid-cols-2 xl:col-span-9">
             <article className="relative overflow-hidden rounded-2xl bg-[#0a1120]/75 p-4 shadow-[0_14px_34px_rgba(2,8,24,0.3)]">
               <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-red-300/45 to-transparent" />
               <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">红方战术分布</p>

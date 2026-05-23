@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import HomeDashboard from "./components/HomeDashboard";
 import ReasoningPanel from "./components/ReasoningPanel";
+import ReplayPicker, { type ReplayCatalogItem } from "./components/ReplayPicker";
 import ScenarioSelection, { type ScenarioCatalogItem } from "./components/ScenarioSelection";
 import TerminalLogs from "./components/TerminalLogs";
 import TopBar, { CyberArenaLogo } from "./components/TopBar";
@@ -37,6 +38,7 @@ function App() {
   const [roundIndex, setRoundIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState<ScenarioCatalogItem | null>(null);
+  const [selectedReplay, setSelectedReplay] = useState<ReplayCatalogItem | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +52,14 @@ function App() {
         const normalized = normalizeRoundsPayload(payload);
         if (normalized.length) {
           setRounds(normalized);
+          setSelectedReplay({
+            id: "simulation_20_rounds_eval",
+            name: "20 回合攻防评估回放",
+            summary: "已完成模拟的红蓝双方 20 回合攻防过程。",
+            path: "/simulation_20_rounds_eval.json",
+            rounds: normalized.length,
+            tags: ["已模拟"],
+          });
         }
       })
       .catch((error) => {
@@ -137,9 +147,35 @@ function App() {
     setActiveTab("replay");
   };
 
+  const handleLoadReplay = async (replay: ReplayCatalogItem, options?: { autoplay?: boolean }) => {
+    let normalized = FALLBACK_ROUNDS;
+    if (replay.path === "__builtin_default_rounds__") {
+      normalized = normalizeRoundsPayload(DEFAULT_ROUNDS);
+    } else {
+      const response = await fetch(replay.path);
+      if (!response.ok) {
+        throw new Error(`回放文件请求失败：${response.status}`);
+      }
+      const payload = await response.json();
+      normalized = normalizeRoundsPayload(payload);
+    }
+
+    if (!normalized.length) {
+      throw new Error("回放文件中没有可用帧");
+    }
+
+    setSelectedReplay({ ...replay, rounds: replay.rounds ?? normalized.length });
+    setSelectedScenario(null);
+    setRounds(normalized);
+    setRoundIndex(0);
+    setPlaying(Boolean(options?.autoplay && normalized.length > 1));
+    setActiveTab("replay");
+  };
+
   const handleStartScenario = (scenario: ScenarioCatalogItem) => {
     const normalized = normalizeRoundsPayload([scenario.initial_frame]);
     setSelectedScenario(scenario);
+    setSelectedReplay(null);
     setRounds(normalized.length ? normalized : FALLBACK_ROUNDS);
     setActiveTab("replay");
     setRoundIndex(0);
@@ -223,6 +259,12 @@ function App() {
               <HomeDashboard
                 onStartNewSimulation={handleStartNewSimulation}
                 onViewReplay={openReplayTab}
+                replaySelector={
+                  <ReplayPicker
+                    selectedReplayId={selectedReplay?.id}
+                    onLoadReplay={handleLoadReplay}
+                  />
+                }
                 rounds={rounds}
                 currentRound={currentRound}
                 roundIndex={safeIndex}
@@ -248,22 +290,29 @@ function App() {
               />
 
               <main className="flex min-h-0 flex-1 overflow-hidden px-3 pb-3 pt-2">
-                <section className="min-w-0 flex-[3] overflow-hidden pr-3">
+                <section className="min-w-0 flex-[4] overflow-hidden pr-3">
                   <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] bg-[#060b16]/35">
                     <span className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/35 to-transparent" />
                     <span className="pointer-events-none absolute inset-x-12 bottom-0 h-px bg-gradient-to-r from-transparent via-red-400/45 to-transparent" />
-                    <div className="flex shrink-0 items-center justify-end gap-2 px-4 pt-3 text-[10px] font-mono uppercase tracking-[0.16em]">
+                    <div className="absolute left-4 top-3 z-10 w-[360px] max-w-[calc(100%-2rem)]">
+                      <ReplayPicker
+                        compact
+                        selectedReplayId={selectedReplay?.id}
+                        onLoadReplay={handleLoadReplay}
+                      />
+                    </div>
+                    <div className="absolute right-4 top-3 z-10 flex items-center justify-end gap-2 text-[10px] font-mono uppercase tracking-[0.16em]">
                       <span className="rounded-full border border-blue-500/35 bg-blue-950/30 px-2 py-0.5 text-blue-300">正常</span>
                       <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-red-300">已失陷</span>
                       <span className="rounded-full bg-slate-500/20 px-2 py-0.5 text-slate-300">离线</span>
                     </div>
-                    <div className="min-h-0 flex-1 overflow-hidden p-2">
+                    <div className="min-h-0 flex-1 overflow-hidden p-1 pt-20">
                       <TopologyVisualizer round={currentRound} rounds={rounds} roundIndex={safeIndex} variant="embedded" />
                     </div>
                   </div>
                 </section>
 
-                <aside className="flex min-w-[350px] max-w-[420px] flex-1 overflow-hidden">
+                <aside className="flex min-w-[320px] max-w-[380px] flex-1 overflow-hidden">
                   <ReasoningPanel round={currentRound} />
                 </aside>
               </main>

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "replays": [
+    {
+      "id": "simulation_20_rounds_eval",
+      "name": "20 回合攻防评估回放",
+      "summary": "已完成模拟的红蓝双方 20 回合攻防过程，包含动作日志、裁判结果、告警和拓扑状态变化。",
+      "path": "/simulation_20_rounds_eval.json",
+      "rounds": 20,
+      "tags": ["已模拟", "攻防评估", "20 回合"]
+    }
+  ]
+}
