@@ -8,6 +8,13 @@ const STATUS_LABELS = {
   isolated: "已隔离",
   patched: "已修补",
   down: "离线",
+  Normal: "正常",
+  Scanning: "侦察中",
+  Compromised: "已失陷",
+  Defended: "已加固",
+  Isolated: "已隔离",
+  Patched: "已修补",
+  Down: "离线",
 };
 
 const ROLE_LABELS = {
@@ -36,6 +43,7 @@ const ACTION_LABELS = {
   DataExfiltration: "数据外传",
   ExfiltrateDatabase: "数据库外传",
   AnchorFoothold: "建立据点",
+  ReactivateFoothold: "恢复据点",
   PreventivePatch: "预防修补",
   PatchNode: "漏洞修补",
   RestoreNode: "恢复节点",
@@ -82,11 +90,11 @@ const SCENARIO_NAME_LABELS = {
   "Level 2 Ransomware": "等级 2 勒索传播",
   "Level 3 Multi-Step Intrusion": "等级 3 多阶段入侵",
   "Level 3 Enterprise Branch": "等级 3 企业分支",
-  "Level 4 Cloud SaaS": "等级 4 云端软件服务",
+  "Level 4 Cloud SaaS": "等级 4 云端 SaaS",
   level_1_basic_web: "等级 1 基础网站",
   level_2_ransomware: "等级 2 勒索传播",
   level_3_enterprise_branch: "等级 3 企业分支",
-  level_4_cloud_saas: "等级 4 云端软件服务",
+  level_4_cloud_saas: "等级 4 云端 SaaS",
 };
 
 const RELATIVE_TIME_LABELS = {

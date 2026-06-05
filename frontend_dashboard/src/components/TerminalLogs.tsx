@@ -16,24 +16,24 @@ type LogLine = {
 };
 
 const ROLE_TEXT_CLASS: Record<Role, string> = {
-  RED: "text-red-400",
-  BLUE: "text-blue-400",
+  RED: "text-red-300",
+  BLUE: "text-blue-300",
   SYS: "text-amber-300",
-  ALERT: "text-amber-400",
+  ALERT: "text-yellow-300",
 };
 
 const MOCK_LOGS: LogLine[] = [
   {
     id: "mock-1",
     role: "RED",
-    message: "ExploitService -> web (CVE-2021-44228)",
-    detail: "已在 DMZ 节点建立初始据点。",
+    message: "服务利用 -> web",
+    detail: "在 DMZ 节点建立初始访问。",
   },
   {
     id: "mock-2",
     role: "BLUE",
-    message: "PatchNode -> storage (CVE-2017-0144)",
-    detail: "严重 SMB 漏洞已移除。",
+    message: "漏洞修补 -> storage",
+    detail: "高危 SMB 漏洞已移除。",
   },
   {
     id: "mock-3",
@@ -44,7 +44,7 @@ const MOCK_LOGS: LogLine[] = [
   {
     id: "mock-4",
     role: "SYS",
-    message: "回合已按确定性计分规则完成裁定。",
+    message: "回合已按裁判规则完成结算。",
   },
 ];
 
@@ -52,7 +52,8 @@ function trimText(text: string, maxLength = 180) {
   if (!text) {
     return "";
   }
-  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+  const cleaned = String(text).replace(/\s+/g, " ").trim();
+  return cleaned.length > maxLength ? `${cleaned.slice(0, maxLength)}...` : cleaned;
 }
 
 function buildLogLines(round: any): LogLine[] {
@@ -68,7 +69,7 @@ function buildLogLines(round: any): LogLine[] {
     const target = item?.metadata?.target ? ` -> ${item.metadata.target}` : "";
     const detail = trimText(item?.referee_result || item?.payload || item?.thought || "");
     return {
-      id: `action-${index}-${role}-${action}`,
+      id: `action-${index}-${role}-${rawAction}`,
       role,
       message: `${action}${target}`,
       detail,
@@ -93,7 +94,7 @@ function buildLogLines(round: any): LogLine[] {
 
 function TerminalLogs({ round }: TerminalLogsProps) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const roundLabel = round?.round ?? round?.turn ?? 1;
+  const roundLabel = round?.round ?? round?.turn ?? 0;
   const lines = useMemo(() => {
     const next = round ? buildLogLines(round) : [];
     return next.length ? next : MOCK_LOGS;
@@ -107,18 +108,18 @@ function TerminalLogs({ round }: TerminalLogsProps) {
   }, [lines, roundLabel]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between px-3 py-2">
-        <p className="font-mono text-[13px] uppercase tracking-[0.22em] text-slate-300">实时安全终端</p>
+    <div className="flex h-full min-h-0 flex-col rounded-2xl border border-white/[0.08] bg-[#070d16]/72">
+      <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 py-2">
+        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-400">实时安全终端</p>
         <span className="font-mono text-[11px] text-slate-500">回合 {roundLabel}</span>
       </div>
 
-      <div ref={scrollerRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-2 font-mono text-xs leading-6">
+      <div ref={scrollerRef} className="cyber-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-3 font-mono text-xs leading-6">
         {lines.map((line) => (
           <div key={line.id} className="whitespace-pre-wrap break-words">
             <span className={ROLE_TEXT_CLASS[line.role]}>[{translateRole(line.role)}]</span>
-            <span className="ml-2 text-slate-400">{line.message}</span>
-            {line.detail ? <span className="ml-2 text-slate-600">| {line.detail}</span> : null}
+            <span className="ml-2 text-slate-300">{line.message}</span>
+            {line.detail ? <span className="ml-2 text-slate-500">| {line.detail}</span> : null}
           </div>
         ))}
       </div>

@@ -3,8 +3,83 @@
 @tailwind utilities;
 
 @layer base {
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+  }
+
   body {
     @apply m-0 overflow-hidden bg-[#07090f] text-slate-100;
+  }
+}
+
+@layer components {
+  .battle-workbench {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    padding: 16px 20px;
+  }
+
+  .battle-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    flex: 0 0 auto;
+  }
+
+  .battle-map {
+    min-height: 520px;
+  }
+
+  .battle-map-canvas {
+    height: 100%;
+    min-height: 520px;
+    padding: 56px 8px 8px;
+  }
+
+  .battle-analysis {
+    min-height: 420px;
+  }
+
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  @media (min-width: 1280px) {
+    .battle-main {
+      grid-template-columns: minmax(0, 65fr) minmax(380px, 35fr);
+      height: clamp(560px, calc(100vh - 292px), 700px);
+      min-height: 560px;
+    }
+
+    .battle-map,
+    .battle-analysis {
+      height: 100%;
+      min-height: 0;
+    }
+
+    .battle-map-canvas {
+      height: 100%;
+      min-height: 0;
+    }
+
+    .bottom-grid {
+      grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr) minmax(300px, 0.75fr);
+    }
+  }
+
+  @media (min-width: 1536px) and (min-height: 980px) {
+    .battle-main {
+      height: clamp(640px, calc(100vh - 308px), 760px);
+    }
   }
 }
 

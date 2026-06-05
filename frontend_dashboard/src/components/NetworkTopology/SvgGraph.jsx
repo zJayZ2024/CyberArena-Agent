@@ -357,6 +357,7 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
     ? Math.min(Math.max(Math.round(turnNumber), 0), totalRounds)
     : 0;
   const displayPhase = translatePhase(ws.red_phase || "recon");
+  const framePhaseLabel = round?.__frame_phase_label;
   const targetNode = round?.red_action?.target_node || round?.red_action?.target;
   const defendNode = round?.blue_action?.target || round?.blue_action?.target_node;
   const activePathIds = targetNode && graph.nodeConfigs[targetNode]
@@ -543,9 +544,9 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
         <Base x={GRAPH_VIEW.redBaseX} y={GRAPH_VIEW.baseY} label="红方基地" sublabel="攻击者" score={score.red} color={T.red} bg={T.redBg} glowColor={T.redGlow} Icon={IconTerminal} />
         <Base x={GRAPH_VIEW.blueBaseX} y={GRAPH_VIEW.baseY} label="蓝方基地" sublabel="防守者" score={score.blue} color={T.blue} bg={T.blueBg} glowColor={T.blueGlow} Icon={resolveNodeIcon("fw", "dmz")} />
         <g transform={`translate(${GRAPH_VIEW.width / 2},0)`}>
-          <rect x={-76} y={0} width={152} height={18} rx={4} fill={T.bgPanel} stroke={T.border} strokeWidth="0.5" />
+          <rect x={-104} y={0} width={208} height={18} rx={4} fill={T.bgPanel} stroke={T.border} strokeWidth="0.5" />
           <text x={0} y={13} textAnchor="middle" fontFamily={T.fontMono} fontSize={8} fill={T.grayText} letterSpacing="1">
-            {`回合 ${displayRound} / ${totalRounds} - ${displayPhase}`}
+            {`回合 ${displayRound} / ${totalRounds} - ${displayPhase}${framePhaseLabel ? ` · ${framePhaseLabel}` : ""}`}
           </text>
         </g>
         <g transform={`translate(${Math.floor(GRAPH_VIEW.width / 2) - 120},${GRAPH_VIEW.height - 20})`}>

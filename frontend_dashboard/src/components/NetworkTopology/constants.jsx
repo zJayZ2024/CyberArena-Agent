@@ -1,38 +1,38 @@
 export const T = {
-  bg: "#07090f",
-  bgPanel: "#0d1117",
+  bg: "#06080d",
+  bgPanel: "#0a0f19",
   bgNode: "#111827",
-  border: "#1f2937",
-  red: "#ef4444",
-  redDim: "#7f1d1d",
-  redBg: "#1a0a0a",
-  redGlow: "rgba(239,68,68,0.55)",
+  border: "#243244",
+  red: "#ff4d5e",
+  redDim: "#991b1b",
+  redBg: "#240b10",
+  redGlow: "rgba(255,77,94,0.58)",
   blue: "#3b82f6",
-  blueDim: "#1e3a5f",
-  blueBg: "#080f1c",
+  blueDim: "#1d4ed8",
+  blueBg: "#081426",
   blueGlow: "rgba(59,130,246,0.55)",
-  green: "#22c55e",
-  greenBg: "#071510",
-  greenGlow: "rgba(34,197,94,0.45)",
-  amber: "#f59e0b",
-  amberBg: "#1a1000",
-  gray: "#374151",
-  grayText: "#9ca3af",
-  grayDim: "#6b7280",
+  green: "#27d17f",
+  greenBg: "#06190f",
+  greenGlow: "rgba(39,209,127,0.45)",
+  amber: "#f6b73c",
+  amberBg: "#1f1404",
+  gray: "#475569",
+  grayText: "#a8b3c7",
+  grayDim: "#64748b",
   fontMono: "'JetBrains Mono', monospace",
 };
 
 export const PAGE_STYLES = `
-  @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap");
+  @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap");
   .topology-page { margin: 0 auto; min-height: 100vh; padding: 24px 40px; }
-  .page-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 2px; color: #4b5563; margin-bottom: 16px; text-transform: uppercase; }
+  .page-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 2px; color: #64748b; margin-bottom: 16px; text-transform: uppercase; }
   .controls { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
-  .ctrl-btn { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 6px 14px; border-radius: 4px; cursor: pointer; background: #111827; border: 1px solid #1f2937; color: #9ca3af; transition: all 0.15s; }
+  .ctrl-btn { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 6px 14px; border-radius: 4px; cursor: pointer; background: #111827; border: 1px solid #243244; color: #a8b3c7; transition: all 0.15s; }
   .ctrl-btn:hover:not(:disabled) { border-color: #3b82f6; color: #3b82f6; }
-  .ctrl-btn.active { background: #0d1f3c; border-color: #3b82f6; color: #3b82f6; }
+  .ctrl-btn.active { background: #081426; border-color: #3b82f6; color: #3b82f6; }
   .ctrl-btn:disabled { opacity: 0.45; cursor: not-allowed; }
   .info-row { display: flex; gap: 14px; margin-top: 18px; flex-wrap: wrap; }
-  .info-chip { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 5px 12px; border-radius: 20px; background: #111827; border: 0.5px solid #1f2937; color: #6b7280; }
+  .info-chip { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 5px 12px; border-radius: 20px; background: #111827; border: 0.5px solid #243244; color: #64748b; }
 `;
 
 export const GRAPH_VIEW = {
@@ -57,18 +57,18 @@ const CORE_KEYWORDS = ["app", "db", "database", "mysql", "postgres", "sql", "sto
 const ZONE_ORDER = ["external", "dmz", "office", "core"];
 const ZONE_LABELS = {
   external: "外部威胁",
-  dmz: "DMZ 隔离区 - 防火墙 / 网站 / 远程接入",
-  office: "办公内网 - 办公终端",
+  dmz: "DMZ 边界 - 防火墙 / 网站 / 远程接入",
+  office: "办公内网 - 终端与跳板",
   core: "核心业务 - 应用 / 开发 / 数据库 / 存储",
 };
 const ZONE_NOTES = {
-  external: "红方从互联网出发；该区域不是可争夺资源节点",
+  external: "红方从互联网发起行动；该区域不是可争夺资产。",
 };
 const ZONE_STYLES = {
-  external: { color: T.gray, bg: "rgba(55,65,81,0.05)" },
-  dmz: { color: T.blue, bg: "rgba(59,130,246,0.05)" },
-  office: { color: "#22c55e", bg: "rgba(34,197,94,0.05)" },
-  core: { color: T.amber, bg: "rgba(245,158,11,0.05)" },
+  external: { color: T.gray, bg: "rgba(71,85,105,0.05)" },
+  dmz: { color: T.blue, bg: "rgba(59,130,246,0.055)" },
+  office: { color: T.green, bg: "rgba(39,209,127,0.05)" },
+  core: { color: T.amber, bg: "rgba(246,183,60,0.055)" },
 };
 
 const HIDDEN_RESOURCE_NODE_IDS = new Set(["internet"]);
@@ -103,18 +103,19 @@ const NODE_POSITION_HINTS = {
 
 export const STATUS_STYLES = {
   Normal: { border: T.blue, bg: T.bgNode, glow: "none", dot: T.green, label: "正常" },
-  Scanning: { border: T.amber, bg: T.amberBg, glow: "0 0 10px rgba(245,158,11,.55)", dot: T.amber, label: "侦察中" },
-  Compromised: { border: T.red, bg: T.redBg, glow: "0 0 14px rgba(239,68,68,.7)", dot: T.red, label: "已失陷" },
-  Defended: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(34,197,94,.55)", dot: T.green, label: "已加固" },
-  Isolated: { border: "#64748b", bg: "#0b1220", glow: "none", dot: T.grayDim, label: "已隔离" },
-  Patched: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(34,197,94,.55)", dot: T.green, label: "已修补" },
+  Scanning: { border: T.amber, bg: T.amberBg, glow: "0 0 10px rgba(246,183,60,.55)", dot: T.amber, label: "侦察中" },
+  Compromised: { border: T.red, bg: T.redBg, glow: "0 0 14px rgba(255,77,94,.7)", dot: T.red, label: "已失陷" },
+  Defended: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(39,209,127,.55)", dot: T.green, label: "已加固" },
+  Isolated: { border: T.grayDim, bg: "#0b1220", glow: "none", dot: T.grayDim, label: "已隔离" },
+  Patched: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(39,209,127,.55)", dot: T.green, label: "已修补" },
+  Down: { border: T.grayDim, bg: "#0b1220", glow: "none", dot: T.grayDim, label: "离线" },
   normal: { border: T.blue, bg: T.bgNode, glow: "none", dot: T.green, label: "正常" },
-  scanning: { border: T.amber, bg: T.amberBg, glow: "0 0 10px rgba(245,158,11,.55)", dot: T.amber, label: "侦察中" },
-  compromised: { border: T.red, bg: T.redBg, glow: "0 0 14px rgba(239,68,68,.7)", dot: T.red, label: "已失陷" },
-  defended: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(34,197,94,.55)", dot: T.green, label: "已加固" },
-  isolated: { border: "#64748b", bg: "#0b1220", glow: "none", dot: T.grayDim, label: "已隔离" },
-  patched: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(34,197,94,.55)", dot: T.green, label: "已修补" },
-  down: { border: "#64748b", bg: "#0b1220", glow: "none", dot: T.grayDim, label: "离线" },
+  scanning: { border: T.amber, bg: T.amberBg, glow: "0 0 10px rgba(246,183,60,.55)", dot: T.amber, label: "侦察中" },
+  compromised: { border: T.red, bg: T.redBg, glow: "0 0 14px rgba(255,77,94,.7)", dot: T.red, label: "已失陷" },
+  defended: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(39,209,127,.55)", dot: T.green, label: "已加固" },
+  isolated: { border: T.grayDim, bg: "#0b1220", glow: "none", dot: T.grayDim, label: "已隔离" },
+  patched: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(39,209,127,.55)", dot: T.green, label: "已修补" },
+  down: { border: T.grayDim, bg: "#0b1220", glow: "none", dot: T.grayDim, label: "离线" },
 };
 
 const IconShield = ({ size = 16, color = "#fff" }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>;

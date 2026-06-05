@@ -36,6 +36,14 @@ const FALLBACK_REPLAYS: ReplayCatalogItem[] = [
   },
 ];
 
+const REPLAY_NAME_FIXES: Record<string, Partial<ReplayCatalogItem>> = {
+  simulation_20_rounds_eval: {
+    name: "20 回合攻防评估回放",
+    summary: "已完成模拟的红蓝双方 20 回合攻防过程，包含动作日志、裁判结果、告警和拓扑变化。",
+    tags: ["已模拟", "攻防评估", "20 回合"],
+  },
+};
+
 function isReplayCatalogItem(value: any): value is ReplayCatalogItem {
   return !!(
     value
@@ -47,7 +55,10 @@ function isReplayCatalogItem(value: any): value is ReplayCatalogItem {
 
 function normalizeReplayCatalog(payload: any): ReplayCatalogItem[] {
   const remoteRows = Array.isArray(payload?.replays) ? payload.replays.filter(isReplayCatalogItem) : [];
-  const rows = [BUILTIN_REPLAY, ...remoteRows];
+  const rows = [BUILTIN_REPLAY, ...remoteRows].map((item) => ({
+    ...item,
+    ...(REPLAY_NAME_FIXES[item.id] ?? {}),
+  }));
   const deduped = new Map<string, ReplayCatalogItem>();
   rows.forEach((item) => deduped.set(item.id, item));
   return deduped.size ? Array.from(deduped.values()) : FALLBACK_REPLAYS;
@@ -89,7 +100,7 @@ function ReplayPicker({ selectedReplayId, compact = false, onLoadReplay }: Repla
         if (cancelled) {
           return;
         }
-        console.error("回放目录加载失败，使用内置回放目录：", error);
+        console.error("回放目录加载失败，使用内置回放目录。", error);
         setCatalog(FALLBACK_REPLAYS);
       });
 
@@ -117,7 +128,7 @@ function ReplayPicker({ selectedReplayId, compact = false, onLoadReplay }: Repla
     try {
       await onLoadReplay(activeReplay, { autoplay });
     } catch (error) {
-      console.error("回放加载失败：", error);
+      console.error("回放加载失败。", error);
       setErrorText("回放加载失败，请检查回放文件是否存在。");
     } finally {
       setLoading(false);
@@ -128,7 +139,7 @@ function ReplayPicker({ selectedReplayId, compact = false, onLoadReplay }: Repla
     <div className={`rounded-xl border border-cyan-400/15 bg-[#06111f]/70 ${compact ? "px-3 py-2" : "px-4 py-3"}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">回放选择</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">回放选择</p>
           <p className="mt-1 truncate text-sm font-light text-slate-200">{activeReplay.name}</p>
         </div>
         <span className="shrink-0 rounded-md border border-slate-700/80 px-2 py-1 font-mono text-[10px] text-slate-400">
