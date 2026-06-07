@@ -6,6 +6,7 @@ from typing import Iterable
 from backend_engine.agents.llm_agent import BaseLLMAgent, LLMDecisionError
 from backend_engine.core.models import AgentDecision, SecurityAlert, WorldState
 from backend_engine.engine.actions import ACTION_REGISTRY, ActionContext
+from backend_engine.engine.agent_memory import AgentMemoryStore, StrategyBias
 from backend_engine.engine.decision_framework import (
     ActionSpaceBuilder,
     AntiStagnationController,
@@ -32,6 +33,8 @@ class BlueAgent(BaseLLMAgent):
         self._llm_planner = LLMPlanner(max_retries=1, max_candidate_rows=6)
         self._opponent_modeler = OpponentModeler(self_agent_type="Blue")
         self._reflection_engine = ReflectionEngine(self_agent_type="Blue")
+        self._agent_memory = AgentMemoryStore(agent_type="Blue")
+        self._strategy_bias = StrategyBias(self._agent_memory)
         self._anti_stagnation = AntiStagnationController(
             self_agent_type="Blue",
             max_monitor_streak=2,
@@ -52,11 +55,16 @@ class BlueAgent(BaseLLMAgent):
         recent_alerts = list(recent_logs or [])
         self._opponent_modeler.observe(state)
         self._reflection_engine.observe(state)
+        self._agent_memory.observe(state)
         self._anti_stagnation.observe_state(state)
 
         opponent_model = self._opponent_modeler.build()
-        reflections = self._reflection_engine.recent(limit=3)
+        reflections = [
+            *self._reflection_engine.recent(limit=3),
+            *self._agent_memory.recent_reflections(limit=2),
+        ]
         intel_package = build_blue_intel_package(state)
+        intel_package["agent_memory"] = self._agent_memory.as_prompt_context()
         battle_state = build_battle_state(
             state,
             agent_type="Blue",
@@ -73,6 +81,7 @@ class BlueAgent(BaseLLMAgent):
             opponent_model=opponent_model,
         )
         candidates = self._anti_stagnation.apply(candidates, state=state, battle_state=battle_state)
+        candidates = self._strategy_bias.apply(candidates)
         if not candidates:
             raise LLMDecisionError("蓝方当前没有可执行候选动作。")
 
@@ -104,6 +113,11 @@ class BlueAgent(BaseLLMAgent):
         self._anti_stagnation.observe_decision(decision.action_type, decision.target)
         self._reflection_engine.set_expected(decision=decision, candidate_id=candidate_id, thought=thought)
         return decision
+
+    def observe_outcome(self, state: WorldState) -> dict:
+        self._reflection_engine.observe(state)
+        self._agent_memory.observe(state)
+        return self._agent_memory.as_prompt_context()
 
     def _choose_with_llm(
         self,
@@ -176,9 +190,13 @@ class BlueAgent(BaseLLMAgent):
         recent_alerts = list(recent_logs or [])
         self._opponent_modeler.observe(state)
         self._reflection_engine.observe(state)
+        self._agent_memory.observe(state)
         self._anti_stagnation.observe_state(state)
         opponent_model = self._opponent_modeler.build()
-        reflections = self._reflection_engine.recent(limit=3)
+        reflections = [
+            *self._reflection_engine.recent(limit=3),
+            *self._agent_memory.recent_reflections(limit=2),
+        ]
         battle_state = build_battle_state(
             state,
             agent_type="Blue",
@@ -195,6 +213,7 @@ class BlueAgent(BaseLLMAgent):
             opponent_model=opponent_model,
         )
         candidates = self._anti_stagnation.apply(candidates, state=state, battle_state=battle_state)
+        candidates = self._strategy_bias.apply(candidates)
         if not candidates:
             raise LLMDecisionError("蓝方 fallback 阶段没有可执行动作。")
         chosen = self._fallback_planner.choose(

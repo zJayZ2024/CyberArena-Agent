@@ -9,13 +9,13 @@ from typing import Any, Iterable, Literal
 
 from backend_engine.agents.llm_agent import LLMDecisionError
 from backend_engine.core.models import AgentDecision, SecurityAlert, WorldState
-from backend_engine.engine.command_protocol import build_blue_defense_rule, build_red_raw_command
+from backend_engine.engine.protocol_library import build_blue_defense_rule, build_red_raw_command
 from backend_engine.engine.actions import ACTION_REGISTRY, ActionContext
 
 AgentType = Literal["Red", "Blue"]
 
 RED_PASSIVE_ACTIONS = {"Recon", "AnchorFoothold"}
-BLUE_PASSIVE_ACTIONS = {"Monitor"}
+BLUE_PASSIVE_ACTIONS = {"Monitor", "VulnerabilityScan"}
 RED_OBJECTIVE_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase", "AnchorFoothold", "ReactivateFoothold"}
 BLUE_RESPONSE_ACTIONS = {"PatchNode", "RestoreNode", "DeepRestore", "Isolate"}
 RED_ATTACK_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase", "ReactivateFoothold"}
@@ -25,6 +25,7 @@ MAX_RED_EXPLOIT_VARIANTS_PER_TARGET = 3
 CORE_DEFAULT = ("db",)
 PREVENTIVE_PATCH_INTERVAL = 2
 TIER0_PROACTIVE_LOCK_ROUNDS = 2
+RECENT_SELF_ISOLATE_RESTORE_WINDOW = 3
 
 ASSET_STRATEGIC_VALUE = {
     "db": 100,
@@ -107,6 +108,41 @@ def _asset_strategic_value(target: str | None) -> int:
     if _is_perimeter_node(lowered):
         return 44
     return 36
+
+
+def _has_red_activity(node: Any) -> bool:
+    red_state = getattr(node, "red_state", None)
+    return bool(
+        getattr(red_state, "session_active", False)
+        or getattr(red_state, "foothold", False)
+        or getattr(red_state, "persistence", False)
+        or getattr(node, "status", "") == "Compromised"
+    )
+
+
+def _recent_warn_or_crit(recent_alerts: Iterable[SecurityAlert] | None, target: str | None) -> tuple[bool, bool]:
+    has_warn = False
+    has_crit = False
+    if not target or not recent_alerts:
+        return has_warn, has_crit
+    for alert in recent_alerts:
+        if alert.target != target:
+            continue
+        if alert.severity == "CRIT":
+            has_crit = True
+        elif alert.severity == "WARN":
+            has_warn = True
+    return has_warn, has_crit
+
+
+def _recently_self_isolated(state: WorldState, target: str | None) -> bool:
+    if not target or target not in state.network_nodes:
+        return False
+    node = state.network_nodes[target]
+    if node.status != "Isolated" and not node.blue_state.isolated:
+        return False
+    last_turn = int(node.blue_state.last_response_turn)
+    return last_turn >= 0 and 0 <= int(state.turn) - last_turn <= RECENT_SELF_ISOLATE_RESTORE_WINDOW
 
 
 def _shortest_hops_to_core(
@@ -199,6 +235,11 @@ def build_red_intel_package(state: WorldState) -> IntelPackage:
     if not visible:
         visible.update(_default_red_visible_nodes(state))
     visible.update(node_name for node_name, node in state.network_nodes.items() if node.status == "Compromised")
+    visible.update(
+        node_name
+        for node_name, node in state.network_nodes.items()
+        if node.red_state.session_active or node.red_state.foothold or node.red_state.persistence
+    )
 
     known_services: dict[str, tuple[int, ...]] = {}
     for node_name, ports in state.red_known_services.items():
@@ -215,7 +256,11 @@ def build_red_intel_package(state: WorldState) -> IntelPackage:
                 known_vulns[node_name] = tuple(vuln_ids)
 
     compromised = tuple(
-        sorted(node_name for node_name, node in state.network_nodes.items() if node.status == "Compromised")
+        sorted(
+            node_name
+            for node_name, node in state.network_nodes.items()
+            if node.status == "Compromised" or node.red_state.session_active or node.red_state.foothold
+        )
     )
     anchored = tuple(sorted(node_name for node_name in state.red_anchored_nodes if node_name in state.network_nodes))
     recon_nodes = tuple(sorted(set(state.red_recon_nodes)))
@@ -285,6 +330,8 @@ class ActionSpaceBuilder:
         for action in ACTION_REGISTRY.all():
             if action.agent_type != agent_type:
                 continue
+            if agent_type == "Red" and state.turn <= 0 and action.action_type != "Recon":
+                continue
             if agent_type == "Blue" and action.action_type == "PreventivePatch" and blue_priority_stage != "P2":
                 continue
 
@@ -308,6 +355,18 @@ class ActionSpaceBuilder:
                         recent_alerts=recent_alerts,
                     )
                 ]
+            if agent_type == "Blue":
+                proposed_targets = [
+                    target
+                    for target in proposed_targets
+                    if self._allow_blue_candidate(
+                        state,
+                        action_type=action.action_type,
+                        target=target,
+                        battle_state=battle_state,
+                        recent_alerts=recent_alerts,
+                    )
+                ]
 
             for target in proposed_targets:
                 vuln_candidates = self._vuln_candidates(
@@ -322,6 +381,7 @@ class ActionSpaceBuilder:
                     "RestoreNode",
                     "DeepRestore",
                     "Monitor",
+                    "VulnerabilityScan",
                     "PreventivePatch",
                     "AnchorFoothold",
                     "ReactivateFoothold",
@@ -460,11 +520,13 @@ class ActionSpaceBuilder:
             return [None]
 
         node = state.network_nodes[target]
+        min_confidence = 0.7 if action_type == "PatchNode" else 0.55
         ranked = sorted(
             [
                 vuln_id
                 for vuln_id in known_vuln_map.keys()
                 if vuln_id in node.vulnerabilities
+                and float(known_vuln_map.get(vuln_id, 0.0) or 0.0) >= min_confidence
             ],
             key=lambda vuln_id: (
                 float(known_vuln_map.get(vuln_id, 0.0)),
@@ -555,6 +617,8 @@ class ActionSpaceBuilder:
             if agent_type == "Blue":
                 return f"监控 {scope} 并确认可处置漏洞线索"
             return f"监控 {scope}"
+        if action_type == "VulnerabilityScan":
+            return f"对 {scope} 执行目标化漏洞扫描并生成修补线索"
         return f"执行 {action_type} 于 {scope}"
 
     def _build_raw_command(
@@ -607,6 +671,45 @@ class ActionSpaceBuilder:
                 return False
         return True
 
+    def _allow_blue_candidate(
+        self,
+        state: WorldState,
+        *,
+        action_type: str,
+        target: str | None,
+        battle_state: dict[str, Any],
+        recent_alerts: Iterable[SecurityAlert] | None,
+    ) -> bool:
+        if action_type not in {"RestoreNode", "DeepRestore", "Isolate"}:
+            return True
+        if not target or target not in state.network_nodes:
+            return True
+
+        node = state.network_nodes[target]
+        has_red_activity = _has_red_activity(node)
+        has_warn, has_crit = _recent_warn_or_crit(recent_alerts, target)
+        blue_stage = str(battle_state.get("blue_priority_stage", "P2"))
+
+        if action_type == "RestoreNode":
+            if _recently_self_isolated(state, target) and node.status != "Compromised" and not has_red_activity:
+                return False
+            if node.status == "Isolated" and not has_red_activity:
+                return int(state.turn) - int(node.blue_state.last_response_turn) > RECENT_SELF_ISOLATE_RESTORE_WINDOW
+            return True
+
+        if action_type == "DeepRestore":
+            return node.status == "Compromised" or node.red_state.persistence or target in state.red_anchored_nodes or has_crit
+
+        if action_type == "Isolate":
+            if node.status == "Compromised" or has_red_activity or has_crit:
+                return True
+            if target in state.core_assets and blue_stage == "P0":
+                return True
+            # WARN-only pressure should usually be handled with patching or monitoring first.
+            return False
+
+        return True
+
     def _to_candidate(
         self,
         state: WorldState,
@@ -636,12 +739,18 @@ class ActionSpaceBuilder:
                 "ReactivateFoothold": 80,
                 "LateralMove": 72,
                 "ExploitService": 62,
-                "AnchorFoothold": 58,
+                "AnchorFoothold": 66,
                 "Recon": 18,
             }.get(action_type, 26)
 
             if action_type == "Recon" and target in state.red_recon_nodes:
-                objective_progress -= 14
+                objective_progress -= 26
+            if action_type == "ExploitService" and target and target in state.red_known_vulnerabilities:
+                objective_progress += 16
+            if action_type == "AnchorFoothold" and target and target in state.network_nodes:
+                node = state.network_nodes[target]
+                if node.red_state.session_active or node.red_state.foothold:
+                    objective_progress += 18
             if target and target in state.network_nodes and state.network_nodes[target].status == "Compromised":
                 if action_type in {"ExploitService", "LateralMove"}:
                     objective_progress -= 24
@@ -657,10 +766,13 @@ class ActionSpaceBuilder:
                 "ExfiltrateDatabase": 30,
                 "LateralMove": 24,
                 "ExploitService": 22,
-                "AnchorFoothold": 16,
+                "AnchorFoothold": 14,
                 "ReactivateFoothold": 18,
                 "Recon": 6,
             }.get(action_type, 12)
+            if action_type == "LateralMove" and not decision.vuln_id:
+                base_risk += 12
+                objective_progress -= 10
             expected_impact = u_red + pressure_bonus
             expected_risk = base_risk
             progress_value = objective_progress
@@ -669,27 +781,30 @@ class ActionSpaceBuilder:
             blue_priority_stage = str(battle_state.get("blue_priority_stage", "P2"))
             base_impact = {
                 "DeepRestore": 72,
-                "RestoreNode": 78,
-                "Isolate": 72,
+                "RestoreNode": 68,
+                "Isolate": 46,
                 "PatchNode": 64,
                 "PreventivePatch": 46,
                 "Monitor": 20,
+                "VulnerabilityScan": 34,
             }.get(action_type, 18)
             base_risk = {
                 "DeepRestore": 34,
                 "RestoreNode": 18,
-                "Isolate": 24,
+                "Isolate": 42,
                 "PatchNode": 12,
                 "PreventivePatch": 22,
                 "Monitor": 6,
+                "VulnerabilityScan": 12,
             }.get(action_type, 10)
             progress_value = {
                 "DeepRestore": 40,
-                "RestoreNode": 48,
-                "Isolate": 44,
+                "RestoreNode": 38,
+                "Isolate": 22,
                 "PatchNode": 34,
                 "PreventivePatch": 24,
                 "Monitor": 12,
+                "VulnerabilityScan": 26,
             }.get(action_type, 10)
 
             if action_type == "DeepRestore":
@@ -705,16 +820,30 @@ class ActionSpaceBuilder:
 
             if action_type == "Isolate" and target and target in state.network_nodes:
                 node = state.network_nodes[target]
-                has_recent_alert = False
-                if recent_alerts:
-                    has_recent_alert = any(
-                        alert.target == target and alert.severity in {"WARN", "CRIT"}
-                        for alert in recent_alerts
-                    )
-                # Avoid pre-emptively isolating healthy internal nodes without concrete threat signal.
-                if node.status == "Normal" and not has_recent_alert:
-                    base_impact -= 26
-                    progress_value -= 18
+                has_warn, has_crit = _recent_warn_or_crit(recent_alerts, target)
+                active_red_state = _has_red_activity(node)
+                if node.status == "Compromised" or active_red_state or has_crit:
+                    base_impact += 30
+                    progress_value += 26
+                    base_risk -= 8
+                elif has_warn:
+                    base_impact -= 18
+                    progress_value -= 14
+                    base_risk += 10
+                else:
+                    base_impact -= 40
+                    progress_value -= 26
+                    base_risk += 16
+
+            if action_type == "RestoreNode" and target and target in state.network_nodes:
+                node = state.network_nodes[target]
+                if node.status == "Isolated" and not _has_red_activity(node):
+                    base_impact -= 28
+                    progress_value -= 22
+                    base_risk += 8
+                elif _has_red_activity(node):
+                    base_impact += 16
+                    progress_value += 14
 
             if blue_priority_stage == "P0":
                 if action_type in BLUE_RESPONSE_ACTIONS:
@@ -732,6 +861,8 @@ class ActionSpaceBuilder:
                     base_impact += 8
                 if action_type == "Monitor":
                     base_impact += 4
+                if action_type == "VulnerabilityScan":
+                    base_impact += 8
 
             monitor_no_gain_streak = int(battle_state.get("monitor_no_gain_streak", 0) or 0)
             if action_type == "Monitor" and monitor_no_gain_streak > 0:
@@ -1270,12 +1401,36 @@ class AntiStagnationController:
                 filtered = non_anchor
 
         if self.self_agent_type == "Red":
-            lateral_rows = [row for row in filtered if row.decision.action_type == "LateralMove"]
+            has_active_control = any(
+                node.status == "Compromised"
+                or node.red_state.session_active
+                or node.red_state.foothold
+                or node.red_state.persistence
+                for node in state.network_nodes.values()
+            )
+            if not has_active_control:
+                initial_access_rows = [row for row in filtered if row.decision.action_type == "ExploitService"]
+                if initial_access_rows:
+                    # Once reconnaissance confirms a legal entry exploit, advance the kill chain.
+                    filtered = initial_access_rows
+
+            lateral_rows = [
+                row
+                for row in filtered
+                if row.decision.action_type == "LateralMove"
+                and self._is_strong_lateral_candidate(state, row)
+            ]
             internal_compromised = any(
-                node.status == "Compromised" and not _is_perimeter_node(node_name)
+                (
+                    node.status == "Compromised"
+                    or node.red_state.session_active
+                    or node.red_state.foothold
+                    or node.red_state.persistence
+                )
+                and not _is_perimeter_node(node_name)
                 for node_name, node in state.network_nodes.items()
             )
-            # Prefer depth over persistence when a legal pivot already exists but no internal node is owned yet.
+            # Prefer depth only when the lateral candidate carries a concrete vuln or target credential signal.
             if lateral_rows and not internal_compromised:
                 filtered = lateral_rows
 
@@ -1365,6 +1520,13 @@ class AntiStagnationController:
             return -1
         return int(vulnerability.score)
 
+    def _is_strong_lateral_candidate(self, state: WorldState, row: CandidateAction) -> bool:
+        target = row.decision.target
+        if not target or target not in state.network_nodes:
+            return False
+        node = state.network_nodes[target]
+        return bool(row.decision.vuln_id or node.red_state.credential_known)
+
 
 class FallbackPlanner:
     def choose(
@@ -1409,16 +1571,24 @@ def build_battle_state(
     recent_alerts: Iterable[SecurityAlert] | None = None,
     monitor_no_gain_streak: int = 0,
 ) -> dict[str, Any]:
+    controlled_nodes = sorted(
+        node_name
+        for node_name, node in state.network_nodes.items()
+        if node.status == "Compromised"
+        or node.red_state.session_active
+        or node.red_state.foothold
+        or node.red_state.persistence
+    )
     compromised_nodes = sorted(node_name for node_name, node in state.network_nodes.items() if node.status == "Compromised")
     down_nodes = sorted(node_name for node_name, node in state.network_nodes.items() if node.status == "Down")
     core_assets = list(_core_assets(state))
     core_compromised = [node_name for node_name in compromised_nodes if node_name in core_assets]
     adjacency = _build_adjacency_map(state)
-    compromised_perimeter = [node_name for node_name in compromised_nodes if _is_perimeter_node(node_name)]
-    compromised_internal = [node_name for node_name in compromised_nodes if node_name not in compromised_perimeter]
+    compromised_perimeter = [node_name for node_name in controlled_nodes if _is_perimeter_node(node_name)]
+    compromised_internal = [node_name for node_name in controlled_nodes if node_name not in compromised_perimeter]
     shortest_hops_to_core = _shortest_hops_to_core(
         adjacency=adjacency,
-        starts=compromised_nodes,
+        starts=controlled_nodes,
         cores=set(core_assets),
     )
 
@@ -1465,6 +1635,7 @@ def build_battle_state(
         "red_score": state.red_score,
         "blue_score": state.blue_score,
         "compromised_nodes": compromised_nodes,
+        "controlled_nodes": controlled_nodes,
         "compromised_perimeter_nodes": compromised_perimeter,
         "compromised_internal_nodes": compromised_internal,
         "down_nodes": down_nodes,

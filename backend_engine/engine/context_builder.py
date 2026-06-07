@@ -18,6 +18,42 @@ def _format_node_list(nodes: list[str]) -> str:
     return "[" + ", ".join(nodes) + "]"
 
 
+def _format_red_state(node: Any) -> str:
+    state = getattr(node, "red_state", None)
+    if state is None:
+        return "[]"
+    labels: list[str] = []
+    if state.recon_known:
+        labels.append("ReconKnown")
+    if state.credential_known:
+        labels.append("CredentialKnown")
+    if state.session_active:
+        labels.append("SessionActive")
+    if state.foothold:
+        labels.append("Foothold")
+    if state.persistence:
+        labels.append("Persistence")
+    if state.privilege and state.privilege != "none":
+        labels.append(f"Privilege={state.privilege}")
+    return "[" + ", ".join(labels) + "]" if labels else "[]"
+
+
+def _format_blue_state(node: Any) -> str:
+    state = getattr(node, "blue_state", None)
+    if state is None:
+        return "[]"
+    labels: list[str] = []
+    if state.restored:
+        labels.append("Restored")
+    if state.monitored:
+        labels.append("Monitored")
+    if state.isolated:
+        labels.append("Isolated")
+    if state.hardened:
+        labels.append("Hardened")
+    return "[" + ", ".join(labels) + "]" if labels else "[]"
+
+
 def _format_single_vulnerability(vuln_id: str, vulnerability: VulnerabilityInfo | dict[str, Any] | str) -> str:
     if isinstance(vulnerability, str):
         return vuln_id
@@ -225,6 +261,8 @@ def build_red_context(state: WorldState) -> str:
                 [
                     f"### `{node_name}`",
                     f"- 状态：{node.status}",
+                    f"- 红方安全态：{_format_red_state(node)}",
+                    f"- 蓝方安全态：{_format_blue_state(node)}",
                     f"- 已发现暴露服务：{_format_ports(state.red_known_services.get(node_name, node.exposed_ports))}",
                     f"- 已知漏洞：{_format_vulnerabilities(state.red_known_vulnerabilities.get(node_name, node.vulnerabilities))}",
                     f"- 扎根状态：{'是' if node_name in anchored_nodes else '否'}",
@@ -245,6 +283,8 @@ def build_red_context(state: WorldState) -> str:
                     f"### `{node_name}`",
                     f"- 可见来源：{'Recon' if node_name in recon_targets else '边界视野/相邻扩展'}",
                     f"- 状态：{status}",
+                    f"- 红方安全态：{_format_red_state(node) if node_name in recon_targets or node_name in controlled_nodes else '[]'}",
+                    f"- 蓝方安全态：{_format_blue_state(node)}",
                     f"- 已发现暴露服务：{_format_ports(state.red_known_services.get(node_name, []))}",
                     f"- 已知漏洞：{_format_vulnerabilities(vulnerabilities)}",
                 ]
@@ -297,15 +337,16 @@ def build_blue_context(state: WorldState, recent_logs: list[Any]) -> str:
             vuln_id for vuln_id in confirmed_map.keys()
             if isinstance(vuln_id, str) and vuln_id
         ) if isinstance(confirmed_map, dict) else []
-        pending_count = max(0, len(node.vulnerabilities) - len(confirmed_vulns))
         lines.extend(
             [
                 f"### `{node_name}`",
                 f"- 状态：{node.status}",
                 f"- 风险等级：{risk_level}",
+                f"- 红方安全态：{_format_red_state(node)}",
+                f"- 蓝方安全态：{_format_blue_state(node)}",
                 f"- 暴露服务：{_format_ports(node.exposed_ports)}",
                 f"- 已确认漏洞：{', '.join(confirmed_vulns) if confirmed_vulns else '无'}",
-                f"- 待确认漏洞数：{pending_count}",
+                "- 未确认漏洞：未知，需通过监控、扫描或事件响应确认",
                 f"- 是否已监控：{'是' if node_name in state.blue_monitored_nodes else '否'}",
             ]
         )

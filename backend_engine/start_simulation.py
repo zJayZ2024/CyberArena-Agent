@@ -56,6 +56,13 @@ def run_simulation(
             blue_action = blue_agent._fallback_decide(blue_perceived_state, recent_logs=recent_logs)
 
         state = referee.resolve_round(state, red_action, blue_action)
+        red_memory = red_agent.observe_outcome(state)
+        blue_memory = blue_agent.observe_outcome(state)
+        if state.action_logs:
+            state.action_logs[-1].metadata["agent_memory"] = {
+                "red": red_memory,
+                "blue": blue_memory,
+            }
         frames.append(state.model_dump(mode="json"))
 
     replay = {

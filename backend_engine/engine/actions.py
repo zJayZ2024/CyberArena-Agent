@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, Literal
 
 from backend_engine.core.models import AgentDecision, NetworkNode, VulnerabilityInfo, WorldState
+from backend_engine.engine.attack_graph import describe_attack_graph_rules, evaluate_attack_step
 
 AgentType = Literal["Red", "Blue"]
 Locale = Literal["en", "zh"]
@@ -64,9 +65,10 @@ class ActionDescriptor:
     preconditions: tuple[str, ...] = ()
     judgement_logic: tuple[str, ...] = ()
     examples: tuple[ActionExample, ...] = ()
+    attack_graph: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "action_type": self.action_type,
             "agent_type": self.agent_type,
             "summary": self.summary,
@@ -78,6 +80,9 @@ class ActionDescriptor:
             "judgement_logic": list(self.judgement_logic),
             "examples": [example.as_dict() for example in self.examples],
         }
+        if self.attack_graph is not None:
+            payload["attack_graph"] = self.attack_graph
+        return payload
 
 
 @dataclass(slots=True)
@@ -97,6 +102,64 @@ def vulnerability_map_to_dict(vulnerabilities: dict[str, VulnerabilityInfo]) -> 
         vuln_id: vulnerability_to_dict(vulnerability)
         for vuln_id, vulnerability in vulnerabilities.items()
     }
+
+
+def _is_unavailable(node: NetworkNode) -> bool:
+    return node.status in {"Down", "Isolated"} or node.blue_state.isolated
+
+
+def _mark_recon_known(node: NetworkNode, *, turn: int) -> None:
+    node.red_state.recon_known = True
+    node.red_state.last_active_turn = turn
+
+
+def _mark_red_session(node: NetworkNode, *, turn: int, credential_known: bool = False) -> None:
+    _mark_recon_known(node, turn=turn)
+    node.red_state.session_active = True
+    if credential_known:
+        node.red_state.credential_known = True
+    node.blue_state.restored = False
+
+
+def _mark_red_foothold(node: NetworkNode, *, turn: int, credential_known: bool = False) -> None:
+    _mark_red_session(node, turn=turn, credential_known=credential_known)
+    node.red_state.foothold = True
+
+
+def _mark_red_compromise(node: NetworkNode, *, turn: int, credential_known: bool = False) -> None:
+    _mark_red_foothold(node, turn=turn, credential_known=credential_known)
+    node.status = "Compromised"
+
+
+def _clear_fast_restore_state(node: NetworkNode, *, turn: int) -> dict[str, Any]:
+    previous = node.red_state.model_dump(mode="json")
+    node.red_state.session_active = False
+    node.red_state.foothold = False
+    node.red_state.privilege = "none"
+    node.blue_state.restored = True
+    node.blue_state.isolated = False
+    node.blue_state.last_response_turn = turn
+    if node.status in {"Compromised", "Isolated", "Down"}:
+        node.status = "Normal"
+    return previous
+
+
+def _deep_clear_red_state(node: NetworkNode, *, turn: int) -> dict[str, Any]:
+    previous = _clear_fast_restore_state(node, turn=turn)
+    node.red_state.credential_known = False
+    node.red_state.persistence = False
+    node.blue_state.hardened = True
+    return previous
+
+
+def _apply_lateral_success_state(node: NetworkNode, *, turn: int, success_level: str, credential_known: bool) -> None:
+    if success_level == "high":
+        _mark_red_compromise(node, turn=turn, credential_known=credential_known)
+        return
+    if success_level == "medium":
+        _mark_red_foothold(node, turn=turn, credential_known=credential_known)
+        return
+    _mark_red_session(node, turn=turn, credential_known=credential_known)
 
 
 @dataclass(slots=True)
@@ -173,6 +236,7 @@ class BaseAction(ABC):
     virtual_targets: tuple[str, ...] = ()
 
     def descriptor(self, locale: Locale = "en") -> ActionDescriptor:
+        attack_graph = describe_attack_graph_rules(self.action_type)
         if locale == "zh":
             return ActionDescriptor(
                 action_type=self.action_type,
@@ -185,6 +249,7 @@ class BaseAction(ABC):
                 preconditions=self.preconditions_zh,
                 judgement_logic=self.judgement_logic_zh,
                 examples=self.examples_zh,
+                attack_graph=attack_graph,
             )
 
         return ActionDescriptor(
@@ -198,6 +263,7 @@ class BaseAction(ABC):
             preconditions=self.preconditions_en,
             judgement_logic=self.judgement_logic_en,
             examples=self.examples_en,
+            attack_graph=attack_graph,
         )
 
     def validate(self, context: ActionContext) -> ActionResult | None:
@@ -498,9 +564,11 @@ class ReconAction(BaseAction):
     )
     judgement_logic_en = (
         "The referee returns observations in metadata without mutating the topology.",
+        "Active recon is blocked when the target is isolated or down; cached review should be modeled separately.",
     )
     judgement_logic_zh = (
         "裁判会把观察结果写入 metadata，但不会直接修改拓扑状态。",
+        "若目标已隔离或下线，主动侦察会被阻断；历史情报回看应由记忆机制表达。",
     )
     examples_en = (
         ActionExample(
@@ -517,10 +585,30 @@ class ReconAction(BaseAction):
         ),
     )
 
+    def validate(self, context: ActionContext) -> ActionResult | None:
+        base_error = super().validate(context)
+        if base_error is not None:
+            return base_error
+
+        target, node, error = self._require_target(context)
+        if error is not None or target is None or node is None:
+            return error
+
+        if _is_unavailable(node):
+            return context.result(
+                success=False,
+                effect="failed",
+                en=f"{target} is isolated or down; active reconnaissance cannot reach it",
+                zh=f"{target} 当前已隔离或下线，主动侦察无法到达",
+            )
+
+        return None
+
     def execute(self, context: ActionContext) -> ActionResult:
         target, node, error = self._require_target(context)
         if error is not None or target is None or node is None:
             return error  # type: ignore[return-value]
+        _mark_recon_known(node, turn=context.state.turn)
 
         return context.result(
             success=True,
@@ -552,14 +640,14 @@ class ExploitServiceAction(BaseAction):
     )
     description_zh = "直接攻击边界节点上的对外暴露服务。动作必须明确指定要利用的 vuln_id。"
     preconditions_en = (
-        "The target must be a perimeter node such as web, firewall, proxy, or gateway.",
-        "The target must expose at least one port.",
-        "A concrete vuln_id must be selected from the node's vulnerability map.",
+        "Attack Graph T1190: the target must be internet-facing.",
+        "The target must expose at least one service and have a concrete vuln_id selected.",
+        "The step is blocked by isolated targets or patched/missing vulnerabilities.",
     )
     preconditions_zh = (
-        "目标必须是边界节点，例如 web、firewall、proxy 或 gateway。",
-        "目标必须存在对外暴露端口。",
-        "必须从节点漏洞字典中明确选定一个 vuln_id。",
+        "Attack Graph T1190：目标必须是 internet-facing。",
+        "目标必须存在开放服务，并明确选定一个 vuln_id。",
+        "若目标被隔离或漏洞已修补/不存在，则该攻击图步骤被阻断。",
     )
     judgement_logic_en = (
         "After precondition validation, the referee decides whether the technique is technically feasible.",
@@ -615,7 +703,7 @@ class ExploitServiceAction(BaseAction):
                 ),
             )
 
-        if node.status == "Down":
+        if _is_unavailable(node):
             return context.result(
                 success=False,
                 effect="failed",
@@ -631,6 +719,14 @@ class ExploitServiceAction(BaseAction):
                 zh=f"{target} 已经失陷，请选择其他动作",
             )
 
+        if target not in context.state.red_recon_nodes or not node.red_state.recon_known:
+            return context.result(
+                success=False,
+                effect="failed",
+                en=f"{target} has not been reconnoitered; initial access requires confirmed service and vulnerability intelligence",
+                zh=f"{target} 尚未完成侦察；初始访问前必须先确认服务与漏洞情报",
+            )
+
         if not node.exposed_ports:
             return context.result(
                 success=False,
@@ -643,9 +739,32 @@ class ExploitServiceAction(BaseAction):
             context,
             node,
             require_explicit=True,
+            allow_auto_single=False,
         )
         if vuln_error is not None or vuln_id is None or vulnerability is None:
             return vuln_error
+
+        graph_eval = evaluate_attack_step(
+            context.state,
+            action_type=self.action_type,
+            target=target,
+            vuln_id=vuln_id,
+            payload=context.decision.payload,
+        )
+        if graph_eval is not None and not graph_eval.allowed:
+            return context.result(
+                success=False,
+                effect="failed",
+                en=(
+                    f"Attack Graph blocked {self.action_type} on {target}: "
+                    f"{', '.join(graph_eval.active_blockers)}"
+                ),
+                zh=(
+                    f"Attack Graph 阻断 {target} 上的 {self.action_type}："
+                    f"{', '.join(graph_eval.active_blockers)}"
+                ),
+                metadata=graph_eval.as_metadata(score_value=0),
+            )
 
         return None
 
@@ -669,18 +788,29 @@ class ExploitServiceAction(BaseAction):
                 zh="执行失败：已校验漏洞在执行时不存在",
             )
 
+        graph_eval = evaluate_attack_step(
+            context.state,
+            action_type=self.action_type,
+            target=target,
+            vuln_id=vuln_id,
+            payload=context.decision.payload,
+        )
         previous_status = node.status
-        node.status = "Compromised"
+        previous_red_state = node.red_state.model_dump(mode="json")
+        _mark_red_session(node, turn=context.state.turn, credential_known=True)
 
         return context.result(
             success=True,
-            effect="compromise",
-            en=f"{target} was successfully compromised via vuln_id={vuln_id}",
-            zh=f"{target} 已通过 vuln_id={vuln_id} 被成功攻破",
+            effect="session",
+            en=f"{target} now has an active red session via vuln_id={vuln_id}",
+            zh=f"{target} 已通过 vuln_id={vuln_id} 建立红方活动会话",
             metadata={
                 "used_vulnerability": vulnerability_to_dict(vulnerability),
                 "score_value": vulnerability.score,
                 "previous_status": previous_status,
+                "previous_red_state": previous_red_state,
+                "result_level": "light",
+                **(graph_eval.as_metadata(score_value=vulnerability.score) if graph_eval is not None else {}),
             },
         )
 
@@ -692,17 +822,19 @@ class LateralMoveAction(BaseAction):
     summary_en = "Pivot from an existing foothold into another node."
     summary_zh = "利用既有据点向其他节点横向移动。"
     description_en = (
-        "Move deeper into the network after the initial breach. The move consumes a concrete "
-        "vulnerability on the target node."
+        "Move deeper into the network after the initial breach. The move must advance through "
+        "the lightweight Attack Graph and needs either a target vulnerability or known credentials."
     )
-    description_zh = "在初始突破后向内网推进。横移会利用目标节点上的一个具体漏洞。"
+    description_zh = "在初始突破后按轻量 Attack Graph 向内网推进；需要目标漏洞或已知凭据。"
     preconditions_en = (
-        "At least one pivot foothold must already be Compromised.",
-        "The target cannot already be Down or Compromised.",
+        "Attack Graph T1021: the source must have SessionActive/Foothold/Persistence.",
+        "The target must be reachable, have an open service, and be Normal.",
+        "A target vulnerability or explicit CredentialKnown/credential= payload marker is required.",
     )
     preconditions_zh = (
-        "必须已经存在至少一个可用的 Compromised 据点。",
-        "目标不能已是 Down 或 Compromised。",
+        "Attack Graph T1021：来源必须具备 SessionActive/Foothold/Persistence。",
+        "目标必须可达、有开放服务，且处于 Normal。",
+        "必须具备目标漏洞，或在 payload 中明确 CredentialKnown/credential= 凭据条件。",
     )
     judgement_logic_en = (
         "After precondition validation, the referee decides whether pivoting is technically feasible.",
@@ -754,7 +886,7 @@ class LateralMoveAction(BaseAction):
                 zh="对 internet 节点应使用 Recon 而不是 LateralMove。",
             )
 
-        if node.status == "Down":
+        if _is_unavailable(node):
             return context.result(
                 success=False,
                 effect="failed",
@@ -770,40 +902,41 @@ class LateralMoveAction(BaseAction):
                 zh=f"{target} 已经失陷，重复横移没有意义",
             )
 
-        adjacency = _build_network_adjacency(context.state)
-        candidate_pivots = _compromised_strict_predecessors(context.state, target)
-        if not candidate_pivots:
-            return context.result(
-                success=False,
-                effect="failed",
-                en=f"No continuous compromised pivot chain reaches {target}",
-                zh=f"当前不存在可达 {target} 的连续失陷跳板链路",
-            )
-
-        if target.lower() == "db" and not any(node_name in {"app", "storage"} for node_name in candidate_pivots):
-            return context.result(
-                success=False,
-                effect="failed",
-                en="Pivoting into db requires compromised intermediate foothold on app/storage path",
-                zh="横移进入 db 需要 app/storage 路径上的有效失陷中间跳板",
-            )
-
-        selected_pivot = self._select_pivot_source(
+        graph_eval = evaluate_attack_step(
+            context.state,
+            action_type=self.action_type,
             target=target,
-            candidates=candidate_pivots,
-            state=context.state,
-            adjacency=adjacency,
+            vuln_id=context.decision.vuln_id,
+            payload=context.decision.payload,
         )
+        if graph_eval is not None and not graph_eval.allowed:
+            return context.result(
+                success=False,
+                effect="failed",
+                en=(
+                    f"Attack Graph blocked {self.action_type} on {target}: "
+                    f"{', '.join(graph_eval.active_blockers)}"
+                ),
+                zh=(
+                    f"Attack Graph 阻断 {target} 上的 {self.action_type}："
+                    f"{', '.join(graph_eval.active_blockers)}"
+                ),
+                metadata=graph_eval.as_metadata(score_value=0),
+            )
+
+        selected_pivot = graph_eval.source if graph_eval is not None else ""
         if selected_pivot and "pivot_source=" not in (context.decision.payload or ""):
             context.decision.payload = f"{context.decision.payload} | pivot_source={selected_pivot}".strip()
 
-        vuln_id, vulnerability, vuln_error = self._resolve_vulnerability(
-            context,
-            node,
-            require_explicit=False,
-        )
-        if vuln_error is not None or vuln_id is None or vulnerability is None:
-            return vuln_error
+        if context.decision.vuln_id:
+            vuln_id, vulnerability, vuln_error = self._resolve_vulnerability(
+                context,
+                node,
+                require_explicit=True,
+                allow_auto_single=False,
+            )
+            if vuln_error is not None or vuln_id is None or vulnerability is None:
+                return vuln_error
 
         return None
 
@@ -819,43 +952,64 @@ class LateralMoveAction(BaseAction):
         node = context.state.network_nodes[target]
         vuln_id = context.decision.vuln_id
         vulnerability = node.vulnerabilities.get(vuln_id) if vuln_id else None
-        if vuln_id is None or vulnerability is None:
+        graph_eval = evaluate_attack_step(
+            context.state,
+            action_type=self.action_type,
+            target=target,
+            vuln_id=vuln_id,
+            payload=context.decision.payload,
+        )
+        if graph_eval is not None and not graph_eval.allowed:
+            return context.result(
+                success=False,
+                effect="failed",
+                en=(
+                    f"Attack Graph blocked {self.action_type} on {target}: "
+                    f"{', '.join(graph_eval.active_blockers)}"
+                ),
+                zh=(
+                    f"Attack Graph 阻断 {target} 上的 {self.action_type}："
+                    f"{', '.join(graph_eval.active_blockers)}"
+                ),
+                metadata=graph_eval.as_metadata(score_value=0),
+            )
+
+        if vuln_id is not None and vulnerability is None:
             return context.result(
                 success=False,
                 effect="failed",
                 en="Execution failed: validated vuln_id is missing",
                 zh="执行失败：已校验漏洞在执行时不存在",
             )
-        adjacency = _build_network_adjacency(context.state)
-        candidate_pivots = _compromised_strict_predecessors(context.state, target)
-        if not candidate_pivots:
-            return context.result(
-                success=False,
-                effect="failed",
-                en=f"No compromised pivot is available to reach {target} at execution time",
-                zh=f"执行阶段不存在可用于到达 {target} 的失陷跳板",
-            )
 
-        pivot_source = self._select_pivot_source(
-            target=target,
-            candidates=candidate_pivots,
-            state=context.state,
-            adjacency=adjacency,
-        )
+        pivot_source = graph_eval.source if graph_eval is not None else ""
+        pivot_candidates = list(graph_eval.source_candidates) if graph_eval is not None else []
+        score_value = vulnerability.score if vulnerability is not None else (graph_eval.technique.score_value if graph_eval is not None else 0)
+        success_level = graph_eval.success_level if graph_eval is not None else "medium"
+        credential_known = bool(graph_eval and (graph_eval.credential_known or graph_eval.reusable_token))
         previous_status = node.status
-        node.status = "Compromised"
+        previous_red_state = node.red_state.model_dump(mode="json")
+        _apply_lateral_success_state(
+            node,
+            turn=context.state.turn,
+            success_level=success_level,
+            credential_known=credential_known,
+        )
 
         return context.result(
             success=True,
-            effect="compromise",
-            en=f"Lateral movement succeeded via vuln_id={vuln_id}; {target} is now compromised",
-            zh=f"已通过 vuln_id={vuln_id} 横移成功，{target} 现已失陷",
+            effect="compromise" if success_level == "high" else "foothold" if success_level == "medium" else "session",
+            en=f"Lateral movement succeeded against {target}; result_level={success_level}",
+            zh=f"已对 {target} 横移成功，结果层级={success_level}",
             metadata={
-                "used_vulnerability": vulnerability_to_dict(vulnerability),
-                "score_value": vulnerability.score,
+                "used_vulnerability": vulnerability_to_dict(vulnerability) if vulnerability is not None else None,
+                "score_value": score_value,
                 "previous_status": previous_status,
+                "previous_red_state": previous_red_state,
+                "result_level": success_level,
                 "pivot_source": pivot_source,
-                "pivot_candidates": sorted(candidate_pivots),
+                "pivot_candidates": sorted(pivot_candidates),
+                **(graph_eval.as_metadata(score_value=score_value) if graph_eval is not None else {}),
             },
         )
 
@@ -1043,11 +1197,11 @@ class AnchorFootholdAction(BaseAction):
     )
     description_zh = "在已失陷跳板上植入持久化机制，避免普通恢复动作完全切断后续再进入能力。"
     preconditions_en = (
-        "The target must already be Compromised.",
+        "The target must already have Compromised, Foothold, or SessionActive state.",
         "Core objective nodes are not valid persistence targets.",
     )
     preconditions_zh = (
-        "目标必须已经处于 Compromised 状态。",
+        "目标必须已经具备 Compromised、Foothold 或 SessionActive 控制态。",
         "核心目标节点不作为扎根目标。",
     )
     judgement_logic_en = (
@@ -1089,12 +1243,13 @@ class AnchorFootholdAction(BaseAction):
                 zh=f"{target} 是核心目标节点，不适合作为扎根跳板",
             )
 
-        if node.status != "Compromised":
+        has_control = node.status == "Compromised" or node.red_state.foothold or node.red_state.session_active
+        if not has_control:
             return context.result(
                 success=False,
                 effect="failed",
-                en=f"{target} is not compromised yet; anchoring requires existing control",
-                zh=f"{target} 尚未失陷，无法执行扎根",
+                en=f"{target} has no active control state; anchoring requires an existing session or foothold",
+                zh=f"{target} 当前没有活动控制态，扎根需要已有 session 或 foothold",
             )
 
         if target in context.state.red_anchored_nodes:
@@ -1118,6 +1273,12 @@ class AnchorFootholdAction(BaseAction):
             )
         if target not in context.state.red_anchored_nodes:
             context.state.red_anchored_nodes.append(target)
+        node = context.state.network_nodes[target]
+        previous_red_state = node.red_state.model_dump(mode="json")
+        node.red_state.persistence = True
+        node.red_state.foothold = True
+        node.red_state.session_active = True
+        node.red_state.last_active_turn = context.state.turn
         return context.result(
             success=True,
             effect="persistence",
@@ -1125,6 +1286,7 @@ class AnchorFootholdAction(BaseAction):
             zh=f"已在 {target} 建立持久化扎根",
             metadata={
                 "anchored": True,
+                "previous_red_state": previous_red_state,
                 "score_value": 8,
             },
         )
@@ -1177,12 +1339,12 @@ class ReactivateFootholdAction(BaseAction):
                 zh=f"{target} 不存在可重激活的扎根",
             )
 
-        if node.status == "Down":
+        if _is_unavailable(node):
             return context.result(
                 success=False,
                 effect="failed",
-                en=f"{target} is down and cannot reactivate foothold",
-                zh=f"{target} 当前下线，无法重激活扎根",
+                en=f"{target} is isolated or down and cannot reactivate foothold",
+                zh=f"{target} 当前隔离或下线，无法重激活扎根",
             )
 
         if node.status == "Compromised":
@@ -1206,7 +1368,9 @@ class ReactivateFootholdAction(BaseAction):
             )
         node = context.state.network_nodes[target]
         previous_status = node.status
+        previous_red_state = node.red_state.model_dump(mode="json")
         node.status = "Compromised"
+        _mark_red_session(node, turn=context.state.turn, credential_known=node.red_state.credential_known)
         return context.result(
             success=True,
             effect="compromise",
@@ -1214,6 +1378,7 @@ class ReactivateFootholdAction(BaseAction):
             zh=f"{target} 扎根已重激活，控制权恢复",
             metadata={
                 "previous_status": previous_status,
+                "previous_red_state": previous_red_state,
                 "anchored_reactivation": True,
                 "score_value": 10,
             },
@@ -1339,6 +1504,8 @@ class PatchNodeAction(BaseAction):
             )
         previous_status = node.status
         node.vulnerabilities.pop(vuln_id, None)
+        node.blue_state.hardened = True
+        node.blue_state.last_response_turn = context.state.turn
 
         return context.result(
             success=True,
@@ -1351,6 +1518,7 @@ class PatchNodeAction(BaseAction):
                 "previous_status": previous_status,
                 "preserved_ports": list(node.exposed_ports),
                 "patch_mode": "confirmed",
+                "blue_state": node.blue_state.model_dump(mode="json"),
             },
         )
 
@@ -1453,20 +1621,24 @@ class PreventivePatchAction(BaseAction):
                 node.vulnerabilities.items(),
                 key=lambda item: (item[1].score, item[0]),
             )
-            context.decision.vuln_id = vuln_id
 
         previous_status = node.status
         node.vulnerabilities.pop(vuln_id, None)
+        node.blue_state.hardened = True
+        node.blue_state.last_response_turn = context.state.turn
         return context.result(
             success=True,
             effect="hardening",
-            en=f"Preventive patch executed on {target} for vuln_id={vuln_id}",
-            zh=f"已在 {target} 执行预防性修补，处理 vuln_id={vuln_id}",
+            en=f"Routine security updates were applied to {target}; a latent weakness was remediated",
+            zh=f"已在 {target} 执行常规安全更新；更新过程修复了一项潜在弱点",
             metadata={
-                "patched_vulnerability": vulnerability_to_dict(vulnerability),
+                "patched_vulnerability": None,
+                "remediation_outcome": "latent_weakness_removed",
+                "remediated_vulnerability": vulnerability_to_dict(vulnerability),
                 "score_value": vulnerability.score,
                 "previous_status": previous_status,
                 "patch_mode": "preventive",
+                "blue_state": node.blue_state.model_dump(mode="json"),
                 "score_multiplier": 0.5,
                 "score_multiplier_reason": "preventive_patch_low_yield",
             },
@@ -1477,26 +1649,26 @@ class PreventivePatchAction(BaseAction):
 class RestoreNodeAction(BaseAction):
     action_type = "RestoreNode"
     agent_type = "Blue"
-    summary_en = "Restore a compromised or down node back to a clean normal state."
-    summary_zh = "将失陷或下线节点恢复到干净的 Normal 状态。"
+    summary_en = "Quickly restore service and clear active red sessions or footholds."
+    summary_zh = "快速恢复业务并清除红方活动会话或 foothold。"
     description_en = (
-        "Use incident response to recover a damaged node. Restore can optionally remove one "
-        "remaining vulnerability while returning the node to service."
+        "Fast incident response that clears SessionActive and Foothold while preserving "
+        "ReconKnown, CredentialKnown, and Persistence."
     )
-    description_zh = "通过应急响应恢复受损节点。恢复动作可在必要时一并清理一个漏洞，并让节点回到服务状态。"
+    description_zh = "快速应急恢复：清除 SessionActive/Foothold，但默认保留 ReconKnown、CredentialKnown 和 Persistence。"
     preconditions_en = (
-        "The target should be Compromised or Down.",
+        "The target should be Compromised, Isolated, Down, or have active red session/foothold state.",
     )
     preconditions_zh = (
-        "目标应处于 Compromised 或 Down。",
+        "目标应处于 Compromised/Isolated/Down，或存在红方活动会话/foothold。",
     )
     judgement_logic_en = (
-        "The node is returned to Normal.",
-        "One remaining vulnerability may be removed when available.",
+        "The node is returned to Normal when it was unavailable or compromised.",
+        "SessionActive and Foothold are cleared; ReconKnown, CredentialKnown, and Persistence remain.",
     )
     judgement_logic_zh = (
-        "节点会被恢复到 Normal。",
-        "若仍有漏洞，可一并移除一个。",
+        "若节点失陷或不可用，会回到 Normal。",
+        "清除 SessionActive 与 Foothold；保留 ReconKnown、CredentialKnown 与 Persistence。",
     )
     examples_en = (
         ActionExample(
@@ -1530,23 +1702,14 @@ class RestoreNodeAction(BaseAction):
                 zh="应恢复具体基础设施节点，而不是抽象的 internet 节点。",
             )
 
-        if node.status not in {"Compromised", "Down"}:
+        has_active_red_state = node.red_state.session_active or node.red_state.foothold
+        if node.status not in {"Compromised", "Isolated", "Down"} and not has_active_red_state:
             return context.result(
                 success=False,
                 effect="failed",
-                en=f"{target} is not compromised or down; PatchNode is the better choice",
-                zh=f"{target} 当前既未失陷也未下线，优先使用 PatchNode 更合适",
+                en=f"{target} has no active session, foothold, compromise, or outage requiring RestoreNode",
+                zh=f"{target} 当前无活动会话、foothold、失陷或中断，不需要 RestoreNode",
             )
-
-        if node.vulnerabilities:
-            _, _, vuln_error = self._resolve_vulnerability(
-                context,
-                node,
-                require_explicit=False,
-                allow_auto_single=False,
-            )
-            if vuln_error is not None:
-                return vuln_error
 
         return None
 
@@ -1562,32 +1725,23 @@ class RestoreNodeAction(BaseAction):
         node = context.state.network_nodes[target]
 
         previous_status = node.status
-        removed_vulnerability = None
-        score_value = 0
-        if node.vulnerabilities:
-            vuln_id, vulnerability, vuln_error = self._resolve_vulnerability(
-                context,
-                node,
-                require_explicit=False,
-                allow_auto_single=False,
-            )
-            if vuln_error is None and vuln_id is not None and vulnerability is not None:
-                removed_vulnerability = vulnerability_to_dict(vulnerability)
-                score_value = vulnerability.score
-                node.vulnerabilities.pop(vuln_id, None)
-
-        node.status = "Normal"
+        previous_red_state = _clear_fast_restore_state(node, turn=context.state.turn)
         anchor_persisted = target in context.state.red_anchored_nodes
         return context.result(
             success=True,
             effect="restoration",
-            en=f"{target} was restored and returned to a normal state",
-            zh=f"{target} 已恢复并回到 Normal 状态",
+            en=f"{target} was quickly restored; active red session and foothold were cleared",
+            zh=f"{target} 已快速恢复；红方活动会话与 foothold 已清除",
             metadata={
-                "removed_vulnerability": removed_vulnerability,
-                "score_value": score_value,
+                "removed_vulnerability": None,
+                "score_value": 6,
                 "previous_status": previous_status,
+                "previous_red_state": previous_red_state,
+                "preserved_recon_known": node.red_state.recon_known,
+                "preserved_credential_known": node.red_state.credential_known,
                 "anchor_persisted": anchor_persisted,
+                "persistence_preserved": node.red_state.persistence,
+                "blue_state": node.blue_state.model_dump(mode="json"),
             },
         )
 
@@ -1641,7 +1795,7 @@ class DeepRestoreAction(BaseAction):
                 zh="DeepRestore 仅适用于具体基础设施节点。",
             )
 
-        has_anchor = target in context.state.red_anchored_nodes
+        has_anchor = target in context.state.red_anchored_nodes or node.red_state.persistence
         if node.status == "Normal" and not has_anchor:
             return context.result(
                 success=False,
@@ -1663,6 +1817,7 @@ class DeepRestoreAction(BaseAction):
             )
         node = context.state.network_nodes[target]
         previous_status = node.status
+        previous_red_state = _deep_clear_red_state(node, turn=context.state.turn)
 
         removed_vulnerabilities: list[dict[str, Any]] = []
         score_value = 0
@@ -1690,7 +1845,6 @@ class DeepRestoreAction(BaseAction):
         if previous_status != "Down":
             operational_cost += 2
 
-        node.status = "Normal"
         return context.result(
             success=True,
             effect="restoration",
@@ -1702,6 +1856,8 @@ class DeepRestoreAction(BaseAction):
                 "score_value": score_value,
                 "operational_cost": operational_cost,
                 "previous_status": previous_status,
+                "previous_red_state": previous_red_state,
+                "blue_state": node.blue_state.model_dump(mode="json"),
             },
         )
 
@@ -1765,12 +1921,12 @@ class IsolateAction(BaseAction):
                 zh="应隔离具体基础设施节点，而不是抽象的 internet 节点。",
             )
 
-        if node.status == "Down":
+        if _is_unavailable(node):
             return context.result(
                 success=False,
                 effect="failed",
-                en=f"{target} is already down",
-                zh=f"{target} 当前已经处于 Down 状态",
+                en=f"{target} is already isolated or down",
+                zh=f"{target} 当前已经处于隔离或下线状态",
             )
 
         if context.decision.vuln_id and context.decision.vuln_id not in node.vulnerabilities:
@@ -1803,15 +1959,22 @@ class IsolateAction(BaseAction):
             score_value = vulnerability.score
 
         previous_status = node.status
-        node.status = "Down"
+        previous_red_state = node.red_state.model_dump(mode="json")
+        node.status = "Isolated"
+        node.blue_state.isolated = True
+        node.blue_state.last_response_turn = context.state.turn
+        node.red_state.session_active = False
+        node.red_state.foothold = False
         return context.result(
             success=True,
             effect="isolation",
-            en=f"{target} was isolated and taken offline",
-            zh=f"{target} 已被隔离并下线",
+            en=f"{target} was isolated; active red session and foothold were cut",
+            zh=f"{target} 已被隔离；红方活动会话与 foothold 已切断",
             metadata={
                 "score_value": score_value,
                 "previous_status": previous_status,
+                "previous_red_state": previous_red_state,
+                "blue_state": node.blue_state.model_dump(mode="json"),
             },
         )
 
@@ -1872,10 +2035,89 @@ class MonitorAction(BaseAction):
                 zh=f"未知监控目标：{target}",
             )
 
+        if target in context.state.network_nodes:
+            node = context.state.network_nodes[target]
+            node.blue_state.monitored = True
+            node.blue_state.last_response_turn = context.state.turn
+            if target not in context.state.blue_monitored_nodes:
+                context.state.blue_monitored_nodes.append(target)
+
         return context.result(
             success=True,
             effect="monitoring",
             en=f"Monitoring remained active for {target}; topology ownership was unchanged",
             zh=f"已持续对 {target} 保持监控；拓扑状态未发生变化",
             metadata={"monitor_scope": target, "score_value": 0, "intel_gain": False},
+        )
+
+
+@_register
+class VulnerabilityScanAction(BaseAction):
+    action_type = "VulnerabilityScan"
+    agent_type = "Blue"
+    summary_en = "Run an authenticated or targeted vulnerability assessment."
+    summary_zh = "执行目标化漏洞扫描，确认可修补的具体漏洞。"
+    description_en = "Confirms concrete vulnerabilities without changing node ownership or patch state."
+    description_zh = "确认具体漏洞与修补线索，但不会直接修改节点控制权或修补状态。"
+    preconditions_en = (
+        "The target must be a concrete, available infrastructure node.",
+    )
+    preconditions_zh = (
+        "目标必须是可用的具体基础设施节点。",
+    )
+    judgement_logic_en = (
+        "The scan records confirmed vulnerability intelligence for later PatchNode actions.",
+    )
+    judgement_logic_zh = (
+        "扫描结果会写入蓝方已确认漏洞情报，供后续 PatchNode 使用。",
+    )
+
+    def validate(self, context: ActionContext) -> ActionResult | None:
+        base_error = super().validate(context)
+        if base_error is not None:
+            return base_error
+        target, node, error = self._require_target(context)
+        if error is not None or target is None or node is None:
+            return error
+        if target.lower() == "internet":
+            return self._reject_wrong_target_family(
+                context,
+                target=target,
+                en="Scan a concrete managed asset instead of the abstract internet node.",
+                zh="应扫描具体受管资产，而不是抽象的 internet 节点。",
+            )
+        if _is_unavailable(node):
+            return context.result(
+                success=False,
+                effect="failed",
+                en=f"{target} is isolated or down; vulnerability assessment cannot complete",
+                zh=f"{target} 当前隔离或下线，漏洞扫描无法完成",
+            )
+        known_map = context.state.blue_known_vulnerabilities.get(target, {})
+        known_ids = set(known_map.keys()) if isinstance(known_map, dict) else set()
+        undiscovered = set(node.vulnerabilities.keys()) - known_ids
+        if not undiscovered:
+            return context.result(
+                success=False,
+                effect="failed",
+                en=f"{target} has no new vulnerability findings to confirm",
+                zh=f"{target} 当前没有新的待确认漏洞发现",
+            )
+        return None
+
+    def execute(self, context: ActionContext) -> ActionResult:
+        target, node, error = self._require_target(context)
+        if error is not None or target is None or node is None:
+            return error  # type: ignore[return-value]
+        return context.result(
+            success=True,
+            effect="assessment",
+            en=f"Vulnerability assessment completed on {target}; findings require review before patching",
+            zh=f"{target} 漏洞扫描完成；发现结果已进入待确认与修补队列",
+            metadata={
+                "scan_scope": target,
+                "finding_count": len(node.vulnerabilities),
+                "score_value": 0,
+                "intel_gain": False,
+            },
         )

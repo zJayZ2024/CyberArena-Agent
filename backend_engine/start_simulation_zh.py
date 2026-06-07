@@ -20,29 +20,44 @@ from backend_engine.engine.context_builder import build_blue_context, build_red_
 
 def _resolve_timeout_outcome(state, *, executed_rounds: int) -> None:
     core_assets = [node_name for node_name in state.core_assets if node_name in state.network_nodes] or ["db"]
-    compromised_core = [
+    red_controlled_core = [
         node_name
         for node_name in core_assets
-        if state.network_nodes.get(node_name) is not None and state.network_nodes[node_name].status == "Compromised"
+        if (
+            state.network_nodes.get(node_name) is not None
+            and (
+                state.network_nodes[node_name].status == "Compromised"
+                or state.network_nodes[node_name].red_state.foothold
+                or state.network_nodes[node_name].red_state.persistence
+            )
+        )
     ]
-    compromised_nodes = [
-        node_name for node_name, node in state.network_nodes.items() if node.status == "Compromised"
+    red_residual_nodes = [
+        node_name
+        for node_name, node in state.network_nodes.items()
+        if (
+            node.status == "Compromised"
+            or node.red_state.session_active
+            or node.red_state.foothold
+            or node.red_state.persistence
+            or node_name in state.red_anchored_nodes
+        )
     ]
 
-    if compromised_core:
+    if red_controlled_core:
         state.winner_locked = True
         state.winner_side = "Red"
         state.winner_reason = (
-            f"{executed_rounds}轮结束：核心资产已失陷({', '.join(compromised_core)})，"
+            f"{executed_rounds}轮结束：核心资产存在红方控制态({', '.join(red_controlled_core)})，"
             "按状态判定红方胜。"
         )
         return
 
-    if not compromised_nodes and not state.red_anchored_nodes:
+    if not red_residual_nodes:
         state.winner_locked = True
         state.winner_side = "Blue"
         state.winner_reason = (
-            f"{executed_rounds}轮结束：无失陷节点且无红方据点残留，"
+            f"{executed_rounds}轮结束：无失陷节点、活动会话、foothold 或 persistence 残留，"
             "按状态判定蓝方胜。"
         )
         return
@@ -51,7 +66,7 @@ def _resolve_timeout_outcome(state, *, executed_rounds: int) -> None:
     state.winner_side = None
     state.winner_reason = (
         f"{executed_rounds}轮结束：未达成明确胜利状态，判定平局。"
-        f"(compromised={len(compromised_nodes)}, anchored={len(state.red_anchored_nodes)})"
+        f"(red_residual={len(red_residual_nodes)}, anchored={len(state.red_anchored_nodes)})"
     )
 
 
@@ -102,6 +117,13 @@ def run_simulation(
             blue_action = blue_agent._fallback_decide(blue_perceived_state, recent_logs=recent_logs)
 
         state = referee.resolve_round(state, red_action, blue_action)
+        red_memory = red_agent.observe_outcome(state)
+        blue_memory = blue_agent.observe_outcome(state)
+        if state.action_logs:
+            state.action_logs[-1].metadata["agent_memory"] = {
+                "red": red_memory,
+                "blue": blue_memory,
+            }
         frames.append(state.model_dump(mode="json"))
         if state.winner_locked and not continue_after_winner_locked:
             break

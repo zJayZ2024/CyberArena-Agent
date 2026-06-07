@@ -5,6 +5,7 @@ from pathlib import Path
 from backend_engine.agents.llm_agent import BaseLLMAgent, LLMDecisionError
 from backend_engine.core.models import AgentDecision, WorldState
 from backend_engine.engine.actions import ACTION_REGISTRY, ActionContext
+from backend_engine.engine.agent_memory import AgentMemoryStore, StrategyBias
 from backend_engine.engine.decision_framework import (
     ActionSpaceBuilder,
     AntiStagnationController,
@@ -31,6 +32,8 @@ class RedAgent(BaseLLMAgent):
         self._llm_planner = LLMPlanner(max_retries=1, max_candidate_rows=6)
         self._opponent_modeler = OpponentModeler(self_agent_type="Red")
         self._reflection_engine = ReflectionEngine(self_agent_type="Red")
+        self._agent_memory = AgentMemoryStore(agent_type="Red")
+        self._strategy_bias = StrategyBias(self._agent_memory)
         self._anti_stagnation = AntiStagnationController(
             self_agent_type="Red",
             max_recon_streak=2,
@@ -47,11 +50,16 @@ class RedAgent(BaseLLMAgent):
 
         self._opponent_modeler.observe(state)
         self._reflection_engine.observe(state)
+        self._agent_memory.observe(state)
         self._anti_stagnation.observe_state(state)
 
         opponent_model = self._opponent_modeler.build()
-        reflections = self._reflection_engine.recent(limit=3)
+        reflections = [
+            *self._reflection_engine.recent(limit=3),
+            *self._agent_memory.recent_reflections(limit=2),
+        ]
         intel_package = build_red_intel_package(state).as_dict()
+        intel_package["agent_memory"] = self._agent_memory.as_prompt_context()
         battle_state = build_battle_state(
             state,
             agent_type="Red",
@@ -67,6 +75,7 @@ class RedAgent(BaseLLMAgent):
             opponent_model=opponent_model,
         )
         candidates = self._anti_stagnation.apply(candidates, state=state, battle_state=battle_state)
+        candidates = self._strategy_bias.apply(candidates)
         if not candidates:
             raise LLMDecisionError("红方当前没有可执行候选动作。")
 
@@ -120,6 +129,11 @@ class RedAgent(BaseLLMAgent):
             ]
         )
         return f"{prefix}\n{context_markdown}"
+
+    def observe_outcome(self, state: WorldState) -> dict:
+        self._reflection_engine.observe(state)
+        self._agent_memory.observe(state)
+        return self._agent_memory.as_prompt_context()
 
     def _choose_with_llm(
         self,
@@ -187,9 +201,13 @@ class RedAgent(BaseLLMAgent):
     def _fallback_decide(self, state: WorldState) -> AgentDecision:
         self._opponent_modeler.observe(state)
         self._reflection_engine.observe(state)
+        self._agent_memory.observe(state)
         self._anti_stagnation.observe_state(state)
         opponent_model = self._opponent_modeler.build()
-        reflections = self._reflection_engine.recent(limit=3)
+        reflections = [
+            *self._reflection_engine.recent(limit=3),
+            *self._agent_memory.recent_reflections(limit=2),
+        ]
         battle_state = build_battle_state(
             state,
             agent_type="Red",
@@ -205,6 +223,7 @@ class RedAgent(BaseLLMAgent):
             opponent_model=opponent_model,
         )
         candidates = self._anti_stagnation.apply(candidates, state=state, battle_state=battle_state)
+        candidates = self._strategy_bias.apply(candidates)
         if not candidates:
             raise LLMDecisionError("红方 fallback 阶段没有可执行动作。")
         chosen = self._fallback_planner.choose(

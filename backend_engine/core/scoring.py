@@ -5,11 +5,36 @@ from typing import Any
 from backend_engine.core.models import AgentDecision, WorldState
 from backend_engine.engine.actions import ActionResult
 
-# Recon and Monitor are intentionally hard-coded to zero score so they cannot be farmed.
-ZERO_SCORE_ACTIONS = {"Recon", "Monitor"}
-ROUND_SCORE_BUDGET = 30
+# State-change scoring is the primary policy. Legacy action metadata is kept as
+# a fallback for single-action evaluation paths that do not provide snapshots.
+ROUND_SCORE_BUDGET = 60
 BLUE_REMEDIATION_ACTIONS = {"PatchNode", "RestoreNode", "DeepRestore", "PreventivePatch"}
 BLUE_REMEDIATION_BASE_SCALE = 0.8
+
+RED_STATE_SCORE = {
+    "recon_known": 2,
+    "confirmed_service": 3,
+    "confirmed_vulnerability": 5,
+    "credential_known": 6,
+    "session_active": 8,
+    "foothold": 12,
+    "persistence": 18,
+    "compromised": 22,
+    "core_compromised": 30,
+    "exfiltration": 35,
+}
+
+BLUE_STATE_SCORE = {
+    "discover_attack_path": 5,
+    "monitor_hit": 8,
+    "clear_session_active": 8,
+    "clear_foothold": 12,
+    "clear_persistence": 20,
+    "patch_exploited_vulnerability": 14,
+    "pivot_interrupt": 18,
+    "isolate_exfil_path": 22,
+    "restore_core_asset": 25,
+}
 
 # Same action on same target in consecutive rounds receives score decay.
 REPEAT_DECAY_FACTORS = (1.0, 0.7, 0.4, 0.25)
@@ -53,16 +78,11 @@ def _repeat_decay(streak: int) -> float:
     return REPEAT_DECAY_FACTORS[idx]
 
 
-def _compute_base_score(decision: AgentDecision, result: ActionResult) -> tuple[int, str]:
+def _compute_legacy_base_score(decision: AgentDecision, result: ActionResult) -> tuple[int, str]:
     if not result.success:
         return 0, "failed_or_rejected"
 
     action_type = decision.action_type
-    if action_type in ZERO_SCORE_ACTIONS:
-        if action_type == "Recon":
-            return 0, "recon_fixed_zero_policy"
-        return 0, "monitor_fixed_zero_policy"
-
     score_value = _coerce_non_negative_int(result.metadata.get("score_value", 0))
     if score_value > 0:
         operational_cost = _coerce_non_negative_int(result.metadata.get("operational_cost", 0))
@@ -97,6 +117,180 @@ def _compute_base_score(decision: AgentDecision, result: ActionResult) -> tuple[
     if milestone_bonus > 0:
         return milestone_bonus, "milestone_bonus_only"
     return 0, "no_effective_score_source"
+
+
+def _node_map(state: WorldState | None) -> dict[str, Any]:
+    return state.network_nodes if state is not None else {}
+
+
+def _vuln_ids(node: Any | None) -> set[str]:
+    if node is None:
+        return set()
+    vulnerabilities = getattr(node, "vulnerabilities", {}) or {}
+    return set(vulnerabilities.keys())
+
+
+def _ports(node: Any | None) -> set[int]:
+    if node is None:
+        return set()
+    return set(int(port) for port in getattr(node, "exposed_ports", []) or [])
+
+
+def _core_assets(state: WorldState | None) -> set[str]:
+    if state is None:
+        return {"db"}
+    return set(state.core_assets or ["db"])
+
+
+def _red_state_change_score(
+    previous_state: WorldState,
+    current_state: WorldState,
+    *,
+    decision: AgentDecision,
+    result: ActionResult,
+) -> tuple[int, str, list[dict[str, Any]]]:
+    prev_nodes = _node_map(previous_state)
+    curr_nodes = _node_map(current_state)
+    core_assets = _core_assets(current_state)
+    events: list[dict[str, Any]] = []
+    score = 0
+
+    for node_name, current in curr_nodes.items():
+        previous = prev_nodes.get(node_name)
+        prev_red = getattr(previous, "red_state", None)
+        curr_red = current.red_state
+
+        if previous is not None and not getattr(prev_red, "recon_known", False) and curr_red.recon_known:
+            score += RED_STATE_SCORE["recon_known"]
+            events.append({"type": "recon_known", "node": node_name, "points": RED_STATE_SCORE["recon_known"]})
+
+        new_ports = _ports(current) - _ports(previous)
+        if new_ports and (node_name in current_state.red_visible_nodes or curr_red.recon_known):
+            points = RED_STATE_SCORE["confirmed_service"] * len(new_ports)
+            score += points
+            events.append({"type": "confirmed_service", "node": node_name, "ports": sorted(new_ports), "points": points})
+
+        new_vulns = _vuln_ids(current) - _vuln_ids(previous)
+        known_vulns = set((current_state.red_known_vulnerabilities.get(node_name, {}) or {}).keys())
+        visible_new_vulns = new_vulns & known_vulns if known_vulns else set()
+        if visible_new_vulns:
+            points = RED_STATE_SCORE["confirmed_vulnerability"] * len(visible_new_vulns)
+            score += points
+            events.append({"type": "confirmed_vulnerability", "node": node_name, "vuln_ids": sorted(visible_new_vulns), "points": points})
+
+        for field_name in ("credential_known", "session_active", "foothold", "persistence"):
+            if not getattr(prev_red, field_name, False) and getattr(curr_red, field_name, False):
+                points = RED_STATE_SCORE[field_name]
+                score += points
+                events.append({"type": field_name, "node": node_name, "points": points})
+
+        if previous is not None and previous.status != "Compromised" and current.status == "Compromised":
+            points = RED_STATE_SCORE["compromised"]
+            score += points
+            events.append({"type": "compromised", "node": node_name, "points": points})
+            if node_name in core_assets:
+                core_points = RED_STATE_SCORE["core_compromised"]
+                score += core_points
+                events.append({"type": "core_compromised", "node": node_name, "points": core_points})
+
+    if result.success and decision.action_type == "ExfiltrateDatabase":
+        score += RED_STATE_SCORE["exfiltration"]
+        events.append({"type": "exfiltration", "node": decision.target, "points": RED_STATE_SCORE["exfiltration"]})
+
+    if not events and not result.success:
+        return 0, "failed_or_rejected", events
+    return score, "state_change_score" if events else "no_red_state_change", events
+
+
+def _blue_state_change_score(
+    previous_state: WorldState,
+    current_state: WorldState,
+    *,
+    decision: AgentDecision,
+    result: ActionResult,
+    red_decision: AgentDecision | None = None,
+    interaction_meta: dict[str, Any] | None = None,
+) -> tuple[int, str, list[dict[str, Any]]]:
+    prev_nodes = _node_map(previous_state)
+    curr_nodes = _node_map(current_state)
+    core_assets = _core_assets(current_state)
+    interaction_meta = interaction_meta or {}
+    events: list[dict[str, Any]] = []
+    score = 0
+
+    if decision.action_type == "Monitor" and result.success:
+        target = decision.target
+        hit = bool(red_decision and target and target == red_decision.target)
+        if hit:
+            points = BLUE_STATE_SCORE["monitor_hit"]
+            score += points
+            events.append({"type": "monitor_hit", "node": target, "points": points})
+        elif bool(result.metadata.get("intel_gain", False)):
+            points = BLUE_STATE_SCORE["discover_attack_path"]
+            score += points
+            events.append({"type": "discover_attack_path", "node": target, "points": points})
+
+    if decision.action_type == "VulnerabilityScan" and result.success and bool(result.metadata.get("intel_gain", False)):
+        points = BLUE_STATE_SCORE["discover_attack_path"]
+        score += points
+        events.append(
+            {
+                "type": "confirm_vulnerability_findings",
+                "node": decision.target,
+                "findings": result.metadata.get("intel_new_vulnerabilities", []),
+                "points": points,
+            }
+        )
+
+    if interaction_meta.get("pivot_interrupt"):
+        points = BLUE_STATE_SCORE["pivot_interrupt"]
+        score += points
+        events.append({"type": "pivot_interrupt", "node": interaction_meta.get("source"), "points": points})
+
+    if interaction_meta.get("path_intercept") or (
+        decision.action_type == "Isolate"
+        and red_decision is not None
+        and red_decision.action_type == "ExfiltrateDatabase"
+    ):
+        points = BLUE_STATE_SCORE["isolate_exfil_path"]
+        score += points
+        events.append({"type": "isolate_exfil_path", "node": decision.target, "points": points})
+
+    for node_name, current in curr_nodes.items():
+        previous = prev_nodes.get(node_name)
+        if previous is None:
+            continue
+        prev_red = previous.red_state
+        curr_red = current.red_state
+
+        for field_name, event_type in (
+            ("session_active", "clear_session_active"),
+            ("foothold", "clear_foothold"),
+            ("persistence", "clear_persistence"),
+        ):
+            if getattr(prev_red, field_name, False) and not getattr(curr_red, field_name, False):
+                points = BLUE_STATE_SCORE[event_type]
+                score += points
+                events.append({"type": event_type, "node": node_name, "points": points})
+
+        removed_vulns = _vuln_ids(previous) - _vuln_ids(current)
+        if removed_vulns and decision.action_type in {"PatchNode", "PreventivePatch", "DeepRestore"}:
+            points = BLUE_STATE_SCORE["patch_exploited_vulnerability"] * len(removed_vulns)
+            score += points
+            events.append({"type": "patch_exploited_vulnerability", "node": node_name, "vuln_ids": sorted(removed_vulns), "points": points})
+
+        if (
+            node_name in core_assets
+            and previous.status in {"Compromised", "Isolated", "Down"}
+            and current.status in {"Normal", "Defended"}
+        ):
+            points = BLUE_STATE_SCORE["restore_core_asset"]
+            score += points
+            events.append({"type": "restore_core_asset", "node": node_name, "points": points})
+
+    if not events and not result.success:
+        return 0, "failed_or_rejected", events
+    return score, "state_change_score" if events else "no_blue_state_change", events
 
 
 def _compute_repeat_streak(
@@ -141,12 +335,38 @@ def _apply_single_score(
     result: ActionResult,
     repeat_tracker: dict[str, dict[str, Any]],
     round_score_budget: int,
+    previous_state: WorldState | None = None,
+    red_decision: AgentDecision | None = None,
+    interaction_meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     entry = repeat_tracker.setdefault(side, {"action_type": None, "target": None, "streak": 0})
     repeat_streak = _compute_repeat_streak(decision, tracker_entry=entry)
     decay_factor = _repeat_decay(repeat_streak)
 
-    raw_base_score, score_reason = _compute_base_score(decision, result)
+    state_events: list[dict[str, Any]] = []
+    if previous_state is not None:
+        if side == "Red":
+            raw_base_score, score_reason, state_events = _red_state_change_score(
+                previous_state,
+                state,
+                decision=decision,
+                result=result,
+            )
+        else:
+            raw_base_score, score_reason, state_events = _blue_state_change_score(
+                previous_state,
+                state,
+                decision=decision,
+                result=result,
+                red_decision=red_decision,
+                interaction_meta=interaction_meta,
+            )
+        if raw_base_score <= 0 and score_reason.startswith("no_"):
+            legacy_score, legacy_reason = _compute_legacy_base_score(decision, result)
+            raw_base_score = legacy_score
+            score_reason = f"{score_reason}+{legacy_reason}"
+    else:
+        raw_base_score, score_reason = _compute_legacy_base_score(decision, result)
     score_multiplier, multiplier_reason = _resolve_score_multiplier(result)
     adjusted_base_score = int(round(raw_base_score * score_multiplier))
     decayed_score = int(adjusted_base_score * decay_factor)
@@ -181,13 +401,14 @@ def _apply_single_score(
             "round_score_budget": budget_cap,
             "round_score_budget_overridden": budget_overridden,
             "score_source": "scoring_engine",
+            "state_score_events": state_events,
         }
     )
 
     if decision.action_type == "Recon":
-        result.metadata.setdefault("intel_gain", False)
-        result.metadata["intel_score_policy"] = 0
-        result.metadata["intel_score_threshold_passed"] = False
+        result.metadata.setdefault("intel_gain", bool(state_events))
+        result.metadata["intel_score_policy"] = RED_STATE_SCORE["recon_known"]
+        result.metadata["intel_score_threshold_passed"] = bool(state_events)
 
     return {
         "delta": score_awarded,
@@ -214,6 +435,8 @@ def apply_round_scores(
     blue_result: ActionResult,
     repeat_tracker: dict[str, dict[str, Any]],
     round_score_budget: int = ROUND_SCORE_BUDGET,
+    previous_state: WorldState | None = None,
+    interaction_meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     red_summary = _apply_single_score(
         state,
@@ -222,6 +445,9 @@ def apply_round_scores(
         result=red_result,
         repeat_tracker=repeat_tracker,
         round_score_budget=round_score_budget,
+        previous_state=previous_state,
+        red_decision=red_decision,
+        interaction_meta=interaction_meta,
     )
     blue_summary = _apply_single_score(
         state,
@@ -230,6 +456,9 @@ def apply_round_scores(
         result=blue_result,
         repeat_tracker=repeat_tracker,
         round_score_budget=round_score_budget,
+        previous_state=previous_state,
+        red_decision=red_decision,
+        interaction_meta=interaction_meta,
     )
 
     return {
@@ -245,12 +474,14 @@ def apply_round_scores(
 def recalculate_scores(state: WorldState) -> WorldState:
     nodes = list(state.network_nodes.values())
     compromised = sum(1 for node in nodes if node.status == "Compromised")
-    down_nodes = sum(1 for node in nodes if node.status == "Down")
+    active_sessions = sum(1 for node in nodes if node.red_state.session_active)
+    footholds = sum(1 for node in nodes if node.red_state.foothold)
+    unavailable_nodes = sum(1 for node in nodes if node.status in {"Down", "Isolated"} or node.blue_state.isolated)
     exposed_ports = sum(len(node.exposed_ports) for node in nodes)
     vulnerabilities = sum(len(node.vulnerabilities) for node in nodes)
 
-    system_health = 100 - compromised * 20 - down_nodes * 15
-    exposure_level = 10 + compromised * 15 + vulnerabilities * 4 + exposed_ports
+    system_health = 100 - compromised * 20 - footholds * 8 - active_sessions * 4 - unavailable_nodes * 15
+    exposure_level = 10 + compromised * 15 + footholds * 10 + active_sessions * 6 + vulnerabilities * 4 + exposed_ports
 
     state.system_health = max(0, min(100, system_health))
     state.exposure_level = max(0, min(100, exposure_level))

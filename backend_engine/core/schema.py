@@ -51,19 +51,41 @@ def _coerce_vulnerability_map(value: Any) -> Dict[str, VulnerabilityInfo]:
     raise TypeError(f"Unsupported vulnerabilities value: {type(value)!r}")
 
 
+class RedNodeState(BaseModel):
+    recon_known: bool = Field(default=False)
+    credential_known: bool = Field(default=False)
+    session_active: bool = Field(default=False)
+    foothold: bool = Field(default=False)
+    persistence: bool = Field(default=False)
+    privilege: Literal["none", "user", "admin", "root"] = Field(default="none")
+    last_active_turn: int = Field(default=-1)
+
+
+class BlueNodeState(BaseModel):
+    restored: bool = Field(default=False)
+    monitored: bool = Field(default=False)
+    isolated: bool = Field(default=False)
+    hardened: bool = Field(default=False)
+    last_response_turn: int = Field(default=-1)
+
+
 class NetworkNode(BaseModel):
-    status: Literal["Normal", "Compromised", "Down"] = Field(
+    status: Literal["Normal", "Compromised", "Isolated", "Down", "Defended"] = Field(
         ...,
         description="Current node status.",
     )
     exposed_ports: List[int] = Field(default_factory=list)
     vulnerabilities: Dict[str, VulnerabilityInfo] = Field(default_factory=dict)
+    red_state: RedNodeState = Field(default_factory=RedNodeState)
+    blue_state: BlueNodeState = Field(default_factory=BlueNodeState)
 
     @field_validator("status", mode="before")
     @classmethod
     def _coerce_legacy_status(cls, value: Any) -> Any:
-        if value == "Defended":
-            return "Normal"
+        if value == "defended":
+            return "Defended"
+        if value == "isolated":
+            return "Isolated"
         return value
 
     @field_validator("vulnerabilities", mode="before")

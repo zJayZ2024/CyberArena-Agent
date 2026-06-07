@@ -7,7 +7,7 @@ from typing import Any
 from backend_engine.agents.referee_agent import RefereeAgent
 from backend_engine.core.models import ActionLog, AgentDecision, SecurityAlert, VulnerabilityInfo, WorldState
 from backend_engine.core.scoring import ROUND_SCORE_BUDGET, apply_round_scores, recalculate_scores
-from backend_engine.engine.command_protocol import is_blue_rule_from_library, is_red_command_from_library
+from backend_engine.engine.protocol_library import is_blue_rule_from_library, is_red_command_from_library
 from backend_engine.engine.actions import (
     ACTION_REGISTRY,
     ActionContext,
@@ -35,6 +35,21 @@ BLUE_REPAIR_REPEAT_MULTIPLIER = 0.15
 RED_MILESTONE_FIRST_COMPROMISE_BONUS = 10
 RED_MILESTONE_FIRST_INTERNAL_COMPROMISE_BONUS = 15
 RED_MILESTONE_FIRST_SUSTAINED_FOOTHOLD_BONUS = 12
+STRUCTURED_EFFECT_ACTIONS = {
+    "Recon",
+    "ExploitService",
+    "LateralMove",
+    "AnchorFoothold",
+    "ReactivateFoothold",
+    "ExfiltrateDatabase",
+    "PatchNode",
+    "PreventivePatch",
+    "RestoreNode",
+    "DeepRestore",
+    "Isolate",
+    "Monitor",
+    "VulnerabilityScan",
+}
 
 
 def _is_perimeter_node(node_name: str) -> bool:
@@ -102,6 +117,16 @@ class RefereeEngine:
         if not state.core_assets:
             state.core_assets = ["db"]
         state.red_anchored_nodes = [node for node in state.red_anchored_nodes if node in state.network_nodes]
+        for node_name, node in state.network_nodes.items():
+            if node.status == "Compromised":
+                node.red_state.recon_known = True
+                node.red_state.session_active = True
+                node.red_state.foothold = True
+            if node_name in state.red_anchored_nodes:
+                node.red_state.recon_known = True
+                node.red_state.persistence = True
+            if node.status == "Isolated":
+                node.blue_state.isolated = True
         if not isinstance(state.blue_known_vulnerabilities, dict):
             state.blue_known_vulnerabilities = {}
         if not isinstance(state.blue_monitored_nodes, list):
@@ -155,7 +180,26 @@ class RefereeEngine:
     def get_blue_perceived_state(self) -> WorldState:
         if self.blue_previous_state_snapshot is None:
             raise RuntimeError("blue_previous_state_snapshot 尚未初始化。")
-        return copy.deepcopy(self.blue_previous_state_snapshot)
+        perceived = copy.deepcopy(self.blue_previous_state_snapshot)
+        monitored = set(perceived.blue_monitored_nodes)
+        # Blue decisions must be driven by alerts and deployed telemetry, not the shared omniscient log.
+        perceived.action_logs = [log for log in perceived.action_logs if log.agent_type == "Blue"]
+        perceived.red_anchored_nodes = [
+            node_name for node_name in perceived.red_anchored_nodes if node_name in monitored
+        ]
+        for node_name, node in perceived.network_nodes.items():
+            if node_name in monitored:
+                continue
+            # Unmonitored nodes expose business availability, but hidden attacker control remains uncertain.
+            if node.status == "Compromised":
+                node.status = "Normal"
+            node.red_state.recon_known = False
+            node.red_state.session_active = False
+            node.red_state.foothold = False
+            node.red_state.persistence = False
+            node.red_state.credential_known = False
+            node.red_state.privilege = "none"
+        return perceived
 
     def get_blue_recent_alerts(self) -> list[SecurityAlert]:
         return copy.deepcopy(self.blue_previous_alerts)
@@ -197,6 +241,8 @@ class RefereeEngine:
             effective_opposing,
             locale="zh",
         ):
+            effective_opposing = None
+        if effective_opposing is not None and not self._should_send_opposing_to_referee(blue, effective_opposing):
             effective_opposing = None
         blue_result = self._adjudicate_action(
             next_state,
@@ -298,13 +344,13 @@ class RefereeEngine:
             red_eval_state,
             red,
             locale="zh",
-            opposing_decision=blue if blue_duel_eligible else None,
+            opposing_decision=blue if blue_duel_eligible and self._should_send_opposing_to_referee(red, blue) else None,
         )
         blue_result = self._adjudicate_action(
             blue_eval_state,
             blue,
             locale="zh",
-            opposing_decision=red if red_duel_eligible else None,
+            opposing_decision=red if red_duel_eligible and self._should_send_opposing_to_referee(blue, red) else None,
         )
 
         settlement_state = common_snapshot.model_copy(deep=True)
@@ -335,9 +381,21 @@ class RefereeEngine:
             blue_decision=blue,
             blue_result=blue_result,
             repeat_tracker=self.score_repeat_tracker,
+            previous_state=common_snapshot,
+            interaction_meta=interaction_meta,
         )
         red_delta = int(score_summary["red_delta"])
         blue_delta = int(score_summary["blue_delta"])
+        referee_flow = self._build_referee_flow(
+            start_state=common_snapshot,
+            end_state=settlement_state,
+            red=red,
+            red_result=red_result,
+            blue=blue,
+            blue_result=blue_result,
+            interaction_meta=interaction_meta,
+            score_summary=score_summary,
+        )
 
         settlement_state.action_logs = [
             ActionLog(
@@ -364,6 +422,7 @@ class RefereeEngine:
                     "red_result": red_result.metadata,
                     "blue_result": blue_result.metadata,
                     "interaction": interaction_meta,
+                    "referee_flow": referee_flow,
                     "recent_alerts": [alert.model_dump(mode="json") for alert in settlement_state.security_alerts],
                     "score_summary": {
                         "red_delta": red_delta,
@@ -380,6 +439,202 @@ class RefereeEngine:
         self.blue_previous_state_snapshot = copy.deepcopy(settlement_state)
         self.blue_previous_alerts = copy.deepcopy(settlement_state.security_alerts)
         return settlement_state
+
+    def _build_referee_flow(
+        self,
+        *,
+        start_state: WorldState,
+        end_state: WorldState,
+        red: AgentDecision,
+        red_result: ActionResult,
+        blue: AgentDecision,
+        blue_result: ActionResult,
+        interaction_meta: dict[str, Any],
+        score_summary: dict[str, Any],
+    ) -> dict[str, Any]:
+        state_changes = self._state_delta_summary(start_state, end_state)
+        return {
+            "start_snapshot": self._snapshot_summary(start_state),
+            "red_precondition_check": self._action_check_summary(red, red_result),
+            "blue_precondition_check": self._action_check_summary(blue, blue_result),
+            "attack_graph_progress": self._attack_graph_summary(red, red_result),
+            "same_turn_conflict": self._conflict_summary(red, red_result, blue, blue_result, interaction_meta),
+            "state_changes": state_changes,
+            "score_changes": {
+                "red_delta": score_summary.get("red_delta", 0),
+                "blue_delta": score_summary.get("blue_delta", 0),
+                "red_breakdown": score_summary.get("red_breakdown", {}),
+                "blue_breakdown": score_summary.get("blue_breakdown", {}),
+            },
+            "end_snapshot": self._snapshot_summary(end_state),
+        }
+
+    def _snapshot_summary(self, state: WorldState) -> dict[str, Any]:
+        compromised = sorted(node_name for node_name, node in state.network_nodes.items() if node.status == "Compromised")
+        active_sessions = sorted(node_name for node_name, node in state.network_nodes.items() if node.red_state.session_active)
+        footholds = sorted(node_name for node_name, node in state.network_nodes.items() if node.red_state.foothold)
+        persistence = sorted(node_name for node_name, node in state.network_nodes.items() if node.red_state.persistence)
+        isolated = sorted(
+            node_name
+            for node_name, node in state.network_nodes.items()
+            if node.status == "Isolated" or node.blue_state.isolated
+        )
+        monitored = sorted(node_name for node_name, node in state.network_nodes.items() if node.blue_state.monitored)
+        return {
+            "turn": state.turn,
+            "red_score": state.red_score,
+            "blue_score": state.blue_score,
+            "system_health": state.system_health,
+            "exposure_level": state.exposure_level,
+            "compromised_nodes": compromised,
+            "active_sessions": active_sessions,
+            "footholds": footholds,
+            "persistence_nodes": persistence,
+            "isolated_nodes": isolated,
+            "monitored_nodes": monitored,
+        }
+
+    def _action_check_summary(self, decision: AgentDecision, result: ActionResult) -> dict[str, Any]:
+        metadata = result.metadata if isinstance(result.metadata, dict) else {}
+        return {
+            "agent_type": decision.agent_type,
+            "action_type": decision.action_type,
+            "target": decision.target,
+            "vuln_id": decision.vuln_id or metadata.get("vuln_id"),
+            "passed": bool(result.success),
+            "effect": result.effect,
+            "reason": result.message,
+            "pivot_source": metadata.get("pivot_source"),
+            "pivot_candidates": metadata.get("pivot_candidates", []),
+            "validation": metadata.get("validation"),
+            "execution": metadata.get("execution"),
+        }
+
+    def _attack_graph_summary(self, red: AgentDecision, red_result: ActionResult) -> dict[str, Any]:
+        metadata = red_result.metadata if isinstance(red_result.metadata, dict) else {}
+        attack_graph = metadata.get("attack_graph")
+        if isinstance(attack_graph, dict) and attack_graph:
+            payload = dict(attack_graph)
+            technique_id = str(payload.get("technique_id") or metadata.get("technique_id") or "")
+            technique_name = str(payload.get("name") or metadata.get("technique_name") or "")
+            if "phase" not in payload and metadata.get("attack_phase"):
+                payload["phase"] = metadata.get("attack_phase")
+            if "technique" not in payload:
+                payload["technique"] = " ".join(part for part in (technique_id, technique_name) if part).strip() or red.action_type
+            payload.setdefault("result", red_result.effect)
+            payload.setdefault("progressed", bool(red_result.success))
+            return payload
+
+        phase_by_action = {
+            "Recon": "Reconnaissance",
+            "ExploitService": "Initial Access",
+            "LateralMove": "Lateral Movement",
+            "ExfiltrateDatabase": "Exfiltration",
+            "AnchorFoothold": "Persistence",
+            "ReactivateFoothold": "Persistence",
+        }
+        mitre_by_action = {
+            "Recon": "T1595 Active Scanning",
+            "ExploitService": "T1190 Exploit Public-Facing Application",
+            "LateralMove": "T1021 Remote Services",
+            "ExfiltrateDatabase": "T1041 Exfiltration Over C2 Channel",
+            "AnchorFoothold": "T1547 Boot or Logon Autostart Execution",
+            "ReactivateFoothold": "T1053 Scheduled Task/Job",
+        }
+        return {
+            "phase": phase_by_action.get(red.action_type, "Unknown"),
+            "technique": mitre_by_action.get(red.action_type, red.action_type),
+            "source": metadata.get("pivot_source") or "internet",
+            "target": red.target,
+            "result": red_result.effect,
+            "progressed": bool(red_result.success),
+        }
+
+    def _conflict_summary(
+        self,
+        red: AgentDecision,
+        red_result: ActionResult,
+        blue: AgentDecision,
+        blue_result: ActionResult,
+        interaction_meta: dict[str, Any],
+    ) -> dict[str, Any]:
+        conflict_type = str(interaction_meta.get("type", "independent") or "independent")
+        matrix_rule = "independent"
+        explanation = "红蓝动作没有形成直接同回合冲突。"
+        if conflict_type == "perfect_intercept":
+            matrix_rule = "PatchNode(target, vuln) vs Exploit(target, vuln)"
+            explanation = "蓝方补丁命中同目标同漏洞，红方攻击被即时拦截。"
+        elif conflict_type == "pivot_interrupt":
+            matrix_rule = "RestoreNode(source) vs LateralMove(source -> target)"
+            explanation = "蓝方快速恢复命中红方当前横移跳板，清除会话与 foothold。"
+        elif conflict_type == "pivot_interrupt_partial":
+            matrix_rule = "RestoreNode(source) vs Persistence(source)"
+            explanation = "蓝方清除了当前会话，但红方在源节点存在持久化，攻击结果降级为部分成功。"
+        elif conflict_type == "restore_persistence_race":
+            matrix_rule = "RestoreNode(target) vs Persistence(target)"
+            explanation = "蓝方快速恢复清除当前会话与 foothold，但红方持久化尝试可能留下再激活能力。"
+        elif conflict_type == "reactivation_interrupt":
+            matrix_rule = "RestoreNode(target) vs ReactivateFoothold(target)"
+            explanation = "蓝方快速恢复打断本回合重激活并清除新会话；持久化仍保留，红方后续仍可重试。"
+        elif conflict_type == "hard_interrupt":
+            matrix_rule = "DeepRestore/Isolate(target) vs RedAction(target)"
+            explanation = "蓝方强处置命中红方动作目标，攻击链被硬中断。"
+        elif conflict_type == "path_intercept":
+            matrix_rule = "Isolate(source/target) vs LateralMove"
+            explanation = "蓝方处置命中路径关键节点，红方攻击路径不可达。"
+        elif conflict_type == "command_intercept":
+            matrix_rule = "Defense rule vs attack command"
+            explanation = "蓝方命令级规则拦截了红方攻击命令。"
+        elif conflict_type == "command_bypass":
+            matrix_rule = "Defense rule bypass"
+            explanation = "红方命令绕过了蓝方当前规则，攻击继续结算。"
+        elif conflict_type == "proactive_patch":
+            matrix_rule = "Recent recon vs proactive patch"
+            explanation = "蓝方根据近期侦察提前修补，获得防御收益。"
+
+        return {
+            "type": conflict_type,
+            "matrix_rule": matrix_rule,
+            "explanation": explanation,
+            "red_action": red.action_type,
+            "red_target": red.target,
+            "red_effect": red_result.effect,
+            "blue_action": blue.action_type,
+            "blue_target": blue.target,
+            "blue_effect": blue_result.effect,
+            "metadata": interaction_meta,
+        }
+
+    def _state_delta_summary(self, previous: WorldState, current: WorldState) -> list[dict[str, Any]]:
+        changes: list[dict[str, Any]] = []
+        node_names = sorted(set(previous.network_nodes.keys()) | set(current.network_nodes.keys()))
+        for node_name in node_names:
+            prev_node = previous.network_nodes.get(node_name)
+            curr_node = current.network_nodes.get(node_name)
+            if prev_node is None or curr_node is None:
+                continue
+
+            if prev_node.status != curr_node.status:
+                changes.append({"node": node_name, "field": "status", "from": prev_node.status, "to": curr_node.status})
+
+            red_fields = ("recon_known", "credential_known", "session_active", "foothold", "persistence", "privilege")
+            for field_name in red_fields:
+                before = getattr(prev_node.red_state, field_name)
+                after = getattr(curr_node.red_state, field_name)
+                if before != after:
+                    changes.append({"node": node_name, "scope": "red_state", "field": field_name, "from": before, "to": after})
+
+            blue_fields = ("restored", "monitored", "isolated", "hardened")
+            for field_name in blue_fields:
+                before = getattr(prev_node.blue_state, field_name)
+                after = getattr(curr_node.blue_state, field_name)
+                if before != after:
+                    changes.append({"node": node_name, "scope": "blue_state", "field": field_name, "from": before, "to": after})
+
+            removed_vulns = sorted(set(prev_node.vulnerabilities.keys()) - set(curr_node.vulnerabilities.keys()))
+            if removed_vulns:
+                changes.append({"node": node_name, "field": "vulnerabilities", "removed": removed_vulns})
+        return changes
 
     def _adjudicate_action(
         self,
@@ -465,7 +720,12 @@ class RefereeEngine:
             },
         )
 
-        if not judgement.is_success:
+        override_judgement_failure = self._should_override_referee_failure(
+            decision=decision,
+            judgement_effect=judgement.effect,
+            opposing_decision=opposing_decision,
+        )
+        if not judgement.is_success and not override_judgement_failure:
             return ActionResult(
                 success=False,
                 effect=judgement.effect or "failed",
@@ -564,14 +824,31 @@ class RefereeEngine:
             )
 
         metadata = dict(execute_result.metadata)
+        effective_result_effect = execute_result.effect
+        if decision.action_type not in STRUCTURED_EFFECT_ACTIONS and "attack_graph" not in metadata:
+            effective_result_effect = judgement.effect or execute_result.effect
+        if override_judgement_failure:
+            effective_result_effect = execute_result.effect
+        clean_message = self._compose_action_message(
+            decision=decision,
+            execute_result=execute_result,
+            judgement_rationale=judgement.rationale,
+        )
+        stored_rationale = judgement.rationale
+        if decision.action_type == "PreventivePatch":
+            stored_rationale = "蓝方依据常规补丁窗口执行通用安全更新；具体修复项由执行结果确认，而非决策前已知。"
         if probability_gate is not None:
             metadata["probability_gate"] = probability_gate
         metadata.update(
             {
                 "score_awarded": 0,
                 "llm_score_suggest": max(0, int(judgement.llm_score_suggest)),
-                "referee_effect": judgement.effect,
-                "referee_rationale": judgement.rationale,
+                "referee_effect": effective_result_effect,
+                "llm_referee_effect": judgement.effect,
+                "execution_effect": execute_result.effect,
+                "referee_rationale": stored_rationale,
+                "llm_referee_overridden": bool(override_judgement_failure),
+                "execution_message": execute_result.message,
                 "raw_command": decision.raw_command,
                 "defense_rule": decision.defense_rule,
                 "referee_command_duel": bool(
@@ -590,10 +867,42 @@ class RefereeEngine:
         )
         return ActionResult(
             success=True,
-            effect=judgement.effect or execute_result.effect,
-            message=judgement.rationale,
+            effect=effective_result_effect,
+            message=clean_message,
             metadata=metadata,
         )
+
+    def _compose_action_message(
+        self,
+        *,
+        decision: AgentDecision,
+        execute_result: ActionResult,
+        judgement_rationale: str,
+    ) -> str:
+        if decision.action_type in STRUCTURED_EFFECT_ACTIONS:
+            return execute_result.message
+        return judgement_rationale or execute_result.message
+
+    def _should_override_referee_failure(
+        self,
+        *,
+        decision: AgentDecision,
+        judgement_effect: str,
+        opposing_decision: AgentDecision | None,
+    ) -> bool:
+        if decision.action_type not in STRUCTURED_EFFECT_ACTIONS:
+            return False
+        if opposing_decision is not None:
+            outcome = self._resolve_command_duel_outcome(
+                decision=decision,
+                opposing_decision=opposing_decision,
+                judgement_effect=judgement_effect,
+                judgement_success=False,
+            )
+            if outcome == "blocked":
+                return False
+        normalized = (judgement_effect or "").strip().lower()
+        return normalized in {"", "failed", "none"}
 
     def _evaluate_probability_gate(
         self,
@@ -879,6 +1188,20 @@ class RefereeEngine:
             )
         return None
 
+    def _should_send_opposing_to_referee(
+        self,
+        decision: AgentDecision,
+        opposing_decision: AgentDecision | None,
+    ) -> bool:
+        if opposing_decision is None:
+            return False
+        return (
+            decision.agent_type == "Red"
+            and decision.action_type in COMMAND_DUEL_RED_ACTIONS
+            and opposing_decision.agent_type == "Blue"
+            and opposing_decision.action_type in COMMAND_DUEL_BLUE_ACTIONS
+        )
+
     def _resolve_command_duel_outcome(
         self,
         *,
@@ -968,8 +1291,6 @@ class RefereeEngine:
             if not _is_perimeter_node(node_name):
                 continue
             _append_unique(state.red_visible_nodes, node_name)
-            if node.exposed_ports:
-                state.red_known_services[node_name] = list(node.exposed_ports)
 
     def _update_red_perception(self, state: WorldState, red: AgentDecision, red_result: ActionResult) -> None:
         target = red.target
@@ -1005,7 +1326,7 @@ class RefereeEngine:
             )
 
         target_node = state.network_nodes[target]
-        if target_node.status == "Compromised":
+        if target_node.status == "Compromised" or target_node.red_state.session_active or target_node.red_state.foothold:
             _append_unique(state.red_visible_nodes, target)
             state.red_known_services[target] = list(target_node.exposed_ports)
             state.red_known_vulnerabilities[target] = dict(target_node.vulnerabilities)
@@ -1015,10 +1336,14 @@ class RefereeEngine:
         target = red.target
         if not target or target not in state.network_nodes:
             return
+        if target not in state.blue_monitored_nodes:
+            red_result.metadata["blue_vulnerability_attribution"] = "unconfirmed"
+            return
         vuln_id = self._extract_vuln_id(red, red_result)
         if vuln_id:
             confidence = 1.0 if red_result.success else 0.8
             self._confirm_blue_vulnerability(state, target=target, vuln_id=vuln_id, confidence=confidence)
+            red_result.metadata["blue_vulnerability_attribution"] = "confirmed_by_monitoring"
 
     def _apply_blue_post_action_updates(
         self,
@@ -1033,6 +1358,10 @@ class RefereeEngine:
 
         if blue.action_type == "Monitor":
             self._apply_monitor_discovery(state, blue, blue_result)
+            return
+
+        if blue.action_type == "VulnerabilityScan":
+            self._apply_vulnerability_scan_discovery(state, blue, blue_result)
             return
 
         if blue.action_type in {"PatchNode", "PreventivePatch"}:
@@ -1127,19 +1456,38 @@ class RefereeEngine:
         else:
             candidate_nodes = []
 
+        newly_monitored = [node_name for node_name in candidate_nodes if node_name not in state.blue_monitored_nodes]
         for node_name in candidate_nodes:
             _append_unique(state.blue_monitored_nodes, node_name)
 
+        blue_result.metadata.update(
+            {
+                "intel_gain": bool(newly_monitored),
+                "telemetry_coverage_added": newly_monitored,
+                "monitor_scope": scope,
+            }
+        )
+
+    def _apply_vulnerability_scan_discovery(
+        self,
+        state: WorldState,
+        blue: AgentDecision,
+        blue_result: ActionResult,
+    ) -> None:
+        target = blue.target or ""
+        if target not in state.network_nodes:
+            blue_result.metadata["intel_gain"] = False
+            return
+
+        node = state.network_nodes[target]
+        known_map = state.blue_known_vulnerabilities.get(target, {})
+        if not isinstance(known_map, dict):
+            known_map = {}
         discoveries: list[tuple[int, str, str]] = []
-        for node_name in candidate_nodes:
-            node = state.network_nodes[node_name]
-            known_map = state.blue_known_vulnerabilities.get(node_name, {})
-            if not isinstance(known_map, dict):
-                known_map = {}
-            for vuln_id, vuln in node.vulnerabilities.items():
-                if vuln_id in known_map:
-                    continue
-                discoveries.append((int(vuln.score), node_name, vuln_id))
+        for vuln_id, vuln in node.vulnerabilities.items():
+            if vuln_id in known_map:
+                continue
+            discoveries.append((int(vuln.score), target, vuln_id))
 
         discoveries.sort(reverse=True)
         selected = discoveries[:MONITOR_DISCOVERY_PER_TURN]
@@ -1151,7 +1499,7 @@ class RefereeEngine:
             {
                 "intel_gain": bool(selected),
                 "intel_new_vulnerabilities": intel_rows,
-                "monitor_scope": scope,
+                "scan_scope": target,
             }
         )
 
@@ -1175,13 +1523,20 @@ class RefereeEngine:
 
     def _update_winner_lock(self, state: WorldState) -> None:
         core_assets = [node_name for node_name in state.core_assets if node_name in state.network_nodes] or ["db"]
-        compromised_core_assets = [
+        red_controlled_core_assets = [
             node_name
             for node_name in core_assets
-            if (state.network_nodes.get(node_name) is not None and state.network_nodes[node_name].status == "Compromised")
+            if (
+                state.network_nodes.get(node_name) is not None
+                and (
+                    state.network_nodes[node_name].status == "Compromised"
+                    or state.network_nodes[node_name].red_state.foothold
+                    or state.network_nodes[node_name].red_state.persistence
+                )
+            )
         ]
-        if compromised_core_assets:
-            winner_core = compromised_core_assets[0]
+        if red_controlled_core_assets:
+            winner_core = red_controlled_core_assets[0]
             state.winner_locked = True
             state.winner_side = "Red"
             state.winner_reason = f"Red controlled core asset: {winner_core}"
@@ -1544,6 +1899,13 @@ class RefereeEngine:
         if blue_result.success:
             self._apply_action_effect(state, decision=blue, result=blue_result)
 
+        if red_blocked and bool(red_result.metadata.get("target_recon_known_only", False)):
+            target = red.target
+            if target and target in state.network_nodes:
+                target_node = state.network_nodes[target]
+                target_node.red_state.recon_known = True
+                target_node.red_state.last_active_turn = state.turn
+
         if red_result.success and not red_blocked:
             hard_precheck_error = self._hard_precheck_red_against_settled_state(
                 state,
@@ -1574,6 +1936,19 @@ class RefereeEngine:
                 return red_result, blue_result, interaction_meta
 
             self._apply_action_effect(state, decision=red, result=red_result)
+            if interaction_meta.get("type") == "restore_persistence_race":
+                target = red.target
+                if target and target in state.network_nodes:
+                    node = state.network_nodes[target]
+                    node.red_state.session_active = False
+                    node.red_state.foothold = False
+                    node.red_state.persistence = True
+                    red_result.metadata.update(
+                        {
+                            "restore_race_resolution": "session_cleared_persistence_preserved",
+                            "reactivation_required": True,
+                        }
+                    )
             if not self._post_validate_red_chain(state, red=red, red_result=red_result):
                 self._rollback_red_attack_effect(state, red_result)
                 red_result.success = False
@@ -1716,6 +2091,113 @@ class RefereeEngine:
             )
             return red_result, blue_result, interaction_meta, red_blocked
 
+        restore_interrupt = self._resolve_restore_pivot_interrupt(state, red, red_result, blue, blue_result)
+        if restore_interrupt == "blocked":
+            red_blocked = True
+            red_result.success = False
+            red_result.effect = "blocked"
+            red_result.message = "同回合快速恢复命中红方横移跳板：源节点会话与 foothold 被清除，横移失败。"
+            red_result.metadata.update(
+                {
+                    "execution": "pivot_interrupt",
+                    "referee_effect": "blocked",
+                    "intercepted_by": blue.action_type,
+                    "score_awarded": 0,
+                    "target_recon_known_only": True,
+                }
+            )
+            interaction_meta.update(
+                {
+                    "type": "pivot_interrupt",
+                    "pivot_interrupt": True,
+                    "target": red.target,
+                    "source": blue.target,
+                    "intercept_by": blue.action_type,
+                    "persistence_on_source": False,
+                }
+            )
+            return red_result, blue_result, interaction_meta, red_blocked
+
+        if restore_interrupt == "persistence_partial":
+            red_result.metadata.update(
+                {
+                    "restore_interrupt": "persistence_partial",
+                    "source_session_cleared": True,
+                    "reactivation_required": True,
+                }
+            )
+            interaction_meta.update(
+                {
+                    "type": "pivot_interrupt_partial",
+                    "pivot_interrupt": True,
+                    "target": red.target,
+                    "source": blue.target,
+                    "intercept_by": blue.action_type,
+                    "persistence_on_source": True,
+                }
+            )
+
+        if (
+            red.action_type == "ReactivateFoothold"
+            and blue.action_type == "RestoreNode"
+            and red.target
+            and blue.target
+            and red.target == blue.target
+            and red_result.success
+            and blue_result.success
+        ):
+            red_blocked = True
+            red_result.success = False
+            red_result.effect = "blocked"
+            red_result.message = "同回合重激活被快速恢复打断：蓝方清除了新建会话与 foothold；持久化仍保留，可在后续回合再次尝试。"
+            red_result.metadata.update(
+                {
+                    "execution": "reactivation_interrupted",
+                    "referee_effect": "blocked",
+                    "intercepted_by": blue.action_type,
+                    "persistence_preserved": True,
+                    "reactivation_required": True,
+                    "score_awarded": 0,
+                }
+            )
+            interaction_meta.update(
+                {
+                    "type": "reactivation_interrupt",
+                    "matrix_rule": "RestoreNode(target) vs ReactivateFoothold(target)",
+                    "target": red.target,
+                    "session_cleared": True,
+                    "persistence_preserved": True,
+                    "intercept_by": blue.action_type,
+                }
+            )
+            return red_result, blue_result, interaction_meta, red_blocked
+
+        if (
+            red.action_type == "AnchorFoothold"
+            and blue.action_type == "RestoreNode"
+            and red.target
+            and blue.target
+            and red.target == blue.target
+            and red_result.success
+            and blue_result.success
+        ):
+            red_result.metadata.update(
+                {
+                    "restore_interrupt": "persistence_race",
+                    "source_session_cleared": True,
+                    "reactivation_required": True,
+                }
+            )
+            interaction_meta.update(
+                {
+                    "type": "restore_persistence_race",
+                    "matrix_rule": "RestoreNode(target) vs Persistence(target)",
+                    "target": red.target,
+                    "session_cleared": True,
+                    "persistence_may_remain": True,
+                }
+            )
+
         if self._is_path_intercept_by_blue(state, red, red_result, blue, blue_result):
             red_blocked = True
             red_result.success = False
@@ -1780,6 +2262,28 @@ class RefereeEngine:
 
         return red_result, blue_result, interaction_meta, red_blocked
 
+    def _resolve_restore_pivot_interrupt(
+        self,
+        state: WorldState,
+        red: AgentDecision,
+        red_result: ActionResult,
+        blue: AgentDecision,
+        blue_result: ActionResult,
+    ) -> str:
+        if not (red_result.success and blue_result.success):
+            return "none"
+        if red.action_type != "LateralMove" or blue.action_type != "RestoreNode":
+            return "none"
+        pivot_source = str(red_result.metadata.get("pivot_source", "") or "")
+        if not pivot_source or blue.target != pivot_source:
+            return "none"
+        source_node = state.network_nodes.get(pivot_source)
+        if source_node is None:
+            return "none"
+        if source_node.red_state.persistence or pivot_source in state.red_anchored_nodes:
+            return "persistence_partial"
+        return "blocked"
+
     def _apply_action_effect(
         self,
         state: WorldState,
@@ -1796,26 +2300,65 @@ class RefereeEngine:
             return
         node = state.network_nodes[target]
 
-        if action_type in {"ExploitService", "LateralMove", "ExfiltrateDatabase", "ReactivateFoothold"}:
+        if action_type == "Recon":
+            node.red_state.recon_known = True
+            node.red_state.last_active_turn = state.turn
+            return
+
+        if action_type == "ExploitService":
+            node.red_state.recon_known = True
+            node.red_state.credential_known = True
+            node.red_state.session_active = True
+            node.red_state.last_active_turn = state.turn
+            node.blue_state.restored = False
+            return
+
+        if action_type == "LateralMove":
+            result_level = str(result.metadata.get("result_level", "medium") or "medium")
+            node.red_state.recon_known = True
+            node.red_state.session_active = True
+            if bool(result.metadata.get("attack_graph", {}).get("credential_known", False)):
+                node.red_state.credential_known = True
+            if result_level in {"medium", "high"}:
+                node.red_state.foothold = True
+            if result_level == "high":
+                node.status = "Compromised"
+            node.red_state.last_active_turn = state.turn
+            node.blue_state.restored = False
+            return
+
+        if action_type in {"ExfiltrateDatabase", "ReactivateFoothold"}:
+            node.red_state.recon_known = True
+            node.red_state.session_active = True
+            node.red_state.last_active_turn = state.turn
+            if action_type == "ReactivateFoothold":
+                node.red_state.persistence = True
             node.status = "Compromised"
             return
 
         if action_type == "AnchorFoothold":
             _append_unique(state.red_anchored_nodes, target)
+            node.red_state.persistence = True
+            node.red_state.session_active = True
+            node.red_state.foothold = True
+            node.red_state.last_active_turn = state.turn
             return
 
         if action_type in {"PatchNode", "PreventivePatch"}:
             vuln_id = decision.vuln_id or str(result.metadata.get("vuln_id", ""))
             if vuln_id:
                 node.vulnerabilities.pop(vuln_id, None)
+            node.blue_state.hardened = True
+            node.blue_state.last_response_turn = state.turn
             return
 
         if action_type == "RestoreNode":
-            removed = result.metadata.get("removed_vulnerability")
-            if isinstance(removed, dict):
-                removed_id = str(removed.get("vuln_id", ""))
-                if removed_id:
-                    node.vulnerabilities.pop(removed_id, None)
+            node.red_state.session_active = False
+            node.red_state.foothold = False
+            node.red_state.privilege = "none"
+            node.blue_state.restored = True
+            node.blue_state.isolated = False
+            node.blue_state.last_response_turn = state.turn
             node.status = "Normal"
             return
 
@@ -1830,11 +2373,30 @@ class RefereeEngine:
                         node.vulnerabilities.pop(vuln_id, None)
             if bool(result.metadata.get("removed_anchor", False)):
                 state.red_anchored_nodes = [node_name for node_name in state.red_anchored_nodes if node_name != target]
+            node.red_state.session_active = False
+            node.red_state.foothold = False
+            node.red_state.persistence = False
+            node.red_state.credential_known = False
+            node.red_state.privilege = "none"
+            node.blue_state.restored = True
+            node.blue_state.hardened = True
+            node.blue_state.isolated = False
+            node.blue_state.last_response_turn = state.turn
             node.status = "Normal"
             return
 
         if action_type == "Isolate":
-            node.status = "Down"
+            node.status = "Isolated"
+            node.blue_state.isolated = True
+            node.blue_state.last_response_turn = state.turn
+            node.red_state.session_active = False
+            node.red_state.foothold = False
+            return
+
+        if action_type == "Monitor":
+            node.blue_state.monitored = True
+            node.blue_state.last_response_turn = state.turn
+            _append_unique(state.blue_monitored_nodes, target)
 
     def _post_validate_red_chain(
         self,
@@ -2127,9 +2689,14 @@ class RefereeEngine:
         previous_status = metadata.get("previous_status")
         if not isinstance(target, str) or target not in state.network_nodes:
             return
-        if not isinstance(previous_status, str):
-            return
-        state.network_nodes[target].status = previous_status
+        node = state.network_nodes[target]
+        if isinstance(previous_status, str):
+            node.status = previous_status
+        previous_red_state = metadata.get("previous_red_state")
+        if isinstance(previous_red_state, dict):
+            for key, value in previous_red_state.items():
+                if hasattr(node.red_state, key):
+                    setattr(node.red_state, key, value)
 
     def _build_security_alerts(
         self,
@@ -2143,29 +2710,83 @@ class RefereeEngine:
         else:
             target_status = "Unknown"
 
+        monitored = bool(target and target in state.blue_monitored_nodes)
+        alert_metadata = self._build_blue_alert_metadata(red, red_result, monitored=monitored)
         if red.action_type == "Recon":
             return [
                 SecurityAlert(
                     severity="WARN",
-                    message=f"[WARN] {target or 'unknown'} 节点出现侦察痕迹。",
+                    message=(
+                        f"[WARN] {target or 'unknown'} 节点出现侦察痕迹。"
+                        + (" 已由监控确认扫描来源与技术特征。" if monitored else " 尚无法确认具体来源与漏洞目标。")
+                    ),
                     target=target,
-                    source_action=red.action_type,
-                    metadata=red_result.metadata,
+                    source_action="SuspiciousScanning",
+                    metadata=alert_metadata,
                 )
             ]
 
         severity = "CRIT" if red_result.success and red_result.effect in {"compromise", "exfiltration"} else "WARN"
-        vuln_id = self._extract_vuln_id(red, red_result)
+        vuln_id = self._extract_vuln_id(red, red_result) if monitored else None
+        observed_state = self._blue_observed_control_state(state, target) if monitored else "待核实"
+        event_type = self._blue_alert_event_type(red.action_type)
         return [
             SecurityAlert(
                 severity=severity,
                 message=(
-                    f"[{severity}] {target or 'unknown'} 节点遭到 {red.action_type} 攻击，"
-                    f"vuln_id={vuln_id or 'unknown'}，当前状态为 {target_status}。"
+                    f"[{severity}] {target or 'unknown'} 节点出现 {event_type} 告警，"
+                    f"漏洞归因={vuln_id or '未确认'}，节点控制状态={observed_state}。"
                 ),
                 target=target,
-                source_action=red.action_type,
-                metadata=red_result.metadata,
+                source_action=event_type,
+                metadata=alert_metadata,
             )
         ]
+
+    def _build_blue_alert_metadata(
+        self,
+        red: AgentDecision,
+        red_result: ActionResult,
+        *,
+        monitored: bool,
+    ) -> dict[str, Any]:
+        metadata: dict[str, Any] = {
+            "target": red.target,
+            "observed_action_family": self._blue_alert_event_type(red.action_type),
+            "detection_confidence": "high" if monitored else "low",
+            "attribution": "confirmed_by_monitoring" if monitored else "unconfirmed_alert",
+            "observed_effect": red_result.effect if monitored else "suspicious_activity",
+        }
+        if monitored:
+            vuln_id = self._extract_vuln_id(red, red_result)
+            if vuln_id:
+                metadata["vuln_id"] = vuln_id
+            pivot_source = red_result.metadata.get("pivot_source")
+            if isinstance(pivot_source, str) and pivot_source:
+                metadata["pivot_source"] = pivot_source
+        return metadata
+
+    def _blue_alert_event_type(self, red_action_type: str) -> str:
+        return {
+            "Recon": "SuspiciousScanning",
+            "ExploitService": "SuspiciousServiceExploit",
+            "LateralMove": "SuspiciousRemoteAccess",
+            "AnchorFoothold": "SuspiciousPersistenceChange",
+            "ReactivateFoothold": "SuspiciousPersistenceReactivation",
+            "ExfiltrateDatabase": "SuspiciousDataTransfer",
+        }.get(red_action_type, "SuspiciousActivity")
+
+    def _blue_observed_control_state(self, state: WorldState, target: str | None) -> str:
+        if not target or target not in state.network_nodes:
+            return "Unknown"
+        node = state.network_nodes[target]
+        if node.status == "Compromised":
+            return "Compromised"
+        if node.red_state.persistence:
+            return "Persistence"
+        if node.red_state.foothold:
+            return "Foothold"
+        if node.red_state.session_active:
+            return "SessionActive"
+        return node.status
 
