@@ -108,10 +108,10 @@ function TerminalLogs({ round }: TerminalLogsProps) {
   }, [lines, roundLabel]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col rounded-2xl border border-white/[0.08] bg-[#070d16]/72">
-      <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 py-2">
+    <div className="flex h-full min-h-0 flex-col rounded-2xl border border-white/[0.14] bg-[#111a2e]">
+      <div className="flex shrink-0 items-center justify-between border-b border-white/[0.14] px-4 py-2">
         <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-400">实时安全终端</p>
-        <span className="font-mono text-[11px] text-slate-500">回合 {roundLabel}</span>
+        <span className="font-mono text-[11px] text-slate-400">回合 {roundLabel}</span>
       </div>
 
       <div ref={scrollerRef} className="cyber-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-3 font-mono text-xs leading-6">
@@ -119,7 +119,7 @@ function TerminalLogs({ round }: TerminalLogsProps) {
           <div key={line.id} className="whitespace-pre-wrap break-words">
             <span className={ROLE_TEXT_CLASS[line.role]}>[{translateRole(line.role)}]</span>
             <span className="ml-2 text-slate-300">{line.message}</span>
-            {line.detail ? <span className="ml-2 text-slate-500">| {line.detail}</span> : null}
+            {line.detail ? <span className="ml-2 text-slate-400">| {line.detail}</span> : null}
           </div>
         ))}
       </div>

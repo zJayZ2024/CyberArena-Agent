@@ -121,12 +121,12 @@ function ReasoningPanel({ round }: ReasoningPanelProps) {
   const frameTone = round?.__frame_phase === "start" ? "border-amber-400/30 bg-amber-500/[0.06]" : "border-emerald-400/30 bg-emerald-500/[0.055]";
 
   return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#070d16]/78">
-      <header className="shrink-0 border-b border-white/[0.07] px-4 py-3">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">Round analysis</p>
+    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-white/[0.14] bg-[#111a2e]/78">
+      <header className="shrink-0 border-b border-white/[0.14] px-4 py-3">
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">Round analysis</p>
         <div className="mt-1 flex items-center justify-between gap-3">
           <h2 className="text-lg font-medium tracking-wide text-slate-100">当前回合分析</h2>
-          <span className="rounded-full border border-slate-700/80 px-2 py-0.5 font-mono text-[10px] text-slate-400">
+          <span className="rounded-full border border-slate-600/60 px-2 py-0.5 font-mono text-[10px] text-slate-400">
             回合 {roundLabel} · {round?.__frame_phase_label ?? "单帧"}
           </span>
         </div>
@@ -141,7 +141,7 @@ function ReasoningPanel({ round }: ReasoningPanelProps) {
             {frameChanges.length ? (
               <div className="mt-3 flex flex-wrap gap-2">
                 {frameChanges.slice(0, 5).map((change: any) => (
-                  <span key={`${change.node}-${change.from}-${change.to}`} className="rounded-md border border-white/[0.08] bg-white/[0.04] px-2 py-1 font-mono text-[10px] text-slate-300">
+                  <span key={`${change.node}-${change.from}-${change.to}`} className="rounded-md border border-white/[0.14] bg-[#1c2d4a]/80 px-2 py-1 font-mono text-[10px] text-slate-300">
                     {change.node}: {statusLabel(change.from)} {"->"} {statusLabel(change.to)}
                   </span>
                 ))}
@@ -160,7 +160,7 @@ function ReasoningPanel({ round }: ReasoningPanelProps) {
                 </h3>
                 <p className="mt-1 font-mono text-[11px] text-slate-400">目标：{block.target}</p>
               </div>
-              <span className={`shrink-0 rounded-md bg-white/[0.06] px-2 py-1 font-mono text-[10px] ${LABEL_CLASS[block.tone]}`}>
+              <span className={`shrink-0 rounded-md bg-[#1c2d4a] px-2 py-1 font-mono text-[10px] ${LABEL_CLASS[block.tone]}`}>
                 {block.result}
               </span>
             </div>

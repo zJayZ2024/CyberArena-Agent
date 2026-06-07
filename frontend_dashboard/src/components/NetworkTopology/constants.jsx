@@ -1,38 +1,38 @@
 export const T = {
-  bg: "#06080d",
-  bgPanel: "#0a0f19",
-  bgNode: "#111827",
-  border: "#243244",
-  red: "#ff4d5e",
-  redDim: "#991b1b",
-  redBg: "#240b10",
-  redGlow: "rgba(255,77,94,0.58)",
-  blue: "#3b82f6",
-  blueDim: "#1d4ed8",
-  blueBg: "#081426",
-  blueGlow: "rgba(59,130,246,0.55)",
-  green: "#27d17f",
-  greenBg: "#06190f",
-  greenGlow: "rgba(39,209,127,0.45)",
-  amber: "#f6b73c",
-  amberBg: "#1f1404",
-  gray: "#475569",
-  grayText: "#a8b3c7",
-  grayDim: "#64748b",
+  bg: "#0c1220",
+  bgPanel: "#111a2e",
+  bgNode: "#1c2d4a",
+  border: "#304060",
+  red: "#ff6b7a",
+  redDim: "#b91c1c",
+  redBg: "rgba(255,107,122,0.12)",
+  redGlow: "rgba(255,107,122,0.65)",
+  blue: "#5b9fff",
+  blueDim: "#2563eb",
+  blueBg: "rgba(91,159,255,0.10)",
+  blueGlow: "rgba(91,159,255,0.55)",
+  green: "#34e08d",
+  greenBg: "rgba(52,224,141,0.10)",
+  greenGlow: "rgba(52,224,141,0.50)",
+  amber: "#ffcc55",
+  amberBg: "rgba(255,204,85,0.08)",
+  gray: "#7088b0",
+  grayText: "#b8c5db",
+  grayDim: "#8a9bc0",
   fontMono: "'JetBrains Mono', monospace",
 };
 
 export const PAGE_STYLES = `
   @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap");
   .topology-page { margin: 0 auto; min-height: 100vh; padding: 24px 40px; }
-  .page-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 2px; color: #64748b; margin-bottom: 16px; text-transform: uppercase; }
+  .page-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 2px; color: #8a9bc0; margin-bottom: 16px; text-transform: uppercase; }
   .controls { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
-  .ctrl-btn { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 6px 14px; border-radius: 4px; cursor: pointer; background: #111827; border: 1px solid #243244; color: #a8b3c7; transition: all 0.15s; }
-  .ctrl-btn:hover:not(:disabled) { border-color: #3b82f6; color: #3b82f6; }
-  .ctrl-btn.active { background: #081426; border-color: #3b82f6; color: #3b82f6; }
+  .ctrl-btn { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 6px 14px; border-radius: 4px; cursor: pointer; background: #1c2d4a; border: 1px solid #304060; color: #b8c5db; transition: all 0.15s; }
+  .ctrl-btn:hover:not(:disabled) { border-color: #5b9fff; color: #5b9fff; }
+  .ctrl-btn.active { background: rgba(91,159,255,0.10); border-color: #5b9fff; color: #5b9fff; }
   .ctrl-btn:disabled { opacity: 0.45; cursor: not-allowed; }
   .info-row { display: flex; gap: 14px; margin-top: 18px; flex-wrap: wrap; }
-  .info-chip { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 5px 12px; border-radius: 20px; background: #111827; border: 0.5px solid #243244; color: #64748b; }
+  .info-chip { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 5px 12px; border-radius: 20px; background: #1c2d4a; border: 0.5px solid #304060; color: #8a9bc0; }
 `;
 
 export const GRAPH_VIEW = {
@@ -65,10 +65,10 @@ const ZONE_NOTES = {
   external: "红方从互联网发起行动；该区域不是可争夺资产。",
 };
 const ZONE_STYLES = {
-  external: { color: T.gray, bg: "rgba(71,85,105,0.05)" },
-  dmz: { color: T.blue, bg: "rgba(59,130,246,0.055)" },
-  office: { color: T.green, bg: "rgba(39,209,127,0.05)" },
-  core: { color: T.amber, bg: "rgba(246,183,60,0.055)" },
+  external: { color: T.gray, bg: "rgba(112,136,176,0.07)" },
+  dmz: { color: T.blue, bg: "rgba(91,159,255,0.07)" },
+  office: { color: T.green, bg: "rgba(52,224,141,0.06)" },
+  core: { color: T.amber, bg: "rgba(255,204,85,0.07)" },
 };
 
 const HIDDEN_RESOURCE_NODE_IDS = new Set(["internet"]);
@@ -103,19 +103,19 @@ const NODE_POSITION_HINTS = {
 
 export const STATUS_STYLES = {
   Normal: { border: T.blue, bg: T.bgNode, glow: "none", dot: T.green, label: "正常" },
-  Scanning: { border: T.amber, bg: T.amberBg, glow: "0 0 10px rgba(246,183,60,.55)", dot: T.amber, label: "侦察中" },
-  Compromised: { border: T.red, bg: T.redBg, glow: "0 0 14px rgba(255,77,94,.7)", dot: T.red, label: "已失陷" },
-  Defended: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(39,209,127,.55)", dot: T.green, label: "已加固" },
-  Isolated: { border: T.grayDim, bg: "#0b1220", glow: "none", dot: T.grayDim, label: "已隔离" },
-  Patched: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(39,209,127,.55)", dot: T.green, label: "已修补" },
-  Down: { border: T.grayDim, bg: "#0b1220", glow: "none", dot: T.grayDim, label: "离线" },
+  Scanning: { border: T.amber, bg: T.amberBg, glow: "0 0 12px rgba(255,204,85,.6)", dot: T.amber, label: "侦察中" },
+  Compromised: { border: T.red, bg: T.redBg, glow: "0 0 16px rgba(255,107,122,.75)", dot: T.red, label: "已失陷" },
+  Defended: { border: T.green, bg: T.greenBg, glow: "0 0 12px rgba(52,224,141,.6)", dot: T.green, label: "已加固" },
+  Isolated: { border: T.grayDim, bg: "#162340", glow: "none", dot: T.grayDim, label: "已隔离" },
+  Patched: { border: T.green, bg: T.greenBg, glow: "0 0 12px rgba(52,224,141,.6)", dot: T.green, label: "已修补" },
+  Down: { border: T.grayDim, bg: "#162340", glow: "none", dot: T.grayDim, label: "离线" },
   normal: { border: T.blue, bg: T.bgNode, glow: "none", dot: T.green, label: "正常" },
-  scanning: { border: T.amber, bg: T.amberBg, glow: "0 0 10px rgba(246,183,60,.55)", dot: T.amber, label: "侦察中" },
-  compromised: { border: T.red, bg: T.redBg, glow: "0 0 14px rgba(255,77,94,.7)", dot: T.red, label: "已失陷" },
-  defended: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(39,209,127,.55)", dot: T.green, label: "已加固" },
-  isolated: { border: T.grayDim, bg: "#0b1220", glow: "none", dot: T.grayDim, label: "已隔离" },
-  patched: { border: T.green, bg: T.greenBg, glow: "0 0 10px rgba(39,209,127,.55)", dot: T.green, label: "已修补" },
-  down: { border: T.grayDim, bg: "#0b1220", glow: "none", dot: T.grayDim, label: "离线" },
+  scanning: { border: T.amber, bg: T.amberBg, glow: "0 0 12px rgba(255,204,85,.6)", dot: T.amber, label: "侦察中" },
+  compromised: { border: T.red, bg: T.redBg, glow: "0 0 16px rgba(255,107,122,.75)", dot: T.red, label: "已失陷" },
+  defended: { border: T.green, bg: T.greenBg, glow: "0 0 12px rgba(52,224,141,.6)", dot: T.green, label: "已加固" },
+  isolated: { border: T.grayDim, bg: "#162340", glow: "none", dot: T.grayDim, label: "已隔离" },
+  patched: { border: T.green, bg: T.greenBg, glow: "0 0 12px rgba(52,224,141,.6)", dot: T.green, label: "已修补" },
+  down: { border: T.grayDim, bg: "#162340", glow: "none", dot: T.grayDim, label: "离线" },
 };
 
 const IconShield = ({ size = 16, color = "#fff" }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>;

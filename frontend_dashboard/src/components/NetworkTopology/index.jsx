@@ -124,8 +124,8 @@ function NetworkTopology({ initialRounds = DEFAULT_ROUNDS }) {
             <LegendBar phase={ws.red_phase} />
           </div>
 
-          <div style={{ paddingTop: 10, color: "#4b5563", fontFamily: T.fontMono, fontSize: 10 }}>
-            开发提示：调用 <code style={{ color: "#6b7280" }}>window.loadFrame(json)</code> 可用后端回放数据替换预览帧。
+          <div style={{ paddingTop: 10, color: "#7088b0", fontFamily: T.fontMono, fontSize: 10 }}>
+            开发提示：调用 <code style={{ color: "#8a9bc0" }}>window.loadFrame(json)</code> 可用后端回放数据替换预览帧。
           </div>
         </div>
 

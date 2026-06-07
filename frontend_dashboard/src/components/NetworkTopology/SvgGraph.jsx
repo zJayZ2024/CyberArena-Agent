@@ -383,7 +383,7 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
       }
     : { id: "internet", x: Math.round(GRAPH_VIEW.zoneX + 56), y: GRAPH_VIEW.baseY };
   const InternetIcon = resolveNodeIcon("internet", "external");
-  const internetColor = "#22d3ee";
+  const internetColor = T.grayDim;
 
   const redEntryNode = hasCurrentRedAction ? activePathIds[0] : null;
   const attackEdges = pathToEdges(activePathIds, graph.nodeConfigs);
@@ -438,9 +438,9 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
     <div style={{ position: "relative", width: "100%", height: "100%", background: "transparent", overflow: "hidden" }}>
       <style>{`
         @keyframes cyberFlow { to { stroke-dashoffset: -18; } }
-        @keyframes cyberPulseRed { 0%,100% { filter: drop-shadow(0 0 5px rgba(239,68,68,.4)); } 50% { filter: drop-shadow(0 0 16px rgba(239,68,68,.9)); } }
-        @keyframes cyberPulseAmber { 0%,100% { filter: drop-shadow(0 0 4px rgba(245,158,11,.3)); } 50% { filter: drop-shadow(0 0 12px rgba(245,158,11,.8)); } }
-        @keyframes cyberPulseGreen { 0%,100% { filter: drop-shadow(0 0 4px rgba(34,197,94,.3)); } 50% { filter: drop-shadow(0 0 12px rgba(34,197,94,.7)); } }
+        @keyframes cyberPulseRed { 0%,100% { filter: drop-shadow(0 0 5px rgba(255,107,122,.4)); } 50% { filter: drop-shadow(0 0 16px rgba(255,107,122,.9)); } }
+        @keyframes cyberPulseAmber { 0%,100% { filter: drop-shadow(0 0 4px rgba(255,204,85,.3)); } 50% { filter: drop-shadow(0 0 12px rgba(255,204,85,.8)); } }
+        @keyframes cyberPulseGreen { 0%,100% { filter: drop-shadow(0 0 4px rgba(52,224,141,.3)); } 50% { filter: drop-shadow(0 0 12px rgba(52,224,141,.7)); } }
         @keyframes cyberSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes cyberBlink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
       `}</style>
@@ -522,7 +522,7 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
         {attackEdges.map(({ a, b }, i) => <AnimatedEdge key={`${a.id}-${b.id}-${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} color={T.red} dasharray="6 3" speed={0.38} markerId="ar" opacity={0.9} onClick={openAttackFlowDetail} title="查看攻击路径详情" endPadding={24} />)}
         {defEdge && <AnimatedEdge x1={defEdge.x1} y1={defEdge.y1} x2={defEdge.x2} y2={defEdge.y2} color={T.blue} dasharray="7 3" speed={0.55} markerId="ab" opacity={0.85} onClick={openDefenseFlowDetail} title="查看防御路径详情" endPadding={24} />}
         <g transform={`translate(${internetCfg.x},${internetCfg.y})`}>
-          <circle r={24} cx={0} cy={0} fill="#06141a" stroke={internetColor} strokeWidth="1.8" />
+          <circle r={24} cx={0} cy={0} fill="#111a2e" stroke={internetColor} strokeWidth="1.8" />
           <circle r={30} cx={0} cy={0} fill="none" stroke={internetColor} strokeWidth="0.9" strokeDasharray="3 3" opacity="0.7" />
           <foreignObject x={-10} y={-16} width={20} height={20} style={{ pointerEvents: "none", overflow: "visible" }}>
             <div xmlns="http://www.w3.org/1999/xhtml" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>

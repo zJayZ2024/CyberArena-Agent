@@ -150,7 +150,7 @@ function EventLog({ rounds, idx }) {
                 flex: 1,
                 fontFamily: T.fontMono,
                 fontSize: 10,
-                color: e.type === "ATK" ? "#fca5a5" : e.type === "DEF" ? "#93c5fd" : e.type === "CRIT" ? "#fca5a5" : e.type === "WARN" ? "#fcd34d" : "#9ca3af",
+                color: e.type === "ATK" ? "#ffb3b3" : e.type === "DEF" ? "#a3cdff" : e.type === "CRIT" ? "#ffb3b3" : e.type === "WARN" ? "#ffe066" : "#b8c5db",
                 lineHeight: 1.4,
                 paddingTop: 2,
               }}

@@ -71,15 +71,15 @@ function normalizeCatalogPayload(payload: any): ScenarioCatalogItem[] {
 function difficultyTone(difficulty = "") {
   const lowered = difficulty.toLowerCase();
   if (lowered.includes("expert") || difficulty.includes("专家")) {
-    return "border-red-400/35 bg-red-500/10 text-red-200";
+    return "border-red-400/50 bg-[rgba(255,107,122,0.12)] text-red-200";
   }
   if (lowered.includes("advanced") || difficulty.includes("高级")) {
-    return "border-amber-400/35 bg-amber-500/10 text-amber-200";
+    return "border-amber-400/50 bg-amber-500/10 text-amber-200";
   }
   if (lowered.includes("intermediate") || difficulty.includes("中级")) {
-    return "border-cyan-400/35 bg-cyan-500/10 text-cyan-200";
+    return "border-violet-400/50 bg-violet-500/10 text-violet-200";
   }
-  return "border-emerald-400/35 bg-emerald-500/10 text-emerald-200";
+  return "border-emerald-400/50 bg-emerald-500/10 text-emerald-200";
 }
 
 function ScenarioSelection({
@@ -156,18 +156,18 @@ function ScenarioSelection({
     <div className="flex h-full min-h-0 flex-col overflow-y-auto px-5 py-4">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 pb-4">
         <div className="min-w-0">
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">场景</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">场景</p>
           <h1 className="mt-1 text-xl font-light tracking-wide text-slate-100">拓扑选择</h1>
         </div>
-        <div className="flex min-w-0 flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">
-          <span className={`rounded-md border px-2 py-1 ${catalogSource === "catalog" ? "border-cyan-400/35 text-cyan-200" : "border-amber-400/35 text-amber-200"}`}>
+        <div className="flex min-w-0 flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-400">
+          <span className={`rounded-md border px-2 py-1 ${catalogSource === "catalog" ? "border-blue-400/50 text-blue-200" : "border-amber-400/50 text-amber-200"}`}>
             {catalogSource === "catalog" ? "目录" : "备用"}
           </span>
-          <span className="rounded-md border border-slate-700/80 px-2 py-1 text-slate-400">{catalog.length} 张拓扑</span>
+          <span className="rounded-md border border-slate-600/60 px-2 py-1 text-slate-400">{catalog.length} 张拓扑</span>
           <button
             type="button"
             onClick={() => onStartScenario?.(activeScenario)}
-            className="rounded-md border border-cyan-300/45 bg-cyan-400/15 px-3 py-1 text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-400/20"
+            className="rounded-md border border-blue-300/45 bg-gradient-to-r from-[#5b9fff] to-[#7c8fff] px-3 py-1 text-white transition hover:brightness-110"
           >
             开始
           </button>
@@ -186,14 +186,14 @@ function ScenarioSelection({
                   onClick={() => selectScenario(scenario)}
                   className={`w-full rounded-lg border p-4 text-left transition ${
                     active
-                      ? "border-cyan-300/70 bg-cyan-400/[0.08] shadow-[0_0_18px_rgba(34,211,238,0.18)]"
-                      : "border-slate-800 bg-[#0b1222]/70 hover:border-slate-600 hover:bg-white/[0.04]"
+                      ? "border-blue-400/60 border-l-[3px] border-l-[#5b9fff] bg-[rgba(91,159,255,0.10)] shadow-[0_0_18px_rgba(91,159,255,0.16)]"
+                      : "border-[#304060] bg-[#162340] hover:border-[#5b9fff]/55 hover:bg-[#1c2d4a]"
                   }`}
                 >
                   <div className="flex min-w-0 items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="break-words text-sm font-medium text-slate-100">{translateScenarioName(scenario.name)}</p>
-                      <p className="mt-1 font-mono text-[10px] tracking-[0.12em] text-slate-500">场景 ID：{scenario.id}</p>
+                      <p className="mt-1 font-mono text-[10px] tracking-[0.12em] text-slate-400">场景 ID：{scenario.id}</p>
                     </div>
                     <span className={`shrink-0 rounded-md border px-2 py-1 font-mono text-[10px] uppercase ${difficultyTone(scenario.difficulty)}`}>
                       {translateDifficulty(scenario.difficulty)}
@@ -203,9 +203,9 @@ function ScenarioSelection({
                   <p className="mt-3 break-words text-xs leading-5 text-slate-400">{scenario.summary}</p>
 
                   <div className="mt-4 grid grid-cols-3 gap-2 font-mono text-[10px] uppercase tracking-[0.08em]">
-                    <span className="rounded-md bg-white/[0.04] px-2 py-1 text-slate-400">节点 {scenario.stats.nodes}</span>
-                    <span className="rounded-md bg-white/[0.04] px-2 py-1 text-slate-400">连线 {scenario.stats.edges}</span>
-                    <span className="rounded-md bg-white/[0.04] px-2 py-1 text-slate-400">漏洞 {scenario.stats.vulnerabilities}</span>
+                    <span className="rounded-md bg-[#1c2d4a]/80 px-2 py-1 text-slate-400">节点 {scenario.stats.nodes}</span>
+                    <span className="rounded-md bg-[#1c2d4a]/80 px-2 py-1 text-slate-400">连线 {scenario.stats.edges}</span>
+                    <span className="rounded-md bg-[#1c2d4a]/80 px-2 py-1 text-slate-400">漏洞 {scenario.stats.vulnerabilities}</span>
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-1.5">
@@ -221,8 +221,8 @@ function ScenarioSelection({
           </div>
         </aside>
 
-        <section className="flex min-h-[560px] flex-col overflow-hidden rounded-lg border border-slate-800 bg-[#080d19]/70 xl:min-h-0">
-          <div className="grid shrink-0 grid-cols-1 gap-3 border-b border-slate-800 px-4 py-3 md:grid-cols-[minmax(0,1fr)_220px]">
+        <section className="flex min-h-[560px] flex-col overflow-hidden rounded-lg border border-slate-700 bg-[#111a2e]/70 xl:min-h-0">
+          <div className="grid shrink-0 grid-cols-1 gap-3 border-b border-slate-700 px-4 py-3 md:grid-cols-[minmax(0,1fr)_220px]">
             <div className="min-w-0">
               <div className="flex min-w-0 items-center gap-2">
                 <h2 className="truncate text-lg font-light tracking-wide text-slate-100">{translateScenarioName(activeScenario.name)}</h2>
@@ -230,44 +230,44 @@ function ScenarioSelection({
                   {translateDifficulty(activeScenario.difficulty)}
                 </span>
               </div>
-              <p className="mt-1 truncate font-mono text-[10px] text-slate-500">场景文件：{activeScenario.scenario_path}</p>
+              <p className="mt-1 truncate font-mono text-[10px] text-slate-400">场景文件：{activeScenario.scenario_path}</p>
             </div>
 
             <button
               type="button"
               onClick={() => onStartScenario?.(activeScenario)}
-              className="rounded-md border border-cyan-300/45 bg-cyan-400/15 px-4 py-2 font-mono text-xs uppercase tracking-[0.14em] text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-400/20"
+              className="rounded-md border border-blue-300/45 bg-gradient-to-r from-[#5b9fff] to-[#7c8fff] px-4 py-2 font-mono text-xs uppercase tracking-[0.14em] text-white transition hover:brightness-110"
             >
               启动仿真
             </button>
           </div>
 
-          <div className="grid shrink-0 grid-cols-4 gap-3 border-b border-slate-800 px-4 py-3 text-xs">
+          <div className="grid shrink-0 grid-cols-4 gap-3 border-b border-slate-700 px-4 py-3 text-xs">
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">节点</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">节点</p>
               <p className="mt-1 text-slate-200">{activeScenario.stats.nodes}</p>
             </div>
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">连线</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">连线</p>
               <p className="mt-1 text-slate-200">{activeScenario.stats.edges}</p>
             </div>
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">漏洞</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">漏洞</p>
               <p className="mt-1 text-slate-200">{activeScenario.stats.vulnerabilities}</p>
             </div>
             <div className="min-w-0">
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">核心资产</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">核心资产</p>
               <p className="mt-1 truncate text-slate-200">{coreAssets}</p>
             </div>
           </div>
 
-          <div className="grid shrink-0 grid-cols-2 gap-3 border-b border-slate-800 px-4 py-3 text-xs leading-5">
+          <div className="grid shrink-0 grid-cols-2 gap-3 border-b border-slate-700 px-4 py-3 text-xs leading-5">
             <div className="min-w-0">
               <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-red-300">红方目标</p>
               <p className="mt-1 break-words text-slate-400">{activeScenario.objectives.red}</p>
             </div>
             <div className="min-w-0">
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-cyan-300">蓝方目标</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#5b9fff]">蓝方目标</p>
               <p className="mt-1 break-words text-slate-400">{activeScenario.objectives.blue}</p>
             </div>
           </div>

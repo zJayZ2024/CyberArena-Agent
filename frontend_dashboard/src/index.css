@@ -11,7 +11,7 @@
   }
 
   body {
-    @apply m-0 overflow-hidden bg-[#07090f] text-slate-100;
+    @apply m-0 overflow-hidden bg-arena-root text-arena-body;
   }
 }
 

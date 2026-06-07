@@ -189,7 +189,7 @@ function LiveScoreChart({
   const blueGlowId = `glow-blue-${uid}`;
 
   return (
-    <article className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+    <article className="rounded-2xl border border-white/[0.14] bg-[#111a2e] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
       <div className="mb-2 flex items-start justify-between gap-2">
         <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-400">得分趋势（红方 vs 蓝方）</p>
         <div className="text-right font-mono leading-5">
@@ -226,7 +226,7 @@ function LiveScoreChart({
               y1={y}
               x2={view.width - padding.right}
               y2={y}
-              stroke="rgba(255,255,255,0.08)"
+              stroke="rgba(255,255,255,0.12)"
               strokeWidth="1"
               strokeDasharray="4 4"
             />
@@ -234,27 +234,27 @@ function LiveScoreChart({
         })}
 
         {bluePath ? (
-          <path d={bluePath} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" filter={`url(#${blueGlowId})`} />
+          <path d={bluePath} fill="none" stroke="#5b9fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" filter={`url(#${blueGlowId})`} />
         ) : null}
         {redPath ? (
-          <path d={redPath} fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" filter={`url(#${redGlowId})`} />
+          <path d={redPath} fill="none" stroke="#ff6b7a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" filter={`url(#${redGlowId})`} />
         ) : null}
 
         {visibleRound >= 0 ? (
           <>
-            <circle cx={markerX} cy={markerBlueY} r="3.2" fill="#3b82f6" filter={`url(#${blueGlowId})`}>
+            <circle cx={markerX} cy={markerBlueY} r="3.2" fill="#5b9fff" filter={`url(#${blueGlowId})`}>
               <animate attributeName="r" values="3;5;3" dur="1.8s" repeatCount="indefinite" />
             </circle>
-            <circle cx={markerX} cy={markerRedY} r="3.2" fill="#ef4444" filter={`url(#${redGlowId})`}>
+            <circle cx={markerX} cy={markerRedY} r="3.2" fill="#ff6b7a" filter={`url(#${redGlowId})`}>
               <animate attributeName="r" values="3;5;3" dur="1.8s" repeatCount="indefinite" />
             </circle>
           </>
         ) : null}
 
-        <text x={padding.left} y={view.height - 6} fontSize="10" fill="#64748b" fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace">
+        <text x={padding.left} y={view.height - 6} fontSize="10" fill="#8a9bc0" fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace">
           回合 0
         </text>
-        <text x={view.width - padding.right} y={view.height - 6} textAnchor="end" fontSize="10" fill="#64748b" fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace">
+        <text x={view.width - padding.right} y={view.height - 6} textAnchor="end" fontSize="10" fill="#8a9bc0" fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace">
           回合 {safeTotalRounds}
         </text>
       </svg>

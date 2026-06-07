@@ -205,18 +205,18 @@ function buildPlaybackFrames(rounds: any[]) {
 
 function MetricTile({ label, value, tone = "slate", subtext }: { label: string; value: string | number; tone?: "red" | "blue" | "green" | "amber" | "slate"; subtext?: string }) {
   const toneClass = {
-    red: "border-red-400/35 text-red-200",
-    blue: "border-blue-400/35 text-blue-200",
+    red: "border-red-400/50 border-l-[3px] border-l-[#ff6b7a] text-red-200",
+    blue: "border-blue-400/50 border-l-[3px] border-l-[#5b9fff] text-blue-200",
     green: "border-emerald-400/35 text-emerald-200",
     amber: "border-amber-400/35 text-amber-200",
     slate: "border-slate-600/50 text-slate-200",
   }[tone];
 
   return (
-    <div className={`rounded-xl border bg-white/[0.025] px-4 py-3 ${toneClass}`}>
-      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">{label}</p>
+    <div className={`rounded-xl border bg-[#162340] px-4 py-3 ${toneClass}`}>
+      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">{label}</p>
       <p className="mt-2 text-2xl font-light tracking-wide">{value}</p>
-      {subtext ? <p className="mt-1 text-xs text-slate-500">{subtext}</p> : null}
+      {subtext ? <p className="mt-1 text-xs text-slate-400">{subtext}</p> : null}
     </div>
   );
 }
@@ -232,7 +232,7 @@ function StatusPill({ label, value, tone = "slate" }: { label: string; value: st
 
   return (
     <div className="flex min-w-0 items-baseline gap-2 whitespace-nowrap">
-      <span className="font-mono text-[10px] uppercase tracking-[0.13em] text-slate-500">{label}</span>
+      <span className="font-mono text-[10px] uppercase tracking-[0.13em] text-slate-400">{label}</span>
       <span className={`font-mono text-sm ${toneClass}`}>{value}</span>
     </div>
   );
@@ -283,10 +283,10 @@ function SituationBar({
   const playbackStep = `${(currentRound?.__playback_index ?? roundIndex) + 1} / ${currentRound?.__playback_count ?? frameCount}`;
 
   return (
-    <header className="shrink-0 rounded-2xl border border-white/[0.08] bg-[#07101b]/86 px-4 py-3 shadow-[0_18px_42px_rgba(0,0,0,0.22)]">
+    <header className="shrink-0 rounded-2xl border border-white/[0.14] bg-[#111a2e] px-4 py-3 shadow-[0_18px_42px_rgba(0,0,0,0.22)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-cyan-300/70">CyberArena live range</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#8a9bc0]">CyberArena live range</p>
           <h1 className="mt-1 truncate text-xl font-light tracking-wide text-slate-100">{scenarioName}</h1>
         </div>
 
@@ -306,14 +306,14 @@ function SituationBar({
           <button
             type="button"
             onClick={onTogglePlay}
-            className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 font-mono text-xs text-cyan-100 transition hover:bg-cyan-400/18"
+            className="rounded-lg border border-blue-400/40 bg-blue-500/15 px-3 py-1.5 font-mono text-xs text-blue-100 transition hover:bg-blue-400/22"
           >
             {playing ? "暂停" : "播放"}
           </button>
           <button
             type="button"
             onClick={onNext}
-            className="rounded-lg border border-slate-600/60 bg-white/[0.03] px-3 py-1.5 font-mono text-xs text-slate-200 transition hover:border-blue-300/60"
+            className="rounded-lg border border-slate-500/50 bg-[#162340] px-3 py-1.5 font-mono text-xs text-slate-200 transition hover:border-blue-300/60"
           >
             下一步
           </button>
@@ -330,7 +330,7 @@ function SituationBar({
             max={Math.max(frameCount - 1, 0)}
             value={roundIndex}
             onChange={(event) => onSeek(Number(event.target.value))}
-            className="h-1.5 min-w-36 flex-1 cursor-pointer appearance-none rounded-full bg-slate-800 accent-blue-500"
+            className="h-1.5 min-w-36 flex-1 cursor-pointer appearance-none rounded-full bg-[#1c2d4a] accent-blue-500"
           />
         </div>
       </div>
@@ -341,8 +341,8 @@ function SituationBar({
 function BattleLegend() {
   return (
     <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em]">
-      <span className="rounded-full border border-red-400/35 bg-red-500/15 px-2.5 py-1 text-red-200">攻击 / 失陷</span>
-      <span className="rounded-full border border-blue-400/35 bg-blue-500/15 px-2.5 py-1 text-blue-200">防御 / 隔离</span>
+      <span className="rounded-full border border-red-400/50 bg-[rgba(255,107,122,0.12)] px-2.5 py-1 text-red-200">攻击 / 失陷</span>
+      <span className="rounded-full border border-blue-400/50 bg-[rgba(91,159,255,0.10)] px-2.5 py-1 text-blue-200">防御 / 隔离</span>
       <span className="rounded-full border border-emerald-400/35 bg-emerald-500/15 px-2.5 py-1 text-emerald-200">修复 / 健康</span>
       <span className="rounded-full border border-amber-400/35 bg-amber-500/15 px-2.5 py-1 text-amber-200">告警 / 争夺中</span>
       <span className="rounded-full border border-slate-500/35 bg-slate-500/15 px-2.5 py-1 text-slate-300">离线</span>
@@ -369,10 +369,10 @@ function EventTimeline({ rounds, roundIndex }: { rounds: any[]; roundIndex: numb
   }, [roundIndex, rounds]);
 
   return (
-    <section className="rounded-2xl border border-white/[0.08] bg-[#070d16]/76 p-3">
+    <section className="rounded-2xl border border-white/[0.14] bg-[#111a2e] p-3">
       <div className="flex items-center justify-between">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">攻击链时间线</p>
-        <span className="font-mono text-[10px] text-slate-500">最近 {items.length} 步</span>
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">攻击链时间线</p>
+        <span className="font-mono text-[10px] text-slate-400">最近 {items.length} 步</span>
       </div>
       <div className="mt-3 flex items-stretch gap-2 overflow-x-auto pb-1">
         {items.map((item) => {
@@ -380,12 +380,12 @@ function EventTimeline({ rounds, roundIndex }: { rounds: any[]; roundIndex: numb
             red: "border-red-400/40 bg-red-500/[0.09] text-red-200",
             blue: "border-blue-400/40 bg-blue-500/[0.09] text-blue-200",
             amber: "border-amber-400/40 bg-amber-500/[0.09] text-amber-200",
-            slate: "border-slate-600/60 bg-white/[0.03] text-slate-300",
+            slate: "border-slate-500/50 bg-[#162340] text-slate-300",
             green: "border-emerald-400/40 bg-emerald-500/[0.09] text-emerald-200",
           }[item.tone as "red" | "blue" | "amber" | "slate" | "green"];
           return (
             <article key={item.key} className={`min-w-[150px] rounded-xl border px-3 py-2 ${colorClass}`}>
-              <p className="font-mono text-[10px] text-slate-500">T{item.turn}</p>
+              <p className="font-mono text-[10px] text-slate-400">T{item.turn}</p>
               <p className="mt-1 truncate text-sm text-slate-100">{item.action}</p>
               <p className="mt-1 truncate font-mono text-[11px] opacity-80">{item.target}</p>
               <p className="mt-2 font-mono text-[10px]">{effectLabel(item.effect)}</p>
@@ -416,20 +416,20 @@ function SocAlertFlow({ rounds, roundIndex }: { rounds: any[]; roundIndex: numbe
   }, [roundIndex, rounds]);
 
   return (
-    <section className="rounded-2xl border border-white/[0.08] bg-[#070d16]/76 p-3">
+    <section className="rounded-2xl border border-white/[0.14] bg-[#111a2e] p-3">
       <div className="flex items-center justify-between">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">SOC 告警流</p>
-        <span className="font-mono text-[10px] text-slate-500">{alerts.length} 条</span>
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">SOC 告警流</p>
+        <span className="font-mono text-[10px] text-slate-400">{alerts.length} 条</span>
       </div>
       <div className="mt-3 max-h-28 space-y-2 overflow-y-auto pr-1">
         {alerts.length ? alerts.map((alert) => (
           <div key={alert.id} className="rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2 text-xs text-slate-300">
             <span className="mr-2 font-mono text-amber-300">[{alert.severity}]</span>
-            <span className="mr-2 text-slate-500">T{alert.turn} / {alert.target}</span>
+            <span className="mr-2 text-slate-400">T{alert.turn} / {alert.target}</span>
             {alert.message}
           </div>
         )) : (
-          <p className="rounded-lg border border-slate-700/60 bg-white/[0.025] px-3 py-2 text-xs text-slate-500">当前窗口暂无新增告警。</p>
+          <p className="rounded-lg border border-[#304060] bg-[#162340] px-3 py-2 text-xs text-[#8a9bc0]">当前窗口暂无新增告警。</p>
         )}
       </div>
     </section>
@@ -438,7 +438,7 @@ function SocAlertFlow({ rounds, roundIndex }: { rounds: any[]; roundIndex: numbe
 
 function ReplayControlPanel({ selectedReplay, onLoadReplay }: { selectedReplay: ReplayCatalogItem | null; onLoadReplay: (replay: ReplayCatalogItem, options?: { autoplay?: boolean }) => Promise<void> | void }) {
   return (
-    <section className="rounded-2xl border border-white/[0.08] bg-[#070d16]/76 p-3">
+    <section className="rounded-2xl border border-white/[0.14] bg-[#111a2e] p-3">
       <ReplayPicker compact selectedReplayId={selectedReplay?.id} onLoadReplay={onLoadReplay} />
     </section>
   );
@@ -467,19 +467,19 @@ function BottomDeck({
         <ReplayControlPanel selectedReplay={selectedReplay} onLoadReplay={onLoadReplay} />
       </div>
 
-      <div className="rounded-2xl border border-white/[0.08] bg-[#070d16]/76">
+      <div className="rounded-2xl border border-white/[0.14] bg-[#111a2e]">
         <button
           type="button"
           onClick={() => setTerminalOpen((open) => !open)}
           className="flex w-full items-center justify-between px-4 py-3 text-left"
         >
           <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">实时安全终端</span>
-          <span className="rounded-md border border-slate-700/80 px-2 py-1 font-mono text-[10px] text-slate-400">
+          <span className="rounded-md border border-slate-600/60 px-2 py-1 font-mono text-[10px] text-slate-400">
             {terminalOpen ? "收起" : "展开"}
           </span>
         </button>
         {terminalOpen ? (
-          <div className="h-40 border-t border-white/[0.07] p-2">
+          <div className="h-40 border-t border-white/[0.14] p-2">
             <TerminalLogs round={currentRound} />
           </div>
         ) : null}
@@ -537,16 +537,16 @@ function BattleWorkbench({
       />
 
       <main className="battle-main">
-        <section className="battle-map relative overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#070d16]/72 shadow-[0_22px_54px_rgba(0,0,0,0.28)]">
+        <section className="battle-map relative overflow-hidden rounded-[24px] border border-white/[0.14] bg-[#111a2e] shadow-[0_22px_54px_rgba(0,0,0,0.28)]">
           <div className="absolute left-4 top-4 z-10">
             <BattleLegend />
           </div>
-          <div className="absolute right-4 top-4 z-10 max-w-[420px] rounded-xl border border-white/[0.08] bg-[#050b16]/85 px-3 py-2 shadow-[0_12px_28px_rgba(0,0,0,0.25)]">
+          <div className="absolute right-4 top-4 z-10 max-w-[420px] rounded-xl border border-white/[0.14] bg-[#162340] px-3 py-2 shadow-[0_12px_28px_rgba(0,0,0,0.25)]">
             <div className="flex items-center gap-2">
               <span className={`rounded-md border px-2 py-1 font-mono text-[10px] ${currentRound?.__frame_phase === "start" ? "border-amber-400/40 text-amber-200" : "border-emerald-400/40 text-emerald-200"}`}>
                 {currentRound?.__frame_phase_label ?? "回放帧"}
               </span>
-              <span className="font-mono text-[10px] text-slate-500">T{displayRound}</span>
+              <span className="font-mono text-[10px] text-slate-400">T{displayRound}</span>
             </div>
             <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-300">{currentRound?.__frame_summary ?? "当前拓扑状态。"}</p>
           </div>
@@ -612,9 +612,9 @@ function AnalysisPage({ rounds, currentRound, roundIndex, totalRounds }: { round
   return (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto px-6 py-5">
       <div className="shrink-0">
-        <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-cyan-300/70">Post simulation review</p>
+        <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#8a9bc0]">Post simulation review</p>
         <h1 className="mt-1 text-2xl font-light tracking-wide text-slate-100">结果分析</h1>
-        <p className="mt-1 text-sm text-slate-500">把复杂回放压缩成胜负、转折点和异常动作，方便演示后复盘。</p>
+        <p className="mt-1 text-sm text-slate-400">把复杂回放压缩成胜负、转折点和异常动作，方便演示后复盘。</p>
       </div>
 
       <section className="mt-5 grid grid-cols-2 gap-4 xl:grid-cols-4">
@@ -626,20 +626,20 @@ function AnalysisPage({ rounds, currentRound, roundIndex, totalRounds }: { round
 
       <section className="mt-5 grid min-h-[260px] grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <LiveScoreChart rounds={rounds} currentRoundIndex={roundIndex} totalRounds={totalRounds} />
-        <article className="rounded-2xl border border-white/[0.08] bg-[#070d16]/72 p-4">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">关键转折</p>
+        <article className="rounded-2xl border border-white/[0.14] bg-[#111a2e] p-4">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">关键转折</p>
           <div className="mt-4 space-y-2 text-sm text-slate-300">
             {summary.keyTurns.length ? summary.keyTurns.map((item) => (
               <div key={item} className="rounded-lg border border-amber-400/20 bg-amber-400/[0.07] px-3 py-2 text-amber-100">
                 {item}
               </div>
-            )) : <p className="text-slate-500">本次回放没有显著的同回合交互事件。</p>}
+            )) : <p className="text-[#8a9bc0]">本次回放没有显著的同回合交互事件。</p>}
           </div>
         </article>
       </section>
 
-      <section className="mt-5 rounded-2xl border border-white/[0.08] bg-[#070d16]/72 p-4">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">当前结论</p>
+      <section className="mt-5 rounded-2xl border border-white/[0.14] bg-[#111a2e] p-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">当前结论</p>
         <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-300">
           这场回放红方得分领先，但最终节点状态和胜负字段需要结合裁判规则复核。建议演示时强调关键路径和裁判裁定，评测时关注非法动作率、胜负锁定字段和核心资产最终状态。
         </p>
@@ -651,8 +651,8 @@ function AnalysisPage({ rounds, currentRound, roundIndex, totalRounds }: { round
 function PlaceholderPage({ title, description }: { title: string; description: string }) {
   return (
     <div className="flex h-full items-center justify-center p-8">
-      <div className="w-full max-w-2xl rounded-2xl border border-white/[0.08] bg-[#070d16]/72 p-8 text-center shadow-[0_20px_45px_rgba(2,8,22,0.4)]">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-slate-500">{title}</p>
+      <div className="w-full max-w-2xl rounded-2xl border border-white/[0.14] bg-[#111a2e] p-8 text-center shadow-[0_20px_45px_rgba(2,8,22,0.4)]">
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-slate-400">{title}</p>
         <h2 className="mt-3 text-2xl font-semibold text-slate-100">模块建设中</h2>
         <p className="mt-3 text-sm leading-7 text-slate-400">{description}</p>
       </div>
@@ -804,9 +804,9 @@ function App() {
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#06080d] text-slate-100">
-      <div className="flex h-full overflow-hidden bg-[linear-gradient(135deg,rgba(6,8,13,0.98),rgba(8,13,24,0.96)),radial-gradient(circle_at_72%_8%,rgba(37,99,235,0.18),transparent_42%),radial-gradient(circle_at_8%_24%,rgba(20,184,166,0.10),transparent_34%)]">
-        <aside className="relative w-60 shrink-0 border-r border-white/[0.06] bg-[#070b12]/88 shadow-[10px_0_35px_rgba(0,0,0,0.28)] backdrop-blur-sm">
+    <div className="h-screen w-screen overflow-hidden bg-[#0c1220] text-slate-100">
+      <div className="flex h-full overflow-hidden bg-[linear-gradient(135deg,rgba(12,18,32,0.98),rgba(17,26,46,0.96)),radial-gradient(circle_at_72%_8%,rgba(91,159,255,0.15),transparent_42%),radial-gradient(circle_at_8%_24%,rgba(52,224,141,0.08),transparent_34%)]">
+        <aside className="relative w-60 shrink-0 border-r border-white/[0.14] bg-[#111a2e] shadow-[10px_0_35px_rgba(0,0,0,0.28)] backdrop-blur-sm">
           <div className="px-5 pb-4 pt-7">
             <div className="flex items-center">
               <div className="origin-left scale-[1.65]">
@@ -816,7 +816,7 @@ function App() {
             </div>
             <div className="mt-4">
               <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300">多智能体网络安全仿真器</p>
-              <p className="text-[11px] text-slate-500">攻防演示控制台</p>
+              <p className="text-[11px] text-slate-400">攻防演示控制台</p>
             </div>
           </div>
 
@@ -830,19 +830,19 @@ function App() {
                   onClick={() => setActiveTab(item.key)}
                   className={`group relative w-full rounded-xl px-4 py-3 text-left transition ${
                     isActive
-                      ? "border border-cyan-300/16 bg-cyan-400/[0.08] shadow-[0_8px_22px_rgba(2,8,22,0.32)]"
-                      : "border border-transparent bg-transparent hover:bg-white/[0.035]"
+                      ? "border border-blue-400/30 bg-blue-400/15 shadow-[0_8px_22px_rgba(2,8,22,0.32)]"
+                      : "border border-transparent bg-transparent hover:bg-white/[0.06]"
                   }`}
                 >
                   <span
                     className={`absolute left-0 top-1/2 h-8 w-[2px] -translate-y-1/2 rounded-r-full transition ${
-                      isActive ? "bg-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.85)]" : "bg-transparent"
+                      isActive ? "bg-blue-400 shadow-[0_0_12px_rgba(91,159,255,0.85)]" : "bg-transparent"
                     }`}
                   />
                   <p className={`font-mono text-[11px] uppercase tracking-[0.11em] ${isActive ? "text-slate-100" : "text-slate-400 group-hover:text-slate-200"}`}>
                     {item.label}
                   </p>
-                  <p className={`mt-1 text-[11px] ${isActive ? "text-slate-400" : "text-slate-500 group-hover:text-slate-400"}`}>{item.subtitle}</p>
+                  <p className={`mt-1 text-[11px] ${isActive ? "text-slate-400" : "text-slate-400 group-hover:text-slate-300"}`}>{item.subtitle}</p>
                 </button>
               );
             })}

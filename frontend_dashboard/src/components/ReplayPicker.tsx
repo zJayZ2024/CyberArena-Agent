@@ -136,13 +136,13 @@ function ReplayPicker({ selectedReplayId, compact = false, onLoadReplay }: Repla
   };
 
   return (
-    <div className={`rounded-xl border border-cyan-400/15 bg-[#06111f]/70 ${compact ? "px-3 py-2" : "px-4 py-3"}`}>
+    <div className={`rounded-xl border border-blue-400/20 bg-[#111a2e]/70 ${compact ? "px-3 py-2" : "px-4 py-3"}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">回放选择</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">回放选择</p>
           <p className="mt-1 truncate text-sm font-light text-slate-200">{activeReplay.name}</p>
         </div>
-        <span className="shrink-0 rounded-md border border-slate-700/80 px-2 py-1 font-mono text-[10px] text-slate-400">
+        <span className="shrink-0 rounded-md border border-slate-600/60 px-2 py-1 font-mono text-[10px] text-slate-400">
           {activeReplay.rounds ?? "--"} 回合
         </span>
       </div>
@@ -150,7 +150,7 @@ function ReplayPicker({ selectedReplayId, compact = false, onLoadReplay }: Repla
       <select
         value={activeReplay.id}
         onChange={(event) => setLocalSelectedId(event.target.value)}
-        className="mt-3 w-full rounded-lg border border-slate-700 bg-[#050b16] px-3 py-2 text-xs text-slate-200 outline-none transition focus:border-cyan-300"
+        className="mt-3 w-full rounded-lg border border-[#304060] bg-[#162340] px-3 py-2 text-xs text-slate-200 outline-none transition focus:border-[#a78bfa] focus:ring-1 focus:ring-[#a78bfa]/30"
       >
         {catalog.map((item) => (
           <option key={item.id} value={item.id}>
@@ -160,7 +160,7 @@ function ReplayPicker({ selectedReplayId, compact = false, onLoadReplay }: Repla
       </select>
 
       {!compact ? (
-        <p className="mt-2 text-xs leading-5 text-slate-500">{activeReplay.summary}</p>
+        <p className="mt-2 text-xs leading-5 text-slate-400">{activeReplay.summary}</p>
       ) : null}
 
       <div className="mt-3 flex gap-2">
@@ -168,7 +168,7 @@ function ReplayPicker({ selectedReplayId, compact = false, onLoadReplay }: Repla
           type="button"
           onClick={() => loadReplay(false)}
           disabled={loading}
-          className="flex-1 rounded-lg border border-cyan-300/35 bg-cyan-400/10 px-3 py-2 font-mono text-[11px] text-cyan-100 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex-1 rounded-lg border border-blue-400/40 bg-blue-500/15 px-3 py-2 font-mono text-[11px] text-blue-100 transition hover:bg-blue-400/22 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? "加载中" : "载入回放"}
         </button>

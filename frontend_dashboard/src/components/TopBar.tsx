@@ -14,24 +14,24 @@ type TopBarProps = {
 
 export function CyberArenaLogo() {
   return (
-    <div className="flex h-7 w-7 items-center justify-center rounded-md border border-[#3b82f6]/40 bg-[#080f1c] shadow-[0_0_12px_rgba(59,130,246,0.35)]">
+    <div className="flex h-7 w-7 items-center justify-center rounded-md border border-cyan-300/50 bg-[#111a2e] shadow-[0_0_14px_rgba(34,211,238,0.32)]">
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
         <defs>
-          <linearGradient id="logo-blue" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#60a5fa" />
-            <stop offset="100%" stopColor="#2563eb" />
+          <linearGradient id="logo-brand" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#67e8f9" />
+            <stop offset="100%" stopColor="#22d3ee" />
           </linearGradient>
           <linearGradient id="logo-red" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#f87171" />
-            <stop offset="100%" stopColor="#dc2626" />
+            <stop offset="0%" stopColor="#ff8793" />
+            <stop offset="100%" stopColor="#ff6b7a" />
           </linearGradient>
         </defs>
-        <path d="M12 2.8 19.4 7v10L12 21.2 4.6 17V7L12 2.8Z" stroke="url(#logo-blue)" strokeWidth="1.4" />
-        <path d="M7.2 15.5 12 12l4.8 3.5" stroke="#475569" strokeWidth="1.1" strokeLinecap="round" />
-        <circle cx="7.2" cy="15.5" r="1.1" fill="#334155" />
-        <circle cx="16.8" cy="15.5" r="1.1" fill="#334155" />
+        <path d="M12 2.8 19.4 7v10L12 21.2 4.6 17V7L12 2.8Z" stroke="url(#logo-brand)" strokeWidth="1.4" />
+        <path d="M7.2 15.5 12 12l4.8 3.5" stroke="#7088b0" strokeWidth="1.1" strokeLinecap="round" />
+        <circle cx="7.2" cy="15.5" r="1.1" fill="#5b9fff" />
+        <circle cx="16.8" cy="15.5" r="1.1" fill="#5b9fff" />
         <circle cx="12" cy="12" r="1.6" fill="url(#logo-red)" />
-        <path d="M10 8.2h4" stroke="#93c5fd" strokeWidth="1.1" strokeLinecap="round" />
+        <path d="M10 8.2h4" stroke="#a5f3fc" strokeWidth="1.1" strokeLinecap="round" />
       </svg>
     </div>
   );
@@ -55,43 +55,43 @@ function TopBar({
   const clampedIndex = Math.min(Math.max(roundIndex, 0), safeFrameCount - 1);
   const clampedDisplayRound = Math.min(Math.max(displayRound, 0), safeTotal);
   const redRatio = redScore + blueScore > 0 ? redScore / (redScore + blueScore) : 0.5;
-  const headerClass = immersive ? "bg-transparent" : "border-b border-[#1f2937] bg-[#0d1117]/95";
+  const headerClass = immersive ? "bg-transparent" : "border-b border-[#2a3f5f] bg-[#111a2e]";
   const panelClass = immersive
-    ? "border-white/[0.08] bg-white/[0.02]"
-    : "border-[#1f2937] bg-[#07090f]";
+    ? "border-white/[0.14] bg-[#111a2e]"
+    : "border-[#304060] bg-[#162340]";
   const buttonClass = immersive
-    ? "border-white/[0.08] bg-white/[0.02]"
-    : "border-[#1f2937] bg-[#111827]";
-  const sliderBgClass = immersive ? "bg-white/[0.12]" : "bg-[#1f2937]";
+    ? "border-white/[0.14] bg-[#162340]"
+    : "border-[#304060] bg-[#1c2d4a]";
 
   return (
     <header className={`h-16 shrink-0 px-4 ${headerClass}`}>
       <div className="grid h-full grid-cols-[1fr_440px] items-center gap-4">
         <div className={`mx-auto flex w-full max-w-[520px] items-center justify-center gap-3 rounded-lg border px-4 py-2 ${panelClass}`}>
-          <span className="font-mono text-xs uppercase tracking-[0.18em] text-slate-500">回合</span>
-          <span className="font-mono text-sm text-slate-100">
+          <span className="font-mono text-xs uppercase tracking-[0.18em] text-[#8a9bc0]">回合</span>
+          <span className="font-mono text-sm text-[#f0f4ff]">
             {clampedDisplayRound} / {safeTotal}
           </span>
 
-          <div className="h-2 w-24 overflow-hidden rounded-full bg-[#1f2937]">
-            <div className="h-full rounded-full bg-[#ef4444]" style={{ width: `${Math.round(redRatio * 100)}%` }} />
+          <div className="flex h-2 w-24 overflow-hidden rounded-full bg-[#1c2d4a]">
+            <div className="h-full bg-[#ff6b7a]" style={{ width: `${Math.round(redRatio * 100)}%` }} />
+            <div className="h-full flex-1 bg-[#5b9fff]" />
           </div>
-          <span className="font-mono text-xs text-red-400">红方 {redScore}</span>
-          <span className="text-slate-600">:</span>
-          <span className="font-mono text-xs text-blue-400">蓝方 {blueScore}</span>
+          <span className="font-mono text-xs text-[#ff6b7a]">红方 {redScore}</span>
+          <span className="text-[#7088b0]">:</span>
+          <span className="font-mono text-xs text-[#5b9fff]">蓝方 {blueScore}</span>
         </div>
 
         <div className="flex items-center justify-end gap-2">
           <button
             type="button"
-            className={`rounded-md border px-3 py-1.5 font-mono text-xs text-slate-200 transition hover:border-[#3b82f6] hover:text-[#3b82f6] ${buttonClass}`}
+            className={`rounded-md border px-3 py-1.5 font-mono text-xs text-slate-200 transition hover:border-[#a78bfa] hover:text-[#c4b5fd] ${buttonClass}`}
             onClick={onTogglePlay}
           >
             {playing ? "暂停" : "播放"}
           </button>
           <button
             type="button"
-            className={`rounded-md border px-3 py-1.5 font-mono text-xs text-slate-200 transition hover:border-[#3b82f6] hover:text-[#3b82f6] ${buttonClass}`}
+            className={`rounded-md border px-3 py-1.5 font-mono text-xs text-slate-200 transition hover:border-[#a78bfa] hover:text-[#c4b5fd] ${buttonClass}`}
             onClick={onNext}
           >
             下一步
@@ -104,7 +104,7 @@ function TopBar({
               max={Math.max(safeFrameCount - 1, 0)}
               value={clampedIndex}
               onChange={(event) => onSeek?.(Number(event.target.value))}
-              className={`h-1.5 w-full cursor-pointer appearance-none rounded-full accent-[#3b82f6] ${sliderBgClass}`}
+              className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-[#1c2d4a] accent-[#a78bfa]"
             />
           </div>
         </div>
