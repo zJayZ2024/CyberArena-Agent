@@ -7,7 +7,11 @@
       "difficulty": "入门",
       "summary": "紧凑型网站服务栈，包含一条从公网进入应用、存储和数据库资产的路径。",
       "scenario_path": "backend_engine/scenarios/level_1_basic_web.json",
-      "tags": ["网站", "隔离区", "训练"],
+      "tags": [
+        "网站",
+        "隔离区",
+        "训练"
+      ],
       "objectives": {
         "red": "通过公网网站层获得初始访问，并推进到 db。",
         "blue": "在红方将网站访问转化为数据库影响前修补暴露服务。"
@@ -16,7 +20,9 @@
         "nodes": 6,
         "edges": 6,
         "vulnerabilities": 7,
-        "core_assets": ["db"]
+        "core_assets": [
+          "db"
+        ]
       },
       "initial_frame": {
         "scenario": "level_1_basic_web",
@@ -27,26 +33,39 @@
           "turn": 0,
           "system_health": 100,
           "exposure_level": 40,
-          "score": { "red": 0, "blue": 0 },
+          "score": {
+            "red": 0,
+            "blue": 0
+          },
           "red_phase": "Setup",
           "availability": 1,
           "blue_action_points": 1,
           "special_event": null,
-          "core_assets": ["db"],
+          "core_assets": [
+            "db"
+          ],
           "network_nodes": {
             "internet": {
               "status": "Normal",
-              "exposed_ports": [80, 443],
+              "exposed_ports": [
+                80,
+                443
+              ],
               "vulnerabilities": {}
             },
             "fw": {
               "status": "Normal",
-              "exposed_ports": [443],
+              "exposed_ports": [
+                443
+              ],
               "vulnerabilities": {}
             },
             "web": {
               "status": "Normal",
-              "exposed_ports": [80, 443],
+              "exposed_ports": [
+                80,
+                443
+              ],
               "vulnerabilities": {
                 "CVE-2021-44228_Log4Shell_RCE": {
                   "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
@@ -66,7 +85,9 @@
             },
             "app": {
               "status": "Normal",
-              "exposed_ports": [8080],
+              "exposed_ports": [
+                8080
+              ],
               "vulnerabilities": {
                 "CVE-2022-22965_Spring4Shell_RCE": {
                   "vuln_id": "CVE-2022-22965_Spring4Shell_RCE",
@@ -86,7 +107,10 @@
             },
             "storage": {
               "status": "Normal",
-              "exposed_ports": [139, 445],
+              "exposed_ports": [
+                139,
+                445
+              ],
               "vulnerabilities": {
                 "CVE-2017-0144_EternalBlue_SMB_RCE": {
                   "vuln_id": "CVE-2017-0144_EternalBlue_SMB_RCE",
@@ -99,7 +123,9 @@
             },
             "db": {
               "status": "Normal",
-              "exposed_ports": [3306],
+              "exposed_ports": [
+                3306
+              ],
               "vulnerabilities": {
                 "CVE-2016-6662_MySQL_Config_Injection": {
                   "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
@@ -119,12 +145,30 @@
             }
           },
           "edges": [
-            { "source": "internet", "target": "fw" },
-            { "source": "fw", "target": "web" },
-            { "source": "web", "target": "app" },
-            { "source": "app", "target": "storage" },
-            { "source": "storage", "target": "db" },
-            { "source": "app", "target": "db" }
+            {
+              "source": "internet",
+              "target": "fw"
+            },
+            {
+              "source": "fw",
+              "target": "web"
+            },
+            {
+              "source": "web",
+              "target": "app"
+            },
+            {
+              "source": "app",
+              "target": "storage"
+            },
+            {
+              "source": "storage",
+              "target": "db"
+            },
+            {
+              "source": "app",
+              "target": "db"
+            }
           ]
         }
       }
@@ -135,7 +179,11 @@
       "difficulty": "中级",
       "summary": "双入口拓扑，网站与远程接入路径汇聚到应用、存储和数据库。",
       "scenario_path": "backend_engine/scenarios/level_2_ransomware.json",
-      "tags": ["勒索", "远程接入", "横向移动"],
+      "tags": [
+        "勒索",
+        "远程接入",
+        "横向移动"
+      ],
       "objectives": {
         "red": "利用边界访问穿越办公或应用路径，向 db 推进。",
         "blue": "在勒索式扩散抵达 storage 前发现并修补活跃路径。"
@@ -144,7 +192,9 @@
         "nodes": 9,
         "edges": 11,
         "vulnerabilities": 9,
-        "core_assets": ["db"]
+        "core_assets": [
+          "db"
+        ]
       },
       "initial_frame": {
         "scenario": "level_2_ransomware",
@@ -155,26 +205,39 @@
           "turn": 0,
           "system_health": 100,
           "exposure_level": 86,
-          "score": { "red": 0, "blue": 0 },
+          "score": {
+            "red": 0,
+            "blue": 0
+          },
           "red_phase": "Setup",
           "availability": 1,
           "blue_action_points": 1,
           "special_event": null,
-          "core_assets": ["db"],
+          "core_assets": [
+            "db"
+          ],
           "network_nodes": {
             "internet": {
               "status": "Normal",
-              "exposed_ports": [80, 443],
+              "exposed_ports": [
+                80,
+                443
+              ],
               "vulnerabilities": {}
             },
             "fw": {
               "status": "Normal",
-              "exposed_ports": [443],
+              "exposed_ports": [
+                443
+              ],
               "vulnerabilities": {}
             },
             "web": {
               "status": "Normal",
-              "exposed_ports": [80, 443],
+              "exposed_ports": [
+                80,
+                443
+              ],
               "vulnerabilities": {
                 "CVE-2021-44228_Log4Shell_RCE": {
                   "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
@@ -194,7 +257,10 @@
             },
             "vpn": {
               "status": "Normal",
-              "exposed_ports": [443, 500],
+              "exposed_ports": [
+                443,
+                500
+              ],
               "vulnerabilities": {
                 "CVE-2023-4966_CitrixBleed_SessionHijack": {
                   "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
@@ -214,7 +280,10 @@
             },
             "office_pc": {
               "status": "Normal",
-              "exposed_ports": [3389, 445],
+              "exposed_ports": [
+                3389,
+                445
+              ],
               "vulnerabilities": {
                 "CVE-2021-34527_PrintNightmare_PrivEsc": {
                   "vuln_id": "CVE-2021-34527_PrintNightmare_PrivEsc",
@@ -227,7 +296,10 @@
             },
             "dev": {
               "status": "Normal",
-              "exposed_ports": [22, 8081],
+              "exposed_ports": [
+                22,
+                8081
+              ],
               "vulnerabilities": {
                 "CVE-2017-5638_Struts2_RCE": {
                   "vuln_id": "CVE-2017-5638_Struts2_RCE",
@@ -240,7 +312,10 @@
             },
             "app": {
               "status": "Normal",
-              "exposed_ports": [8080, 8443],
+              "exposed_ports": [
+                8080,
+                8443
+              ],
               "vulnerabilities": {
                 "CVE-2021-26855_Exchange_ProxyLogon_SSRF": {
                   "vuln_id": "CVE-2021-26855_Exchange_ProxyLogon_SSRF",
@@ -253,7 +328,10 @@
             },
             "storage": {
               "status": "Normal",
-              "exposed_ports": [139, 445],
+              "exposed_ports": [
+                139,
+                445
+              ],
               "vulnerabilities": {
                 "CVE-2020-1472_ZeroLogon_AuthBypass": {
                   "vuln_id": "CVE-2020-1472_ZeroLogon_AuthBypass",
@@ -266,7 +344,9 @@
             },
             "db": {
               "status": "Normal",
-              "exposed_ports": [3306],
+              "exposed_ports": [
+                3306
+              ],
               "vulnerabilities": {
                 "CVE-2016-6662_MySQL_Config_Injection": {
                   "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
@@ -279,17 +359,50 @@
             }
           },
           "edges": [
-            { "source": "internet", "target": "fw" },
-            { "source": "fw", "target": "web" },
-            { "source": "fw", "target": "vpn" },
-            { "source": "web", "target": "app" },
-            { "source": "app", "target": "db" },
-            { "source": "app", "target": "storage" },
-            { "source": "vpn", "target": "office_pc" },
-            { "source": "office_pc", "target": "dev" },
-            { "source": "dev", "target": "app" },
-            { "source": "dev", "target": "storage" },
-            { "source": "storage", "target": "db" }
+            {
+              "source": "internet",
+              "target": "fw"
+            },
+            {
+              "source": "fw",
+              "target": "web"
+            },
+            {
+              "source": "fw",
+              "target": "vpn"
+            },
+            {
+              "source": "web",
+              "target": "app"
+            },
+            {
+              "source": "app",
+              "target": "db"
+            },
+            {
+              "source": "app",
+              "target": "storage"
+            },
+            {
+              "source": "vpn",
+              "target": "office_pc"
+            },
+            {
+              "source": "office_pc",
+              "target": "dev"
+            },
+            {
+              "source": "dev",
+              "target": "app"
+            },
+            {
+              "source": "dev",
+              "target": "storage"
+            },
+            {
+              "source": "storage",
+              "target": "db"
+            }
           ]
         }
       }
@@ -300,7 +413,11 @@
       "difficulty": "高级",
       "summary": "企业分支入侵路径，覆盖 VPN、办公终端、开发、应用、存储与核心数据库汇聚链路。",
       "scenario_path": "backend_engine/scenarios/level_3_enterprise_branch.json",
-      "tags": ["分支办公", "研发运维", "存储"],
+      "tags": [
+        "分支办公",
+        "研发运维",
+        "存储"
+      ],
       "objectives": {
         "red": "通过用户终端与开发资产横向移动，解锁存储和数据库访问。",
         "blue": "在分支与核心区域之间平衡终端遏制和业务连续性。"
@@ -309,7 +426,9 @@
         "nodes": 9,
         "edges": 11,
         "vulnerabilities": 10,
-        "core_assets": ["db"]
+        "core_assets": [
+          "db"
+        ]
       },
       "initial_frame": {
         "scenario": "level_3_enterprise_branch",
@@ -320,26 +439,40 @@
           "turn": 0,
           "system_health": 100,
           "exposure_level": 64,
-          "score": { "red": 0, "blue": 0 },
+          "score": {
+            "red": 0,
+            "blue": 0
+          },
           "red_phase": "Setup",
           "availability": 1,
           "blue_action_points": 1,
           "special_event": null,
-          "core_assets": ["db"],
+          "core_assets": [
+            "db"
+          ],
           "network_nodes": {
             "internet": {
               "status": "Normal",
-              "exposed_ports": [80, 443],
+              "exposed_ports": [
+                80,
+                443
+              ],
               "vulnerabilities": {}
             },
             "fw": {
               "status": "Normal",
-              "exposed_ports": [443],
+              "exposed_ports": [
+                443
+              ],
               "vulnerabilities": {}
             },
             "web": {
               "status": "Normal",
-              "exposed_ports": [80, 443, 8090],
+              "exposed_ports": [
+                80,
+                443,
+                8090
+              ],
               "vulnerabilities": {
                 "CVE-2022-26134_Confluence_OGNL_RCE": {
                   "vuln_id": "CVE-2022-26134_Confluence_OGNL_RCE",
@@ -359,7 +492,10 @@
             },
             "vpn": {
               "status": "Normal",
-              "exposed_ports": [443, 500],
+              "exposed_ports": [
+                443,
+                500
+              ],
               "vulnerabilities": {
                 "CVE-2023-4966_CitrixBleed_SessionHijack": {
                   "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
@@ -372,7 +508,10 @@
             },
             "office_pc": {
               "status": "Normal",
-              "exposed_ports": [3389, 445],
+              "exposed_ports": [
+                3389,
+                445
+              ],
               "vulnerabilities": {
                 "CVE-2021-34527_PrintNightmare_PrivEsc": {
                   "vuln_id": "CVE-2021-34527_PrintNightmare_PrivEsc",
@@ -385,7 +524,10 @@
             },
             "dev": {
               "status": "Normal",
-              "exposed_ports": [22, 8081],
+              "exposed_ports": [
+                22,
+                8081
+              ],
               "vulnerabilities": {
                 "CVE-2017-5638_Struts2_RCE": {
                   "vuln_id": "CVE-2017-5638_Struts2_RCE",
@@ -405,7 +547,10 @@
             },
             "app": {
               "status": "Normal",
-              "exposed_ports": [8080, 8443],
+              "exposed_ports": [
+                8080,
+                8443
+              ],
               "vulnerabilities": {
                 "CVE-2022-22965_Spring4Shell_RCE": {
                   "vuln_id": "CVE-2022-22965_Spring4Shell_RCE",
@@ -418,7 +563,10 @@
             },
             "storage": {
               "status": "Normal",
-              "exposed_ports": [139, 445],
+              "exposed_ports": [
+                139,
+                445
+              ],
               "vulnerabilities": {
                 "CVE-2020-1472_ZeroLogon_AuthBypass": {
                   "vuln_id": "CVE-2020-1472_ZeroLogon_AuthBypass",
@@ -438,7 +586,9 @@
             },
             "db": {
               "status": "Normal",
-              "exposed_ports": [3306],
+              "exposed_ports": [
+                3306
+              ],
               "vulnerabilities": {
                 "CVE-2016-6662_MySQL_Config_Injection": {
                   "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
@@ -458,17 +608,50 @@
             }
           },
           "edges": [
-            { "source": "internet", "target": "fw" },
-            { "source": "fw", "target": "web" },
-            { "source": "fw", "target": "vpn" },
-            { "source": "vpn", "target": "office_pc" },
-            { "source": "office_pc", "target": "dev" },
-            { "source": "web", "target": "app" },
-            { "source": "dev", "target": "app" },
-            { "source": "dev", "target": "storage" },
-            { "source": "app", "target": "storage" },
-            { "source": "app", "target": "db" },
-            { "source": "storage", "target": "db" }
+            {
+              "source": "internet",
+              "target": "fw"
+            },
+            {
+              "source": "fw",
+              "target": "web"
+            },
+            {
+              "source": "fw",
+              "target": "vpn"
+            },
+            {
+              "source": "vpn",
+              "target": "office_pc"
+            },
+            {
+              "source": "office_pc",
+              "target": "dev"
+            },
+            {
+              "source": "web",
+              "target": "app"
+            },
+            {
+              "source": "dev",
+              "target": "app"
+            },
+            {
+              "source": "dev",
+              "target": "storage"
+            },
+            {
+              "source": "app",
+              "target": "storage"
+            },
+            {
+              "source": "app",
+              "target": "db"
+            },
+            {
+              "source": "storage",
+              "target": "db"
+            }
           ]
         }
       }
@@ -479,7 +662,11 @@
       "difficulty": "专家",
       "summary": "高暴露云端软件服务路径，包含边界、远程接入、开发、应用、存储和数据库路线。",
       "scenario_path": "backend_engine/scenarios/level_4_cloud_saas.json",
-      "tags": ["云端", "软件服务", "高暴露"],
+      "tags": [
+        "云端",
+        "软件服务",
+        "高暴露"
+      ],
       "objectives": {
         "red": "利用边界服务，并通过应用或开发路径推进到数据库访问。",
         "blue": "优先处理高风险公网服务，同时保持核心应用可用性。"
@@ -488,7 +675,9 @@
         "nodes": 9,
         "edges": 10,
         "vulnerabilities": 9,
-        "core_assets": ["db"]
+        "core_assets": [
+          "db"
+        ]
       },
       "initial_frame": {
         "scenario": "level_4_cloud_saas",
@@ -499,26 +688,39 @@
           "turn": 0,
           "system_health": 100,
           "exposure_level": 72,
-          "score": { "red": 0, "blue": 0 },
+          "score": {
+            "red": 0,
+            "blue": 0
+          },
           "red_phase": "Setup",
           "availability": 1,
           "blue_action_points": 1,
           "special_event": null,
-          "core_assets": ["db"],
+          "core_assets": [
+            "db"
+          ],
           "network_nodes": {
             "internet": {
               "status": "Normal",
-              "exposed_ports": [80, 443],
+              "exposed_ports": [
+                80,
+                443
+              ],
               "vulnerabilities": {}
             },
             "fw": {
               "status": "Normal",
-              "exposed_ports": [443],
+              "exposed_ports": [
+                443
+              ],
               "vulnerabilities": {}
             },
             "web": {
               "status": "Normal",
-              "exposed_ports": [80, 443],
+              "exposed_ports": [
+                80,
+                443
+              ],
               "vulnerabilities": {
                 "CVE-2021-26855_Exchange_ProxyLogon_SSRF": {
                   "vuln_id": "CVE-2021-26855_Exchange_ProxyLogon_SSRF",
@@ -538,7 +740,10 @@
             },
             "vpn": {
               "status": "Normal",
-              "exposed_ports": [443, 500],
+              "exposed_ports": [
+                443,
+                500
+              ],
               "vulnerabilities": {
                 "CVE-2019-19781_Citrix_ADC_PathTraversal_RCE": {
                   "vuln_id": "CVE-2019-19781_Citrix_ADC_PathTraversal_RCE",
@@ -551,7 +756,10 @@
             },
             "office_pc": {
               "status": "Normal",
-              "exposed_ports": [3389, 445],
+              "exposed_ports": [
+                3389,
+                445
+              ],
               "vulnerabilities": {
                 "CVE-2021-34527_PrintNightmare_PrivEsc": {
                   "vuln_id": "CVE-2021-34527_PrintNightmare_PrivEsc",
@@ -564,7 +772,10 @@
             },
             "dev": {
               "status": "Normal",
-              "exposed_ports": [22, 8081],
+              "exposed_ports": [
+                22,
+                8081
+              ],
               "vulnerabilities": {
                 "CVE-2017-5638_Struts2_RCE": {
                   "vuln_id": "CVE-2017-5638_Struts2_RCE",
@@ -577,7 +788,10 @@
             },
             "app": {
               "status": "Normal",
-              "exposed_ports": [8080, 8443],
+              "exposed_ports": [
+                8080,
+                8443
+              ],
               "vulnerabilities": {
                 "CVE-2022-22965_Spring4Shell_RCE": {
                   "vuln_id": "CVE-2022-22965_Spring4Shell_RCE",
@@ -597,7 +811,10 @@
             },
             "storage": {
               "status": "Normal",
-              "exposed_ports": [139, 445],
+              "exposed_ports": [
+                139,
+                445
+              ],
               "vulnerabilities": {
                 "CVE-2017-0144_EternalBlue_SMB_RCE": {
                   "vuln_id": "CVE-2017-0144_EternalBlue_SMB_RCE",
@@ -610,7 +827,9 @@
             },
             "db": {
               "status": "Normal",
-              "exposed_ports": [3306],
+              "exposed_ports": [
+                3306
+              ],
               "vulnerabilities": {
                 "CVE-2016-6662_MySQL_Config_Injection": {
                   "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
@@ -623,17 +842,617 @@
             }
           },
           "edges": [
-            { "source": "internet", "target": "fw" },
-            { "source": "fw", "target": "web" },
-            { "source": "fw", "target": "vpn" },
-            { "source": "web", "target": "app" },
-            { "source": "vpn", "target": "office_pc" },
-            { "source": "office_pc", "target": "dev" },
-            { "source": "dev", "target": "app" },
-            { "source": "app", "target": "storage" },
-            { "source": "storage", "target": "db" },
-            { "source": "app", "target": "db" }
+            {
+              "source": "internet",
+              "target": "fw"
+            },
+            {
+              "source": "fw",
+              "target": "web"
+            },
+            {
+              "source": "fw",
+              "target": "vpn"
+            },
+            {
+              "source": "web",
+              "target": "app"
+            },
+            {
+              "source": "vpn",
+              "target": "office_pc"
+            },
+            {
+              "source": "office_pc",
+              "target": "dev"
+            },
+            {
+              "source": "dev",
+              "target": "app"
+            },
+            {
+              "source": "app",
+              "target": "storage"
+            },
+            {
+              "source": "storage",
+              "target": "db"
+            },
+            {
+              "source": "app",
+              "target": "db"
+            }
           ]
+        }
+      }
+    },
+    {
+      "id": "level_5_hybrid_identity_crisis",
+      "name": "等级 5 混合身份危机",
+      "difficulty": "专家+",
+      "summary": "三入口混合企业网络，身份系统、CI/CD、API、财务终端、备份与核心数据库形成多点争夺和双主链推进。",
+      "scenario_path": "backend_engine/scenarios/level_5_hybrid_identity_crisis.json",
+      "tags": [
+        "身份攻防",
+        "供应链",
+        "多入口"
+      ],
+      "objectives": {
+        "red": "从 fw、web 或 vpn 建立初始访问，在身份、开发与业务系统上保持可恢复的据点，最终推进到 db。",
+        "blue": "在三个入口、身份中枢、供应链与核心数据之间分配有限处置能力，同时避免过度隔离导致业务受损。"
+      },
+      "stats": {
+        "nodes": 15,
+        "edges": 27,
+        "vulnerabilities": 32,
+        "core_assets": [
+          "db"
+        ]
+      },
+      "initial_frame": {
+        "scenario": "level_5_hybrid_identity_crisis",
+        "round": 0,
+        "total_rounds": 24,
+        "world_state": {
+          "turn": 0,
+          "system_health": 100,
+          "exposure_level": 82,
+          "core_assets": [
+            "db"
+          ],
+          "winner_locked": false,
+          "winner_side": null,
+          "winner_reason": "",
+          "red_anchored_nodes": [],
+          "red_visible_nodes": [
+            "internet",
+            "fw",
+            "web",
+            "vpn"
+          ],
+          "red_recon_nodes": [],
+          "red_known_services": {},
+          "red_known_vulnerabilities": {},
+          "blue_known_vulnerabilities": {
+            "fw": {
+              "CVE-2024-3400_PAN_OS_Command_Injection": 0.78
+            },
+            "web": {
+              "CVE-2021-44228_Log4Shell_RCE": 0.72
+            },
+            "vpn": {
+              "CVE-2023-4966_CitrixBleed_SessionHijack": 0.68
+            },
+            "identity": {
+              "CVE-2020-1472_ZeroLogon_AuthBypass": 0.74
+            }
+          },
+          "blue_monitored_nodes": [
+            "identity",
+            "db"
+          ],
+          "blue_last_preventive_patch_turn": -99,
+          "blue_preventive_patch_cooldowns": {},
+          "network_nodes": {
+            "internet": {
+              "status": "Normal",
+              "exposed_ports": [
+                80,
+                443
+              ],
+              "vulnerabilities": {}
+            },
+            "fw": {
+              "status": "Normal",
+              "exposed_ports": [
+                443,
+                4443
+              ],
+              "vulnerabilities": {
+                "CVE-2024-3400_PAN_OS_Command_Injection": {
+                  "vuln_id": "CVE-2024-3400_PAN_OS_Command_Injection",
+                  "severity": "Critical",
+                  "score": 30,
+                  "exploit_prob": 0.42,
+                  "patch_prob": 0.56
+                },
+                "CVE-2022-1388_F5_BIGIP_iControl_RCE": {
+                  "vuln_id": "CVE-2022-1388_F5_BIGIP_iControl_RCE",
+                  "severity": "Critical",
+                  "score": 27,
+                  "exploit_prob": 0.39,
+                  "patch_prob": 0.61
+                }
+              }
+            },
+            "web": {
+              "status": "Normal",
+              "exposed_ports": [
+                80,
+                443,
+                8090
+              ],
+              "vulnerabilities": {
+                "CVE-2021-44228_Log4Shell_RCE": {
+                  "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+                  "severity": "Critical",
+                  "score": 29,
+                  "exploit_prob": 0.56,
+                  "patch_prob": 0.58
+                },
+                "CVE-2022-26134_Confluence_OGNL_RCE": {
+                  "vuln_id": "CVE-2022-26134_Confluence_OGNL_RCE",
+                  "severity": "High",
+                  "score": 24,
+                  "exploit_prob": 0.48,
+                  "patch_prob": 0.64
+                },
+                "CVE-2021-41773_Apache_PathTraversal_RCE": {
+                  "vuln_id": "CVE-2021-41773_Apache_PathTraversal_RCE",
+                  "severity": "High",
+                  "score": 21,
+                  "exploit_prob": 0.51,
+                  "patch_prob": 0.72
+                }
+              }
+            },
+            "vpn": {
+              "status": "Normal",
+              "exposed_ports": [
+                443,
+                500,
+                4500
+              ],
+              "vulnerabilities": {
+                "CVE-2023-4966_CitrixBleed_SessionHijack": {
+                  "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+                  "severity": "Critical",
+                  "score": 27,
+                  "exploit_prob": 0.49,
+                  "patch_prob": 0.55
+                },
+                "CVE-2019-19781_Citrix_ADC_PathTraversal_RCE": {
+                  "vuln_id": "CVE-2019-19781_Citrix_ADC_PathTraversal_RCE",
+                  "severity": "High",
+                  "score": 23,
+                  "exploit_prob": 0.45,
+                  "patch_prob": 0.66
+                }
+              }
+            },
+            "office_pc": {
+              "status": "Normal",
+              "exposed_ports": [
+                3389,
+                445,
+                5985
+              ],
+              "vulnerabilities": {
+                "CVE-2021-34527_PrintNightmare_PrivEsc": {
+                  "vuln_id": "CVE-2021-34527_PrintNightmare_PrivEsc",
+                  "severity": "High",
+                  "score": 21,
+                  "exploit_prob": 0.43,
+                  "patch_prob": 0.71
+                },
+                "CVE-2019-0708_BlueKeep_RCE": {
+                  "vuln_id": "CVE-2019-0708_BlueKeep_RCE",
+                  "severity": "Critical",
+                  "score": 28,
+                  "exploit_prob": 0.37,
+                  "patch_prob": 0.77
+                }
+              }
+            },
+            "finance_pc": {
+              "status": "Normal",
+              "exposed_ports": [
+                3389,
+                445
+              ],
+              "vulnerabilities": {
+                "CVE-2021-34527_PrintNightmare_PrivEsc": {
+                  "vuln_id": "CVE-2021-34527_PrintNightmare_PrivEsc",
+                  "severity": "High",
+                  "score": 20,
+                  "exploit_prob": 0.41,
+                  "patch_prob": 0.72
+                },
+                "CVE-2023-21716_Office_RTF_RCE": {
+                  "vuln_id": "CVE-2023-21716_Office_RTF_RCE",
+                  "severity": "High",
+                  "score": 19,
+                  "exploit_prob": 0.46,
+                  "patch_prob": 0.74
+                }
+              }
+            },
+            "identity": {
+              "status": "Normal",
+              "exposed_ports": [
+                88,
+                389,
+                445,
+                636
+              ],
+              "vulnerabilities": {
+                "CVE-2020-1472_ZeroLogon_AuthBypass": {
+                  "vuln_id": "CVE-2020-1472_ZeroLogon_AuthBypass",
+                  "severity": "Critical",
+                  "score": 30,
+                  "exploit_prob": 0.38,
+                  "patch_prob": 0.62
+                },
+                "CVE-2022-26923_ADCS_Privilege_Escalation": {
+                  "vuln_id": "CVE-2022-26923_ADCS_Privilege_Escalation",
+                  "severity": "High",
+                  "score": 25,
+                  "exploit_prob": 0.44,
+                  "patch_prob": 0.68
+                }
+              },
+              "blue_state": {
+                "monitored": true,
+                "last_response_turn": 0
+              }
+            },
+            "dev": {
+              "status": "Normal",
+              "exposed_ports": [
+                22,
+                445,
+                8081
+              ],
+              "vulnerabilities": {
+                "CVE-2017-5638_Struts2_RCE": {
+                  "vuln_id": "CVE-2017-5638_Struts2_RCE",
+                  "severity": "Critical",
+                  "score": 27,
+                  "exploit_prob": 0.52,
+                  "patch_prob": 0.64
+                },
+                "CVE-2023-34362_MOVEit_SQLi": {
+                  "vuln_id": "CVE-2023-34362_MOVEit_SQLi",
+                  "severity": "High",
+                  "score": 23,
+                  "exploit_prob": 0.47,
+                  "patch_prob": 0.66
+                },
+                "CVE-2021-44142_Samba_OOB_RCE": {
+                  "vuln_id": "CVE-2021-44142_Samba_OOB_RCE",
+                  "severity": "High",
+                  "score": 24,
+                  "exploit_prob": 0.42,
+                  "patch_prob": 0.69
+                }
+              }
+            },
+            "ci": {
+              "status": "Normal",
+              "exposed_ports": [
+                22,
+                8080,
+                50000
+              ],
+              "vulnerabilities": {
+                "CVE-2024-23897_Jenkins_CLI_File_Read": {
+                  "vuln_id": "CVE-2024-23897_Jenkins_CLI_File_Read",
+                  "severity": "Critical",
+                  "score": 28,
+                  "exploit_prob": 0.45,
+                  "patch_prob": 0.57
+                },
+                "CVE-2019-1003000_Jenkins_Script_Security_RCE": {
+                  "vuln_id": "CVE-2019-1003000_Jenkins_Script_Security_RCE",
+                  "severity": "High",
+                  "score": 24,
+                  "exploit_prob": 0.4,
+                  "patch_prob": 0.65
+                }
+              }
+            },
+            "api": {
+              "status": "Normal",
+              "exposed_ports": [
+                443,
+                8080,
+                8443
+              ],
+              "vulnerabilities": {
+                "CVE-2023-44487_HTTP2_Rapid_Reset": {
+                  "vuln_id": "CVE-2023-44487_HTTP2_Rapid_Reset",
+                  "severity": "High",
+                  "score": 18,
+                  "exploit_prob": 0.62,
+                  "patch_prob": 0.76
+                },
+                "CVE-2022-22965_Spring4Shell_RCE": {
+                  "vuln_id": "CVE-2022-22965_Spring4Shell_RCE",
+                  "severity": "Critical",
+                  "score": 27,
+                  "exploit_prob": 0.47,
+                  "patch_prob": 0.6
+                }
+              }
+            },
+            "app": {
+              "status": "Normal",
+              "exposed_ports": [
+                8080,
+                8443,
+                9000
+              ],
+              "vulnerabilities": {
+                "CVE-2022-22965_Spring4Shell_RCE": {
+                  "vuln_id": "CVE-2022-22965_Spring4Shell_RCE",
+                  "severity": "Critical",
+                  "score": 28,
+                  "exploit_prob": 0.48,
+                  "patch_prob": 0.59
+                },
+                "CVE-2021-44228_Log4Shell_RCE": {
+                  "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+                  "severity": "Critical",
+                  "score": 29,
+                  "exploit_prob": 0.53,
+                  "patch_prob": 0.61
+                },
+                "CVE-2023-22515_Confluence_Privilege_Escalation": {
+                  "vuln_id": "CVE-2023-22515_Confluence_Privilege_Escalation",
+                  "severity": "High",
+                  "score": 24,
+                  "exploit_prob": 0.43,
+                  "patch_prob": 0.66
+                }
+              }
+            },
+            "storage": {
+              "status": "Normal",
+              "exposed_ports": [
+                139,
+                445,
+                2049
+              ],
+              "vulnerabilities": {
+                "CVE-2017-0144_EternalBlue_SMB_RCE": {
+                  "vuln_id": "CVE-2017-0144_EternalBlue_SMB_RCE",
+                  "severity": "Critical",
+                  "score": 30,
+                  "exploit_prob": 0.41,
+                  "patch_prob": 0.58
+                },
+                "CVE-2021-44142_Samba_OOB_RCE": {
+                  "vuln_id": "CVE-2021-44142_Samba_OOB_RCE",
+                  "severity": "High",
+                  "score": 24,
+                  "exploit_prob": 0.45,
+                  "patch_prob": 0.65
+                },
+                "CVE-2020-1472_ZeroLogon_AuthBypass": {
+                  "vuln_id": "CVE-2020-1472_ZeroLogon_AuthBypass",
+                  "severity": "Critical",
+                  "score": 28,
+                  "exploit_prob": 0.36,
+                  "patch_prob": 0.63
+                }
+              }
+            },
+            "backup": {
+              "status": "Normal",
+              "exposed_ports": [
+                22,
+                443,
+                2049
+              ],
+              "vulnerabilities": {
+                "CVE-2023-27532_Veeam_Credential_Disclosure": {
+                  "vuln_id": "CVE-2023-27532_Veeam_Credential_Disclosure",
+                  "severity": "High",
+                  "score": 25,
+                  "exploit_prob": 0.49,
+                  "patch_prob": 0.58
+                },
+                "CVE-2021-21972_vCenter_RCE": {
+                  "vuln_id": "CVE-2021-21972_vCenter_RCE",
+                  "severity": "Critical",
+                  "score": 28,
+                  "exploit_prob": 0.4,
+                  "patch_prob": 0.62
+                }
+              }
+            },
+            "soc": {
+              "status": "Normal",
+              "exposed_ports": [
+                443,
+                9200,
+                5601
+              ],
+              "vulnerabilities": {
+                "CVE-2021-44228_Log4Shell_RCE": {
+                  "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+                  "severity": "High",
+                  "score": 22,
+                  "exploit_prob": 0.35,
+                  "patch_prob": 0.7
+                }
+              }
+            },
+            "db": {
+              "status": "Normal",
+              "exposed_ports": [
+                3306,
+                5432
+              ],
+              "vulnerabilities": {
+                "CVE-2016-6662_MySQL_Config_Injection": {
+                  "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
+                  "severity": "Critical",
+                  "score": 30,
+                  "exploit_prob": 0.39,
+                  "patch_prob": 0.55
+                },
+                "CVE-2012-2122_MySQL_Auth_Bypass": {
+                  "vuln_id": "CVE-2012-2122_MySQL_Auth_Bypass",
+                  "severity": "High",
+                  "score": 25,
+                  "exploit_prob": 0.36,
+                  "patch_prob": 0.68
+                },
+                "CVE-2019-9193_PostgreSQL_Copy_Program_RCE": {
+                  "vuln_id": "CVE-2019-9193_PostgreSQL_Copy_Program_RCE",
+                  "severity": "Critical",
+                  "score": 28,
+                  "exploit_prob": 0.38,
+                  "patch_prob": 0.6
+                }
+              },
+              "blue_state": {
+                "monitored": true,
+                "last_response_turn": 0
+              }
+            }
+          },
+          "edges": [
+            {
+              "source": "internet",
+              "target": "fw"
+            },
+            {
+              "source": "fw",
+              "target": "web"
+            },
+            {
+              "source": "fw",
+              "target": "vpn"
+            },
+            {
+              "source": "fw",
+              "target": "soc"
+            },
+            {
+              "source": "web",
+              "target": "app"
+            },
+            {
+              "source": "web",
+              "target": "api"
+            },
+            {
+              "source": "web",
+              "target": "ci"
+            },
+            {
+              "source": "vpn",
+              "target": "office_pc"
+            },
+            {
+              "source": "office_pc",
+              "target": "dev"
+            },
+            {
+              "source": "office_pc",
+              "target": "identity"
+            },
+            {
+              "source": "office_pc",
+              "target": "finance_pc"
+            },
+            {
+              "source": "identity",
+              "target": "finance_pc"
+            },
+            {
+              "source": "identity",
+              "target": "dev"
+            },
+            {
+              "source": "identity",
+              "target": "soc"
+            },
+            {
+              "source": "finance_pc",
+              "target": "storage"
+            },
+            {
+              "source": "dev",
+              "target": "ci"
+            },
+            {
+              "source": "dev",
+              "target": "app"
+            },
+            {
+              "source": "dev",
+              "target": "storage"
+            },
+            {
+              "source": "ci",
+              "target": "app"
+            },
+            {
+              "source": "api",
+              "target": "app"
+            },
+            {
+              "source": "api",
+              "target": "storage"
+            },
+            {
+              "source": "app",
+              "target": "storage"
+            },
+            {
+              "source": "app",
+              "target": "db"
+            },
+            {
+              "source": "storage",
+              "target": "backup"
+            },
+            {
+              "source": "storage",
+              "target": "db"
+            },
+            {
+              "source": "backup",
+              "target": "db"
+            },
+            {
+              "source": "soc",
+              "target": "db"
+            }
+          ],
+          "action_logs": [],
+          "round": 0,
+          "score": {
+            "red": 0,
+            "blue": 0
+          },
+          "red_phase": "Setup",
+          "availability": 1,
+          "blue_action_points": 1,
+          "special_event": null
         }
       }
     }

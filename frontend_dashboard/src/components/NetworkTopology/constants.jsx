@@ -16,6 +16,9 @@ export const T = {
   greenGlow: "rgba(52,224,141,0.50)",
   amber: "#ffcc55",
   amberBg: "rgba(255,204,85,0.08)",
+  purple: "#a78bfa",
+  purpleBg: "rgba(167,139,250,0.12)",
+  cyan: "#22d3ee",
   gray: "#7088b0",
   grayText: "#b8c5db",
   grayDim: "#8a9bc0",
@@ -36,30 +39,39 @@ export const PAGE_STYLES = `
 `;
 
 export const GRAPH_VIEW = {
-  width: 980,
-  height: 460,
-  zoneX: 120,
+  width: 1180,
+  height: 500,
+  zoneX: 100,
   zoneY: 30,
-  zoneW: 740,
-  zoneH: 390,
-  zoneGap: 14,
-  redBaseX: 60,
-  blueBaseX: 920,
-  baseY: 230,
+  zoneW: 980,
+  zoneH: 430,
+  zoneGap: 12,
+  redBaseX: 48,
+  blueBaseX: 1132,
+  baseY: 250,
 };
 
 const FIREWALL_KEYWORDS = ["fw", "firewall", "gateway", "edge", "waf"];
 const DMZ_KEYWORDS = ["web", "vpn", "proxy", "mail", "bastion", "dmz"];
 const OFFICE_KEYWORDS = ["office", "pc", "workstation", "client", "endpoint"];
+const DEVOPS_KEYWORDS = ["dev", "ci", "jenkins", "build", "git", "pipeline"];
 const DATABASE_KEYWORDS = ["db", "database", "mysql", "postgres", "sql"];
 const CORE_KEYWORDS = ["app", "db", "database", "mysql", "postgres", "sql", "storage", "redis", "cache"];
 
-const ZONE_ORDER = ["external", "dmz", "office", "core"];
+const ZONE_ORDER = ["external", "dmz", "office", "devops", "core"];
+const ZONE_WEIGHTS = {
+  external: 0.7,
+  dmz: 1,
+  office: 1.15,
+  devops: 1,
+  core: 1.65,
+};
 const ZONE_LABELS = {
   external: "外部威胁",
   dmz: "DMZ 边界 - 防火墙 / 网站 / 远程接入",
   office: "办公内网 - 终端与跳板",
-  core: "核心业务 - 应用 / 开发 / 数据库 / 存储",
+  devops: "研发供应链 - 开发 / CI/CD",
+  core: "核心业务 - 应用 / 数据库 / 存储 / 安全",
 };
 const ZONE_NOTES = {
   external: "红方从互联网发起行动；该区域不是可争夺资产。",
@@ -68,6 +80,7 @@ const ZONE_STYLES = {
   external: { color: T.gray, bg: "rgba(112,136,176,0.07)" },
   dmz: { color: T.blue, bg: "rgba(91,159,255,0.07)" },
   office: { color: T.green, bg: "rgba(52,224,141,0.06)" },
+  devops: { color: T.purple, bg: "rgba(167,139,250,0.06)" },
   core: { color: T.amber, bg: "rgba(255,204,85,0.07)" },
 };
 
@@ -78,10 +91,16 @@ const NODE_ZONE_MAP = {
   web: "dmz",
   vpn: "dmz",
   office_pc: "office",
+  finance_pc: "office",
+  identity: "office",
+  dev: "devops",
+  ci: "devops",
+  api: "core",
   app: "core",
-  dev: "core",
   db: "core",
   storage: "core",
+  backup: "core",
+  soc: "core",
 };
 
 const NODE_POSITION_HINTS = {
@@ -91,26 +110,34 @@ const NODE_POSITION_HINTS = {
     vpn: { xRatio: 0.34, yRatio: 0.75 },
   },
   office: {
-    office_pc: { xRatio: 0.5, yRatio: 0.5 },
+    office_pc: { xRatio: 0.5, yRatio: 0.22 },
+    finance_pc: { xRatio: 0.32, yRatio: 0.58 },
+    identity: { xRatio: 0.68, yRatio: 0.78 },
+  },
+  devops: {
+    ci: { xRatio: 0.35, yRatio: 0.34 },
+    dev: { xRatio: 0.65, yRatio: 0.7 },
   },
   core: {
-    app: { xRatio: 0.34, yRatio: 0.24 },
-    dev: { xRatio: 0.34, yRatio: 0.74 },
-    db: { xRatio: 0.68, yRatio: 0.36 },
-    storage: { xRatio: 0.68, yRatio: 0.7 },
+    api: { xRatio: 0.27, yRatio: 0.18 },
+    app: { xRatio: 0.72, yRatio: 0.18 },
+    storage: { xRatio: 0.27, yRatio: 0.5 },
+    backup: { xRatio: 0.72, yRatio: 0.5 },
+    soc: { xRatio: 0.27, yRatio: 0.82 },
+    db: { xRatio: 0.72, yRatio: 0.82 },
   },
 };
 
 export const STATUS_STYLES = {
-  Normal: { border: T.blue, bg: T.bgNode, glow: "none", dot: T.green, label: "正常" },
-  Scanning: { border: T.amber, bg: T.amberBg, glow: "0 0 12px rgba(255,204,85,.6)", dot: T.amber, label: "侦察中" },
+  Normal: { border: T.grayDim, bg: T.bgNode, glow: "none", dot: T.gray, label: "正常" },
+  Scanning: { border: T.grayDim, bg: T.bgNode, glow: "none", dot: T.gray, label: "正常" },
   Compromised: { border: T.red, bg: T.redBg, glow: "0 0 16px rgba(255,107,122,.75)", dot: T.red, label: "已失陷" },
   Defended: { border: T.green, bg: T.greenBg, glow: "0 0 12px rgba(52,224,141,.6)", dot: T.green, label: "已加固" },
   Isolated: { border: T.grayDim, bg: "#162340", glow: "none", dot: T.grayDim, label: "已隔离" },
   Patched: { border: T.green, bg: T.greenBg, glow: "0 0 12px rgba(52,224,141,.6)", dot: T.green, label: "已修补" },
   Down: { border: T.grayDim, bg: "#162340", glow: "none", dot: T.grayDim, label: "离线" },
-  normal: { border: T.blue, bg: T.bgNode, glow: "none", dot: T.green, label: "正常" },
-  scanning: { border: T.amber, bg: T.amberBg, glow: "0 0 12px rgba(255,204,85,.6)", dot: T.amber, label: "侦察中" },
+  normal: { border: T.grayDim, bg: T.bgNode, glow: "none", dot: T.gray, label: "正常" },
+  scanning: { border: T.grayDim, bg: T.bgNode, glow: "none", dot: T.gray, label: "正常" },
   compromised: { border: T.red, bg: T.redBg, glow: "0 0 16px rgba(255,107,122,.75)", dot: T.red, label: "已失陷" },
   defended: { border: T.green, bg: T.greenBg, glow: "0 0 12px rgba(52,224,141,.6)", dot: T.green, label: "已加固" },
   isolated: { border: T.grayDim, bg: "#162340", glow: "none", dot: T.grayDim, label: "已隔离" },
@@ -152,6 +179,9 @@ function normalizeZoneId(zoneId = "", nodeId = "") {
   if (["office", "intranet", "office_lan", "corp"].includes(normalized)) {
     return "office";
   }
+  if (["devops", "development", "pipeline", "supply_chain"].includes(normalized)) {
+    return "devops";
+  }
   if (["core", "internal", "database", "datacenter", "lan"].includes(normalized)) {
     return "core";
   }
@@ -176,6 +206,9 @@ export function classifyZone(nodeId = "") {
   if (OFFICE_KEYWORDS.some((keyword) => lowered.includes(keyword))) {
     return "office";
   }
+  if (DEVOPS_KEYWORDS.some((keyword) => lowered.includes(keyword))) {
+    return "devops";
+  }
   if (CORE_KEYWORDS.some((keyword) => lowered.includes(keyword))) {
     return "core";
   }
@@ -198,23 +231,26 @@ function abbreviateNodeId(nodeId = "") {
 }
 
 export function buildZoneConfigs(nodes = []) {
-  const slotCount = ZONE_ORDER.length;
-  const availableWidth = GRAPH_VIEW.zoneW - GRAPH_VIEW.zoneGap * Math.max(0, slotCount - 1);
-  const slotWidth = Math.max(120, Math.floor(availableWidth / slotCount));
+  const availableWidth = GRAPH_VIEW.zoneW - GRAPH_VIEW.zoneGap * Math.max(0, ZONE_ORDER.length - 1);
+  const totalWeight = ZONE_ORDER.reduce((sum, zone) => sum + (ZONE_WEIGHTS[zone] || 1), 0);
+  let cursorX = GRAPH_VIEW.zoneX;
 
-  return ZONE_ORDER.map((zone, index) => {
+  return ZONE_ORDER.map((zone) => {
     const style = ZONE_STYLES[zone] || ZONE_STYLES.core;
-    return {
+    const width = Math.floor(availableWidth * ((ZONE_WEIGHTS[zone] || 1) / totalWeight));
+    const config = {
       id: zone,
       label: ZONE_LABELS[zone] || zone.toUpperCase(),
       note: ZONE_NOTES[zone] || "",
-      x: GRAPH_VIEW.zoneX + index * (slotWidth + GRAPH_VIEW.zoneGap),
+      x: cursorX,
       y: GRAPH_VIEW.zoneY,
-      w: slotWidth,
+      w: width,
       h: GRAPH_VIEW.zoneH,
       color: style.color,
       bg: style.bg,
     };
+    cursorX += width + GRAPH_VIEW.zoneGap;
+    return config;
   });
 }
 
@@ -239,21 +275,29 @@ export function buildNodeConfigs(nodes = [], networkNodes = {}, zoneConfigs = []
   const configs = {};
   zoneConfigs.forEach((zone) => {
     const group = byZone.get(zone.id) || [];
-    const verticalGap = zone.h / (group.length + 1);
+    const columns = group.length >= 4 ? 2 : 1;
+    const rows = Math.ceil(group.length / columns);
+    const usableTop = zone.y + 62;
+    const usableHeight = zone.h - 96;
+    const rowGap = usableHeight / Math.max(rows - 1, 1);
     group.forEach((node, index) => {
       const nodeId = String(node.id);
       const rawPorts = networkNodes?.[nodeId]?.exposed_ports ?? node.exposed_ports ?? [];
       const ports = Array.isArray(rawPorts) ? rawPorts.map((port) => Number(port)).filter((port) => Number.isFinite(port)) : [];
       const vulns = Object.keys(networkNodes?.[nodeId]?.vulnerabilities ?? node.vulnerabilities ?? {});
       const hint = NODE_POSITION_HINTS?.[zone.id]?.[nodeId.toLowerCase()];
-      const fallbackXOffset = ((index % 3) - 1) * 22 + (index % 2 === 0 ? 6 : -6);
-      const fallbackYJitter = index % 2 === 0 ? -8 : 8;
+      const column = index % columns;
+      const row = Math.floor(index / columns);
       const x = hint
         ? zone.x + zone.w * hint.xRatio
-        : zone.x + zone.w / 2 + fallbackXOffset;
+        : columns === 1
+          ? zone.x + zone.w / 2
+          : zone.x + zone.w * (column === 0 ? 0.3 : 0.7);
       const y = hint
         ? zone.y + zone.h * hint.yRatio
-        : zone.y + verticalGap * (index + 1) + fallbackYJitter;
+        : rows === 1
+          ? zone.y + zone.h / 2
+          : usableTop + row * rowGap;
       configs[nodeId] = {
         id: nodeId,
         label: abbreviateNodeId(nodeId),

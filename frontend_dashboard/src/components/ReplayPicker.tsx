@@ -27,6 +27,14 @@ const BUILTIN_REPLAY: ReplayCatalogItem = {
 const FALLBACK_REPLAYS: ReplayCatalogItem[] = [
   BUILTIN_REPLAY,
   {
+    id: "visibility_fixed_10_rounds_final",
+    name: "可见性修复 10 回合最终回放",
+    summary: "企业分支场景最终回放，包含真实 Attack Graph 推进、红蓝复合节点状态与裁判流程。",
+    path: "/visibility_fixed_10_rounds_final.json",
+    rounds: 10,
+    tags: ["最终回放", "可见性修复", "Attack Graph"],
+  },
+  {
     id: "simulation_20_rounds_eval",
     name: "20 回合攻防评估回放",
     summary: "已完成模拟的红蓝双方 20 回合攻防过程。",
@@ -37,6 +45,11 @@ const FALLBACK_REPLAYS: ReplayCatalogItem[] = [
 ];
 
 const REPLAY_NAME_FIXES: Record<string, Partial<ReplayCatalogItem>> = {
+  visibility_fixed_10_rounds_final: {
+    name: "可见性修复 10 回合最终回放",
+    summary: "企业分支场景最终回放，包含真实 Attack Graph 推进、红蓝复合节点状态与裁判流程。",
+    tags: ["最终回放", "可见性修复", "Attack Graph"],
+  },
   simulation_20_rounds_eval: {
     name: "20 回合攻防评估回放",
     summary: "已完成模拟的红蓝双方 20 回合攻防过程，包含动作日志、裁判结果、告警和拓扑变化。",
@@ -66,7 +79,7 @@ function normalizeReplayCatalog(payload: any): ReplayCatalogItem[] {
 
 function ReplayPicker({ selectedReplayId, compact = false, onLoadReplay }: ReplayPickerProps) {
   const [catalog, setCatalog] = useState<ReplayCatalogItem[]>(FALLBACK_REPLAYS);
-  const [localSelectedId, setLocalSelectedId] = useState(selectedReplayId ?? FALLBACK_REPLAYS[1]?.id ?? FALLBACK_REPLAYS[0].id);
+  const [localSelectedId, setLocalSelectedId] = useState(selectedReplayId ?? "visibility_fixed_10_rounds_final");
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState("");
 

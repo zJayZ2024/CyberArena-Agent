@@ -556,7 +556,7 @@ function BattleWorkbench({
         </section>
 
         <aside className="battle-analysis min-h-0">
-          <ReasoningPanel round={currentRound} />
+          <ReasoningPanel round={currentRound} nextRound={rounds[sourceRoundIndex + 1]} />
         </aside>
       </main>
 
@@ -671,7 +671,7 @@ function App() {
   useEffect(() => {
     let cancelled = false;
 
-    fetch("/simulation_20_rounds_eval.json")
+    fetch("/visibility_fixed_10_rounds_final.json")
       .then((response) => response.json())
       .then((payload) => {
         if (cancelled) {
@@ -681,12 +681,12 @@ function App() {
         if (normalized.length) {
           setRounds(normalized);
           setSelectedReplay({
-            id: "simulation_20_rounds_eval",
-            name: "20 回合攻防评估回放",
-            summary: "已完成模拟的红蓝双方 20 回合攻防过程。",
-            path: "/simulation_20_rounds_eval.json",
-            rounds: normalized.length,
-            tags: ["已模拟"],
+            id: "visibility_fixed_10_rounds_final",
+            name: "可见性修复 10 回合最终回放",
+            summary: "企业分支场景最终回放，包含真实 Attack Graph 推进、红蓝复合节点状态与裁判流程。",
+            path: "/visibility_fixed_10_rounds_final.json",
+            rounds: 10,
+            tags: ["最终回放", "可见性修复", "Attack Graph"],
           });
         }
       })

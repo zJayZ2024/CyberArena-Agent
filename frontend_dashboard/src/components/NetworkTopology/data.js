@@ -317,6 +317,9 @@ function normalizeRound(round, fallbackIndex, totalRounds) {
   const worldStateInput = round?.world_state ?? round?.worldState ?? {};
   const roundNumber = round?.round ?? round?.turn ?? worldStateInput.round ?? fallbackIndex + 1;
   const actionLogs = round?.action_logs ?? round?.actionLogs ?? [];
+  const refereeMetadata = Array.isArray(actionLogs)
+    ? actionLogs.find((log) => log?.agent_type === "Referee" || log?.metadata?.agent_type === "Referee")?.metadata ?? {}
+    : {};
   const rawNetworkNodes = round?.network_nodes ?? worldStateInput.network_nodes ?? worldStateInput.networkNodes ?? {};
 
   const legacyRedAction = round?.red_action ?? round?.redAction ?? {};
@@ -372,6 +375,7 @@ function normalizeRound(round, fallbackIndex, totalRounds) {
     red_action: redAction,
     blue_action: blueAction,
     judge_result: judgeResult,
+    referee_flow: round?.referee_flow ?? refereeMetadata.referee_flow ?? {},
     world_state: {
       ...base.world_state,
       ...worldStateInput,

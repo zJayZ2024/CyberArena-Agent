@@ -95,6 +95,7 @@ const SCENARIO_NAME_LABELS = {
   level_2_ransomware: "等级 2 勒索传播",
   level_3_enterprise_branch: "等级 3 企业分支",
   level_4_cloud_saas: "等级 4 云端 SaaS",
+  level_5_hybrid_identity_crisis: "等级 5 混合身份危机",
 };
 
 const RELATIVE_TIME_LABELS = {
@@ -163,6 +164,9 @@ export function translateDifficulty(value) {
   }
   if (["Expert", "专家"].includes(key)) {
     return "专家";
+  }
+  if (["Expert+", "专家+"].includes(key)) {
+    return "专家+";
   }
   return key || "未分级";
 }

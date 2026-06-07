@@ -1,0 +1,1847 @@
+{
+  "meta": {
+    "schema_version": "1.0",
+    "scenario": "level_5_hybrid_identity_crisis",
+    "total_rounds": 20
+  },
+  "initial_topology": {
+    "internet": {
+      "status": "Normal",
+      "exposed_ports": [
+        80,
+        443
+      ],
+      "vulnerabilities": []
+    },
+    "fw": {
+      "status": "Normal",
+      "exposed_ports": [
+        443,
+        4443
+      ],
+      "vulnerabilities": [
+        "CVE-2022-1388_F5_BIGIP_iControl_RCE",
+        "CVE-2024-3400_PAN_OS_Command_Injection"
+      ]
+    },
+    "web": {
+      "status": "Normal",
+      "exposed_ports": [
+        80,
+        443,
+        8090
+      ],
+      "vulnerabilities": [
+        "CVE-2021-41773_Apache_PathTraversal_RCE",
+        "CVE-2021-44228_Log4Shell_RCE",
+        "CVE-2022-26134_Confluence_OGNL_RCE"
+      ]
+    },
+    "vpn": {
+      "status": "Normal",
+      "exposed_ports": [
+        443,
+        500,
+        4500
+      ],
+      "vulnerabilities": [
+        "CVE-2019-19781_Citrix_ADC_PathTraversal_RCE",
+        "CVE-2023-4966_CitrixBleed_SessionHijack"
+      ]
+    },
+    "office_pc": {
+      "status": "Normal",
+      "exposed_ports": [
+        3389,
+        445,
+        5985
+      ],
+      "vulnerabilities": [
+        "CVE-2019-0708_BlueKeep_RCE",
+        "CVE-2021-34527_PrintNightmare_PrivEsc"
+      ]
+    },
+    "finance_pc": {
+      "status": "Normal",
+      "exposed_ports": [
+        3389,
+        445
+      ],
+      "vulnerabilities": [
+        "CVE-2021-34527_PrintNightmare_PrivEsc",
+        "CVE-2023-21716_Office_RTF_RCE"
+      ]
+    },
+    "identity": {
+      "status": "Normal",
+      "exposed_ports": [
+        88,
+        389,
+        445,
+        636
+      ],
+      "vulnerabilities": [
+        "CVE-2020-1472_ZeroLogon_AuthBypass",
+        "CVE-2022-26923_ADCS_Privilege_Escalation"
+      ]
+    },
+    "dev": {
+      "status": "Normal",
+      "exposed_ports": [
+        22,
+        445,
+        8081
+      ],
+      "vulnerabilities": [
+        "CVE-2017-5638_Struts2_RCE",
+        "CVE-2021-44142_Samba_OOB_RCE",
+        "CVE-2023-34362_MOVEit_SQLi"
+      ]
+    },
+    "ci": {
+      "status": "Normal",
+      "exposed_ports": [
+        22,
+        8080,
+        50000
+      ],
+      "vulnerabilities": [
+        "CVE-2019-1003000_Jenkins_Script_Security_RCE",
+        "CVE-2024-23897_Jenkins_CLI_File_Read"
+      ]
+    },
+    "api": {
+      "status": "Normal",
+      "exposed_ports": [
+        443,
+        8080,
+        8443
+      ],
+      "vulnerabilities": [
+        "CVE-2022-22965_Spring4Shell_RCE",
+        "CVE-2023-44487_HTTP2_Rapid_Reset"
+      ]
+    },
+    "app": {
+      "status": "Normal",
+      "exposed_ports": [
+        8080,
+        8443,
+        9000
+      ],
+      "vulnerabilities": [
+        "CVE-2021-44228_Log4Shell_RCE",
+        "CVE-2022-22965_Spring4Shell_RCE",
+        "CVE-2023-22515_Confluence_Privilege_Escalation"
+      ]
+    },
+    "storage": {
+      "status": "Normal",
+      "exposed_ports": [
+        139,
+        445,
+        2049
+      ],
+      "vulnerabilities": [
+        "CVE-2017-0144_EternalBlue_SMB_RCE",
+        "CVE-2020-1472_ZeroLogon_AuthBypass",
+        "CVE-2021-44142_Samba_OOB_RCE"
+      ]
+    },
+    "backup": {
+      "status": "Normal",
+      "exposed_ports": [
+        22,
+        443,
+        2049
+      ],
+      "vulnerabilities": [
+        "CVE-2021-21972_vCenter_RCE",
+        "CVE-2023-27532_Veeam_Credential_Disclosure"
+      ]
+    },
+    "soc": {
+      "status": "Normal",
+      "exposed_ports": [
+        443,
+        9200,
+        5601
+      ],
+      "vulnerabilities": [
+        "CVE-2021-44228_Log4Shell_RCE"
+      ]
+    },
+    "db": {
+      "status": "Normal",
+      "exposed_ports": [
+        3306,
+        5432
+      ],
+      "vulnerabilities": [
+        "CVE-2012-2122_MySQL_Auth_Bypass",
+        "CVE-2016-6662_MySQL_Config_Injection",
+        "CVE-2019-9193_PostgreSQL_Copy_Program_RCE"
+      ]
+    }
+  },
+  "rounds": [
+    {
+      "turn": 1,
+      "red_action": {
+        "action_type": "Recon",
+        "target": "vpn",
+        "vuln_id": null,
+        "thought": "goal=intel_gain; risk=medium; reason=首轮无任何控制节点，必须通过侦察获取服务与漏洞情报。vpn是边界关键节点，侦察可补全路径信息，为后续ExploitService提供依据。风险中等，但无更优推进动作可选。",
+        "referee_result": "已完成对 vpn 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权",
+        "effect": "intel",
+        "score_awarded": 2
+      },
+      "blue_action": {
+        "action_type": "PatchNode",
+        "target": "vpn",
+        "vuln_id": "CVE-2023-4966_CitrixBleed_SessionHijack",
+        "thought": "goal=risk_control; risk=low; reason=当前为P2平静期，无活跃威胁，核心资产db仅ELEVATED风险但未受攻。优先修补已确认的高危漏洞CVE-2023-4966（VPN会话劫持），该漏洞攻击面大、易被利用横向移动至核心。选择impact最高的PatchNode动作，降低暴露度，防止红方利用VPN突破边界。",
+        "referee_result": "vpn 已成功完成 vuln_id=CVE-2023-4966_CitrixBleed_SessionHijack 的修补",
+        "effect": "hardening",
+        "score_awarded": 4
+      },
+      "adjudication": {
+        "summary": "Red: 已完成对 vpn 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权; Blue: vpn 已成功完成 vuln_id=CVE-2023-4966_CitrixBleed_SessionHijack 的修补",
+        "interaction": {
+          "type": "independent",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "none"
+        }
+      },
+      "score_delta": {
+        "red_delta": 2,
+        "blue_delta": 4,
+        "red_score": 2,
+        "blue_score": 4,
+        "red_breakdown": {
+          "delta": 2,
+          "delta_action_only": 2,
+          "delta_terminal_bonus": 0,
+          "base": 2,
+          "base_raw": 2,
+          "reason": "state_change_score",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 4,
+          "delta_action_only": 4,
+          "delta_terminal_bonus": 0,
+          "base": 4,
+          "base_raw": 14,
+          "reason": "state_change_score",
+          "multiplier": 0.3,
+          "multiplier_reason": "default_multiplier+low_threat_remediation_penalty",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        }
+      },
+      "delta": {
+        "node_status_changes": [],
+        "vulnerability_changes": [
+          {
+            "node": "vpn",
+            "removed": [
+              "CVE-2023-4966_CitrixBleed_SessionHijack"
+            ],
+            "added": []
+          }
+        ]
+      },
+      "state": {
+        "system_health": 100,
+        "exposure_level": 100,
+        "red_score": 2,
+        "blue_score": 4,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 2,
+      "red_action": {
+        "action_type": "ExploitService",
+        "target": "vpn",
+        "vuln_id": "CVE-2019-19781_Citrix_ADC_PathTraversal_RCE",
+        "thought": "goal=core_objective; risk=medium; reason=vpn是已知边界节点，拥有高价值漏洞CVE-2019-19781，利用成功可建立初始据点，推进至核心资产db。蓝方已修补但未完全免疫，风险中等。",
+        "referee_result": "vpn 已通过 vuln_id=CVE-2019-19781_Citrix_ADC_PathTraversal_RCE 建立红方活动会话",
+        "effect": "session",
+        "score_awarded": 14
+      },
+      "blue_action": {
+        "action_type": "PatchNode",
+        "target": "web",
+        "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+        "thought": "goal=core_objective; risk=low; reason=红方已得2分，vpn出现侦察痕迹，核心资产db风险ELEVATED。web存在Log4Shell高危RCE漏洞，是常见攻击入口。优先修补web可消除一个关键攻击向量，降低红方利用入口渗透内网的风险，同时不干扰业务连续性。",
+        "referee_result": "web 已成功完成 vuln_id=CVE-2021-44228_Log4Shell_RCE 的修补",
+        "effect": "hardening",
+        "score_awarded": 4
+      },
+      "adjudication": {
+        "summary": "Red: vpn 已通过 vuln_id=CVE-2019-19781_Citrix_ADC_PathTraversal_RCE 建立红方活动会话; Blue: web 已成功完成 vuln_id=CVE-2021-44228_Log4Shell_RCE 的修补",
+        "interaction": {
+          "type": "independent",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "none"
+        }
+      },
+      "score_delta": {
+        "red_delta": 14,
+        "blue_delta": 4,
+        "red_score": 16,
+        "blue_score": 8,
+        "red_breakdown": {
+          "delta": 14,
+          "delta_action_only": 14,
+          "delta_terminal_bonus": 0,
+          "base": 14,
+          "base_raw": 14,
+          "reason": "state_change_score",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 4,
+          "delta_action_only": 4,
+          "delta_terminal_bonus": 0,
+          "base": 4,
+          "base_raw": 14,
+          "reason": "state_change_score",
+          "multiplier": 0.3,
+          "multiplier_reason": "default_multiplier+low_threat_remediation_penalty",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        }
+      },
+      "delta": {
+        "node_status_changes": [],
+        "vulnerability_changes": [
+          {
+            "node": "web",
+            "removed": [
+              "CVE-2021-44228_Log4Shell_RCE"
+            ],
+            "added": []
+          }
+        ]
+      },
+      "state": {
+        "system_health": 96,
+        "exposure_level": 100,
+        "red_score": 16,
+        "blue_score": 8,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 3,
+      "red_action": {
+        "action_type": "AnchorFoothold",
+        "target": "vpn",
+        "vuln_id": null,
+        "thought": "goal=core_objective; risk=medium; reason=vpn已控制但未扎根，蓝方可能恢复。扎根可维持攻击链，为后续横向移动至db提供持久入口，推进核心目标。",
+        "referee_result": "已在 vpn 建立持久化扎根",
+        "effect": "persistence",
+        "score_awarded": 30
+      },
+      "blue_action": {
+        "action_type": "PatchNode",
+        "target": "fw",
+        "vuln_id": "CVE-2024-3400_PAN_OS_Command_Injection",
+        "thought": "goal=core_objective; risk=low; reason=红方已得16分，vpn出现侦察与利用告警，攻击链可能通过fw渗透内网。fw存在已确认的CVE-2024-3400命令注入漏洞，是常见边界突破点。修补fw可消除一个关键入口，降低红方渗透内网风险，保护核心资产db。当前无Compromised节点，修补风险低，不影响业务连续性。",
+        "referee_result": "fw 已成功完成 vuln_id=CVE-2024-3400_PAN_OS_Command_Injection 的修补",
+        "effect": "hardening",
+        "score_awarded": 4
+      },
+      "adjudication": {
+        "summary": "Red: 已在 vpn 建立持久化扎根; Blue: fw 已成功完成 vuln_id=CVE-2024-3400_PAN_OS_Command_Injection 的修补",
+        "interaction": {
+          "type": "independent",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "none"
+        }
+      },
+      "score_delta": {
+        "red_delta": 30,
+        "blue_delta": 4,
+        "red_score": 46,
+        "blue_score": 12,
+        "red_breakdown": {
+          "delta": 30,
+          "delta_action_only": 30,
+          "delta_terminal_bonus": 0,
+          "base": 30,
+          "base_raw": 30,
+          "reason": "state_change_score",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 4,
+          "delta_action_only": 4,
+          "delta_terminal_bonus": 0,
+          "base": 4,
+          "base_raw": 14,
+          "reason": "state_change_score",
+          "multiplier": 0.3,
+          "multiplier_reason": "default_multiplier+low_threat_remediation_penalty",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        }
+      },
+      "delta": {
+        "node_status_changes": [],
+        "vulnerability_changes": [
+          {
+            "node": "fw",
+            "removed": [
+              "CVE-2024-3400_PAN_OS_Command_Injection"
+            ],
+            "added": []
+          }
+        ]
+      },
+      "state": {
+        "system_health": 88,
+        "exposure_level": 100,
+        "red_score": 46,
+        "blue_score": 12,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 4,
+      "red_action": {
+        "action_type": "ReactivateFoothold",
+        "target": "vpn",
+        "vuln_id": null,
+        "thought": "goal=core_objective; risk=medium; reason=vpn已扎根但状态为Normal，蓝方连续修补可能削弱控制；ReactivateFoothold可恢复活跃会话，维持攻击链，为后续横向移动至db做准备。",
+        "referee_result": "vpn 扎根已重激活，控制权恢复",
+        "effect": "compromise",
+        "score_awarded": 22
+      },
+      "blue_action": {
+        "action_type": "PatchNode",
+        "target": "identity",
+        "vuln_id": "CVE-2020-1472_ZeroLogon_AuthBypass",
+        "thought": "goal=core_objective; risk=low; reason=核心资产db风险ELEVATED，但尚无直接攻击证据。vpn连续收到3条WARN告警（侦察、利用、持久化），表明红方已建立初步据点。identity存在已确认的ZeroLogon漏洞，可被用于横向移动至域控进而威胁db。优先修补identity消除高危横向移动路径，阻断攻击链，同时不干扰业务连续性。",
+        "referee_result": "identity 已成功完成 vuln_id=CVE-2020-1472_ZeroLogon_AuthBypass 的修补",
+        "effect": "hardening",
+        "score_awarded": 4
+      },
+      "adjudication": {
+        "summary": "Red: vpn 扎根已重激活，控制权恢复; Blue: identity 已成功完成 vuln_id=CVE-2020-1472_ZeroLogon_AuthBypass 的修补",
+        "interaction": {
+          "type": "independent",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "none"
+        }
+      },
+      "score_delta": {
+        "red_delta": 22,
+        "blue_delta": 4,
+        "red_score": 68,
+        "blue_score": 16,
+        "red_breakdown": {
+          "delta": 22,
+          "delta_action_only": 22,
+          "delta_terminal_bonus": 0,
+          "base": 22,
+          "base_raw": 22,
+          "reason": "state_change_score",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 4,
+          "delta_action_only": 4,
+          "delta_terminal_bonus": 0,
+          "base": 4,
+          "base_raw": 14,
+          "reason": "state_change_score",
+          "multiplier": 0.3,
+          "multiplier_reason": "default_multiplier+low_threat_remediation_penalty",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        }
+      },
+      "delta": {
+        "node_status_changes": [
+          {
+            "node": "vpn",
+            "from": "Normal",
+            "to": "Compromised"
+          }
+        ],
+        "vulnerability_changes": [
+          {
+            "node": "identity",
+            "removed": [
+              "CVE-2020-1472_ZeroLogon_AuthBypass"
+            ],
+            "added": []
+          }
+        ]
+      },
+      "state": {
+        "system_health": 68,
+        "exposure_level": 100,
+        "red_score": 68,
+        "blue_score": 16,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 5,
+      "red_action": {
+        "action_type": "LateralMove",
+        "target": "office_pc",
+        "vuln_id": null,
+        "thought": "goal=core_objective; risk=medium; reason=当前已扎根vpn，核心资产db需经内网横向推进。office_pc是未探索内网节点，LateralMove可开辟新路径，推进攻击链。风险中等，但战局胜利优先。",
+        "referee_result": "同回合命令-规则拦截：蓝方防守规则拦截了红方攻击命令。",
+        "effect": "blocked",
+        "score_awarded": 0
+      },
+      "blue_action": {
+        "action_type": "Isolate",
+        "target": "vpn",
+        "vuln_id": "CVE-2019-19781_Citrix_ADC_PathTraversal_RCE",
+        "thought": "goal=containment; risk=medium; reason=vpn连续收到侦察、利用、持久化、持久化激活4条告警，最后一条为CRIT级别，表明红方已建立活跃据点并可能横向移动至db。隔离vpn可立即阻断攻击链，防止核心资产被攻陷。虽影响业务连续性，但P0阶段必须优先遏制活跃威胁。",
+        "referee_result": "vpn 已被隔离；红方活动会话与 foothold 已切断",
+        "effect": "isolation",
+        "score_awarded": 30
+      },
+      "adjudication": {
+        "summary": "Red: 同回合命令-规则拦截：蓝方防守规则拦截了红方攻击命令。; Blue: vpn 已被隔离；红方活动会话与 foothold 已切断",
+        "interaction": {
+          "type": "command_intercept",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "blocked",
+          "target": "office_pc",
+          "intercept_by": "Isolate"
+        }
+      },
+      "score_delta": {
+        "red_delta": 0,
+        "blue_delta": 30,
+        "red_score": 68,
+        "blue_score": 46,
+        "red_breakdown": {
+          "delta": 0,
+          "delta_action_only": 0,
+          "delta_terminal_bonus": 0,
+          "base": 0,
+          "base_raw": 0,
+          "reason": "failed_or_rejected",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 30,
+          "delta_action_only": 30,
+          "delta_terminal_bonus": 0,
+          "base": 30,
+          "base_raw": 20,
+          "reason": "state_change_score",
+          "multiplier": 1.5,
+          "multiplier_reason": "same_round_command_rule_intercept",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": true
+        }
+      },
+      "delta": {
+        "node_status_changes": [
+          {
+            "node": "vpn",
+            "from": "Compromised",
+            "to": "Isolated"
+          }
+        ],
+        "vulnerability_changes": []
+      },
+      "state": {
+        "system_health": 85,
+        "exposure_level": 100,
+        "red_score": 68,
+        "blue_score": 46,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 6,
+      "red_action": {
+        "action_type": "Recon",
+        "target": "web",
+        "vuln_id": null,
+        "thought": "goal=intel_gain; risk=medium; reason=vpn被隔离，当前无控制节点，无法推进。web是通往内网的关键节点，且未被侦察，侦察web可获取服务与漏洞情报，为后续横向移动做准备。",
+        "referee_result": "已完成对 web 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权",
+        "effect": "intel",
+        "score_awarded": 2
+      },
+      "blue_action": {
+        "action_type": "VulnerabilityScan",
+        "target": "office_pc",
+        "vuln_id": null,
+        "thought": "goal=intel_gain; risk=medium; reason=office_pc 近期出现 SuspiciousRemoteAccess 告警，是攻击链中可疑横向移动节点，扫描可确认漏洞并指导修补，防止其成为跳板攻击核心资产 db。",
+        "referee_result": "office_pc 漏洞扫描完成；发现结果已进入待确认与修补队列",
+        "effect": "assessment",
+        "score_awarded": 5
+      },
+      "adjudication": {
+        "summary": "Red: 已完成对 web 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权; Blue: office_pc 漏洞扫描完成；发现结果已进入待确认与修补队列",
+        "interaction": {
+          "type": "independent",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "none"
+        }
+      },
+      "score_delta": {
+        "red_delta": 2,
+        "blue_delta": 5,
+        "red_score": 70,
+        "blue_score": 51,
+        "red_breakdown": {
+          "delta": 2,
+          "delta_action_only": 2,
+          "delta_terminal_bonus": 0,
+          "base": 2,
+          "base_raw": 2,
+          "reason": "state_change_score",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 5,
+          "delta_action_only": 5,
+          "delta_terminal_bonus": 0,
+          "base": 5,
+          "base_raw": 5,
+          "reason": "state_change_score",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        }
+      },
+      "delta": {
+        "node_status_changes": [],
+        "vulnerability_changes": []
+      },
+      "state": {
+        "system_health": 85,
+        "exposure_level": 100,
+        "red_score": 70,
+        "blue_score": 51,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 7,
+      "red_action": {
+        "action_type": "ExploitService",
+        "target": "web",
+        "vuln_id": "CVE-2022-26134_Confluence_OGNL_RCE",
+        "thought": "goal=core_objective; risk=medium; reason=web 是通往内网的关键跳板，且已知两个高价值漏洞。CVE-2022-26134 分值更高，优先利用以突破隔离，推进攻击链至核心资产 db。",
+        "referee_result": "动作因概率门控失败：0.48 未命中。",
+        "effect": "probability_failed",
+        "score_awarded": 0
+      },
+      "blue_action": {
+        "action_type": "PatchNode",
+        "target": "office_pc",
+        "vuln_id": "CVE-2019-0708_BlueKeep_RCE",
+        "thought": "goal=containment; risk=low; reason=office_pc 有已确认漏洞 CVE-2019-0708_BlueKeep_RCE，且近期出现 SuspiciousRemoteAccess 告警，红方可能利用该漏洞横向移动。修补可消除高危入口，阻断攻击链向 db 延伸。当前无 Compromised 节点，exposure_level=100，适合精准修补。",
+        "referee_result": "office_pc 已成功完成 vuln_id=CVE-2019-0708_BlueKeep_RCE 的修补",
+        "effect": "hardening",
+        "score_awarded": 4
+      },
+      "adjudication": {
+        "summary": "Red: 动作因概率门控失败：0.48 未命中。; Blue: office_pc 已成功完成 vuln_id=CVE-2019-0708_BlueKeep_RCE 的修补",
+        "interaction": {
+          "type": "independent",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "none"
+        }
+      },
+      "score_delta": {
+        "red_delta": 0,
+        "blue_delta": 4,
+        "red_score": 70,
+        "blue_score": 55,
+        "red_breakdown": {
+          "delta": 0,
+          "delta_action_only": 0,
+          "delta_terminal_bonus": 0,
+          "base": 0,
+          "base_raw": 0,
+          "reason": "failed_or_rejected",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 4,
+          "delta_action_only": 4,
+          "delta_terminal_bonus": 0,
+          "base": 4,
+          "base_raw": 14,
+          "reason": "state_change_score",
+          "multiplier": 0.3,
+          "multiplier_reason": "default_multiplier+low_threat_remediation_penalty",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        }
+      },
+      "delta": {
+        "node_status_changes": [],
+        "vulnerability_changes": [
+          {
+            "node": "office_pc",
+            "removed": [
+              "CVE-2019-0708_BlueKeep_RCE"
+            ],
+            "added": []
+          }
+        ]
+      },
+      "state": {
+        "system_health": 85,
+        "exposure_level": 100,
+        "red_score": 70,
+        "blue_score": 55,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 8,
+      "red_action": {
+        "action_type": "ExploitService",
+        "target": "web",
+        "vuln_id": "CVE-2022-26134_Confluence_OGNL_RCE",
+        "thought": "goal=core_objective; risk=medium; reason=web 有已知漏洞且状态 Normal，利用 CVE-2022-26134 可建立新据点，推进至 db 路径。vpn 被隔离但扎根仍在，后续可 ReactivateFoothold。",
+        "referee_result": "动作因概率门控失败：0.48 未命中。",
+        "effect": "probability_failed",
+        "score_awarded": 0
+      },
+      "blue_action": {
+        "action_type": "PatchNode",
+        "target": "office_pc",
+        "vuln_id": "CVE-2021-34527_PrintNightmare_PrivEsc",
+        "thought": "goal=containment; risk=low; reason=office_pc 存在已确认漏洞 CVE-2021-34527_PrintNightmare_PrivEsc，且近期有 SuspiciousRemoteAccess 告警，攻击链可能通过 office_pc 横向移动至核心资产 db。修补该漏洞可消除一个明确的横向移动风险点，且风险低、收益高。",
+        "referee_result": "动作因概率门控失败：0.71 未命中。",
+        "effect": "probability_failed",
+        "score_awarded": 0
+      },
+      "adjudication": {
+        "summary": "Red: 动作因概率门控失败：0.48 未命中。; Blue: 动作因概率门控失败：0.71 未命中。",
+        "interaction": {
+          "type": "independent",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "none"
+        }
+      },
+      "score_delta": {
+        "red_delta": 0,
+        "blue_delta": 0,
+        "red_score": 70,
+        "blue_score": 55,
+        "red_breakdown": {
+          "delta": 0,
+          "delta_action_only": 0,
+          "delta_terminal_bonus": 0,
+          "base": 0,
+          "base_raw": 0,
+          "reason": "failed_or_rejected",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 2,
+          "decay_factor": 0.7,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 0,
+          "delta_action_only": 0,
+          "delta_terminal_bonus": 0,
+          "base": 0,
+          "base_raw": 0,
+          "reason": "failed_or_rejected",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 2,
+          "decay_factor": 0.7,
+          "budget_cap": 60,
+          "budget_overridden": false
+        }
+      },
+      "delta": {
+        "node_status_changes": [],
+        "vulnerability_changes": []
+      },
+      "state": {
+        "system_health": 85,
+        "exposure_level": 100,
+        "red_score": 70,
+        "blue_score": 55,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 9,
+      "red_action": {
+        "action_type": "ExploitService",
+        "target": "web",
+        "vuln_id": "CVE-2022-26134_Confluence_OGNL_RCE",
+        "thought": "goal=core_objective; risk=medium; reason=web节点Normal且已知两个漏洞，CVE-2022-26134得分更高，利用成功可建立新foothold推进到内网，缩短到db的路径。vpn被隔离但已扎根，后续可Reactivate。",
+        "referee_result": "web 已通过 vuln_id=CVE-2022-26134_Confluence_OGNL_RCE 建立红方活动会话",
+        "effect": "session",
+        "score_awarded": 5
+      },
+      "blue_action": {
+        "action_type": "PatchNode",
+        "target": "office_pc",
+        "vuln_id": "CVE-2021-34527_PrintNightmare_PrivEsc",
+        "thought": "goal=containment; risk=low; reason=office_pc 有已确认漏洞 CVE-2021-34527，且历史告警显示可疑远程访问，修补可消除提权风险，防止攻击链向核心资产 db 推进。当前无活跃高危告警，适合精准修补。",
+        "referee_result": "动作因概率门控失败：0.71 未命中。",
+        "effect": "probability_failed",
+        "score_awarded": 0
+      },
+      "adjudication": {
+        "summary": "Red: web 已通过 vuln_id=CVE-2022-26134_Confluence_OGNL_RCE 建立红方活动会话; Blue: 动作因概率门控失败：0.71 未命中。",
+        "interaction": {
+          "type": "independent",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "none"
+        }
+      },
+      "score_delta": {
+        "red_delta": 5,
+        "blue_delta": 0,
+        "red_score": 75,
+        "blue_score": 55,
+        "red_breakdown": {
+          "delta": 5,
+          "delta_action_only": 5,
+          "delta_terminal_bonus": 0,
+          "base": 14,
+          "base_raw": 14,
+          "reason": "state_change_score",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 3,
+          "decay_factor": 0.4,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 0,
+          "delta_action_only": 0,
+          "delta_terminal_bonus": 0,
+          "base": 0,
+          "base_raw": 0,
+          "reason": "failed_or_rejected",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 3,
+          "decay_factor": 0.4,
+          "budget_cap": 60,
+          "budget_overridden": false
+        }
+      },
+      "delta": {
+        "node_status_changes": [],
+        "vulnerability_changes": []
+      },
+      "state": {
+        "system_health": 81,
+        "exposure_level": 100,
+        "red_score": 75,
+        "blue_score": 55,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 10,
+      "red_action": {
+        "action_type": "AnchorFoothold",
+        "target": "web",
+        "vuln_id": null,
+        "thought": "goal=core_objective; risk=low; reason=当前已控制web节点，但无扎根。优先在web上建立持久化扎根，确保攻击链稳定性，为后续横向移动至app/api并最终到达db提供可靠跳板。",
+        "referee_result": "已在 web 建立持久化扎根",
+        "effect": "persistence",
+        "score_awarded": 30
+      },
+      "blue_action": {
+        "action_type": "PatchNode",
+        "target": "office_pc",
+        "vuln_id": "CVE-2021-34527_PrintNightmare_PrivEsc",
+        "thought": "goal=containment; risk=low; reason=office_pc 有已确认漏洞 CVE-2021-34527_PrintNightmare_PrivEsc 且近期出现 SuspiciousRemoteAccess 告警，攻击链可能通过 office_pc 横向移动至 db。修补该漏洞可消除一个已知的提权/横向移动风险点，且不影响业务连续性。",
+        "referee_result": "office_pc 已成功完成 vuln_id=CVE-2021-34527_PrintNightmare_PrivEsc 的修补",
+        "effect": "hardening",
+        "score_awarded": 1
+      },
+      "adjudication": {
+        "summary": "Red: 已在 web 建立持久化扎根; Blue: office_pc 已成功完成 vuln_id=CVE-2021-34527_PrintNightmare_PrivEsc 的修补",
+        "interaction": {
+          "type": "independent",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "none"
+        }
+      },
+      "score_delta": {
+        "red_delta": 30,
+        "blue_delta": 1,
+        "red_score": 105,
+        "blue_score": 56,
+        "red_breakdown": {
+          "delta": 30,
+          "delta_action_only": 30,
+          "delta_terminal_bonus": 0,
+          "base": 30,
+          "base_raw": 30,
+          "reason": "state_change_score",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 1,
+          "delta_action_only": 1,
+          "delta_terminal_bonus": 0,
+          "base": 4,
+          "base_raw": 14,
+          "reason": "state_change_score",
+          "multiplier": 0.3,
+          "multiplier_reason": "default_multiplier+low_threat_remediation_penalty",
+          "repeat_streak": 4,
+          "decay_factor": 0.25,
+          "budget_cap": 60,
+          "budget_overridden": false
+        }
+      },
+      "delta": {
+        "node_status_changes": [],
+        "vulnerability_changes": [
+          {
+            "node": "office_pc",
+            "removed": [
+              "CVE-2021-34527_PrintNightmare_PrivEsc"
+            ],
+            "added": []
+          }
+        ]
+      },
+      "state": {
+        "system_health": 73,
+        "exposure_level": 100,
+        "red_score": 105,
+        "blue_score": 56,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 11,
+      "red_action": {
+        "action_type": "ReactivateFoothold",
+        "target": "web",
+        "vuln_id": null,
+        "thought": "goal=core_objective; risk=low; reason=web 已扎根且状态 Normal，ReactivateFoothold 可低成本恢复控制权，为后续横向移动至 app/api 铺路，推进核心资产 db 路径。",
+        "referee_result": "web 扎根已重激活，控制权恢复",
+        "effect": "compromise",
+        "score_awarded": 22
+      },
+      "blue_action": {
+        "action_type": "VulnerabilityScan",
+        "target": "db",
+        "vuln_id": null,
+        "thought": "goal=intel_gain; risk=medium; reason=核心资产db风险等级ELEVATED且已监控但无已确认漏洞，当前无活跃高危告警，扫描db可获取精准漏洞情报，为后续精准修补做准备，防止红方利用未知漏洞攻陷核心资产。",
+        "referee_result": "db 漏洞扫描完成；发现结果已进入待确认与修补队列",
+        "effect": "assessment",
+        "score_awarded": 5
+      },
+      "adjudication": {
+        "summary": "Red: web 扎根已重激活，控制权恢复; Blue: db 漏洞扫描完成；发现结果已进入待确认与修补队列",
+        "interaction": {
+          "type": "independent",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "none"
+        }
+      },
+      "score_delta": {
+        "red_delta": 22,
+        "blue_delta": 5,
+        "red_score": 127,
+        "blue_score": 61,
+        "red_breakdown": {
+          "delta": 22,
+          "delta_action_only": 22,
+          "delta_terminal_bonus": 0,
+          "base": 22,
+          "base_raw": 22,
+          "reason": "state_change_score",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 5,
+          "delta_action_only": 5,
+          "delta_terminal_bonus": 0,
+          "base": 5,
+          "base_raw": 5,
+          "reason": "state_change_score",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        }
+      },
+      "delta": {
+        "node_status_changes": [
+          {
+            "node": "web",
+            "from": "Normal",
+            "to": "Compromised"
+          }
+        ],
+        "vulnerability_changes": []
+      },
+      "state": {
+        "system_health": 53,
+        "exposure_level": 100,
+        "red_score": 127,
+        "blue_score": 61,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 12,
+      "red_action": {
+        "action_type": "LateralMove",
+        "target": "app",
+        "vuln_id": null,
+        "thought": "goal=core_objective; risk=medium; reason=从web跳板向app横向移动，app是通往db的关键路径，推进攻击链，避免重复侦察。",
+        "referee_result": "同回合命令-规则拦截：蓝方防守规则拦截了红方攻击命令。",
+        "effect": "blocked",
+        "score_awarded": 0
+      },
+      "blue_action": {
+        "action_type": "Isolate",
+        "target": "web",
+        "vuln_id": null,
+        "thought": "goal=containment; risk=high; reason=当前P0阶段，web节点连续出现CRIT级告警（SuspiciousPersistenceReactivation）和WARN级攻击链告警，表明红方已建立持久化并可能正向核心资产db推进。隔离web可立即阻断攻击路径，防止进一步渗透。虽然风险较高，但相比放任攻击链发展，隔离是必要且有效的遏制手段。",
+        "referee_result": "web 已被隔离；红方活动会话与 foothold 已切断",
+        "effect": "isolation",
+        "score_awarded": 30
+      },
+      "adjudication": {
+        "summary": "Red: 同回合命令-规则拦截：蓝方防守规则拦截了红方攻击命令。; Blue: web 已被隔离；红方活动会话与 foothold 已切断",
+        "interaction": {
+          "type": "command_intercept",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "blocked",
+          "target": "app",
+          "intercept_by": "Isolate"
+        }
+      },
+      "score_delta": {
+        "red_delta": 0,
+        "blue_delta": 30,
+        "red_score": 127,
+        "blue_score": 91,
+        "red_breakdown": {
+          "delta": 0,
+          "delta_action_only": 0,
+          "delta_terminal_bonus": 0,
+          "base": 0,
+          "base_raw": 0,
+          "reason": "failed_or_rejected",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 30,
+          "delta_action_only": 30,
+          "delta_terminal_bonus": 0,
+          "base": 30,
+          "base_raw": 20,
+          "reason": "state_change_score",
+          "multiplier": 1.5,
+          "multiplier_reason": "same_round_command_rule_intercept",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": true
+        }
+      },
+      "delta": {
+        "node_status_changes": [
+          {
+            "node": "web",
+            "from": "Compromised",
+            "to": "Isolated"
+          }
+        ],
+        "vulnerability_changes": []
+      },
+      "state": {
+        "system_health": 70,
+        "exposure_level": 100,
+        "red_score": 127,
+        "blue_score": 91,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 13,
+      "red_action": {
+        "action_type": "Recon",
+        "target": "app",
+        "vuln_id": null,
+        "thought": "goal=intel_gain; risk=medium; reason=当前vpn和web均被隔离，无可用控制节点，无法推进攻击链。app是通往核心db的关键跳板，且尚未侦察，需获取其服务与漏洞情报以规划后续利用路径。",
+        "referee_result": "已完成对 app 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权",
+        "effect": "intel",
+        "score_awarded": 2
+      },
+      "blue_action": {
+        "action_type": "PatchNode",
+        "target": "db",
+        "vuln_id": "CVE-2016-6662_MySQL_Config_Injection",
+        "thought": "goal=core_objective; risk=low; reason=核心资产db存在两个已确认高危漏洞(CVE-2016-6662/CVE-2019-9193)，红方已对app施压且攻击链可能指向db。当前db风险等级ELEVATED，优先修补其中一个漏洞可降低被直接攻陷风险，且不影响业务连续性。",
+        "referee_result": "db 已成功完成 vuln_id=CVE-2016-6662_MySQL_Config_Injection 的修补",
+        "effect": "hardening",
+        "score_awarded": 4
+      },
+      "adjudication": {
+        "summary": "Red: 已完成对 app 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权; Blue: db 已成功完成 vuln_id=CVE-2016-6662_MySQL_Config_Injection 的修补",
+        "interaction": {
+          "type": "independent",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "none"
+        }
+      },
+      "score_delta": {
+        "red_delta": 2,
+        "blue_delta": 4,
+        "red_score": 129,
+        "blue_score": 95,
+        "red_breakdown": {
+          "delta": 2,
+          "delta_action_only": 2,
+          "delta_terminal_bonus": 0,
+          "base": 2,
+          "base_raw": 2,
+          "reason": "state_change_score",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 4,
+          "delta_action_only": 4,
+          "delta_terminal_bonus": 0,
+          "base": 4,
+          "base_raw": 14,
+          "reason": "state_change_score",
+          "multiplier": 0.3,
+          "multiplier_reason": "default_multiplier+low_threat_remediation_penalty",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        }
+      },
+      "delta": {
+        "node_status_changes": [],
+        "vulnerability_changes": [
+          {
+            "node": "db",
+            "removed": [
+              "CVE-2016-6662_MySQL_Config_Injection"
+            ],
+            "added": []
+          }
+        ]
+      },
+      "state": {
+        "system_health": 70,
+        "exposure_level": 100,
+        "red_score": 129,
+        "blue_score": 95,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 14,
+      "red_action": {
+        "action_type": "Recon",
+        "target": "api",
+        "vuln_id": null,
+        "thought": "goal=intel_gain; risk=medium; reason=当前无活跃foothold，vpn和web被隔离，app上次横向被阻。api是未侦察节点，可能提供新入口路径。选择Recon api获取服务与漏洞情报，为后续推进做准备。",
+        "referee_result": "已完成对 api 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权",
+        "effect": "intel",
+        "score_awarded": 2
+      },
+      "blue_action": {
+        "action_type": "PatchNode",
+        "target": "db",
+        "vuln_id": "CVE-2019-9193_PostgreSQL_Copy_Program_RCE",
+        "thought": "goal=core_objective; risk=low; reason=核心资产db已确认存在CVE-2019-9193 PostgreSQL RCE漏洞，当前风险等级ELEVATED，红方可能利用此漏洞直接攻陷核心。立即修补可消除该高危入口，且db已监控加固，修补风险低。",
+        "referee_result": "动作因概率门控失败：0.60 未命中。",
+        "effect": "probability_failed",
+        "score_awarded": 0
+      },
+      "adjudication": {
+        "summary": "Red: 已完成对 api 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权; Blue: 动作因概率门控失败：0.60 未命中。",
+        "interaction": {
+          "type": "independent",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "none"
+        }
+      },
+      "score_delta": {
+        "red_delta": 2,
+        "blue_delta": 0,
+        "red_score": 131,
+        "blue_score": 95,
+        "red_breakdown": {
+          "delta": 2,
+          "delta_action_only": 2,
+          "delta_terminal_bonus": 0,
+          "base": 2,
+          "base_raw": 2,
+          "reason": "state_change_score",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 0,
+          "delta_action_only": 0,
+          "delta_terminal_bonus": 0,
+          "base": 0,
+          "base_raw": 0,
+          "reason": "failed_or_rejected",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 2,
+          "decay_factor": 0.7,
+          "budget_cap": 60,
+          "budget_overridden": false
+        }
+      },
+      "delta": {
+        "node_status_changes": [],
+        "vulnerability_changes": []
+      },
+      "state": {
+        "system_health": 70,
+        "exposure_level": 100,
+        "red_score": 131,
+        "blue_score": 95,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 15,
+      "red_action": {
+        "action_type": "Recon",
+        "target": "ci",
+        "vuln_id": null,
+        "thought": "goal=intel_gain; risk=medium; reason=当前无活跃控制节点，vpn和web被隔离，无法直接推进。ci是未侦察节点，可能提供新路径绕过蓝方封锁。选择ci侦察以发现新入口，避免重复侦察已有节点。",
+        "referee_result": "已完成对 ci 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权",
+        "effect": "intel",
+        "score_awarded": 2
+      },
+      "blue_action": {
+        "action_type": "PatchNode",
+        "target": "db",
+        "vuln_id": "CVE-2019-9193_PostgreSQL_Copy_Program_RCE",
+        "thought": "goal=core_objective; risk=low; reason=核心资产db已确认存在CVE-2019-9193高危RCE漏洞，且风险等级ELEVATED，红方可能利用此漏洞直接攻陷db。立即修补可消除该已知攻击向量，防止核心资产失陷。当前无活跃CRIT告警，修补风险低。",
+        "referee_result": "动作因概率门控失败：0.60 未命中。",
+        "effect": "probability_failed",
+        "score_awarded": 0
+      },
+      "adjudication": {
+        "summary": "Red: 已完成对 ci 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权; Blue: 动作因概率门控失败：0.60 未命中。",
+        "interaction": {
+          "type": "independent",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "none"
+        }
+      },
+      "score_delta": {
+        "red_delta": 2,
+        "blue_delta": 0,
+        "red_score": 133,
+        "blue_score": 95,
+        "red_breakdown": {
+          "delta": 2,
+          "delta_action_only": 2,
+          "delta_terminal_bonus": 0,
+          "base": 2,
+          "base_raw": 2,
+          "reason": "state_change_score",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 0,
+          "delta_action_only": 0,
+          "delta_terminal_bonus": 0,
+          "base": 0,
+          "base_raw": 0,
+          "reason": "failed_or_rejected",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 3,
+          "decay_factor": 0.4,
+          "budget_cap": 60,
+          "budget_overridden": false
+        }
+      },
+      "delta": {
+        "node_status_changes": [],
+        "vulnerability_changes": []
+      },
+      "state": {
+        "system_health": 70,
+        "exposure_level": 100,
+        "red_score": 133,
+        "blue_score": 95,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 16,
+      "red_action": {
+        "action_type": "Recon",
+        "target": "office_pc",
+        "vuln_id": null,
+        "thought": "goal=intel_gain; risk=medium; reason=当前无可用推进动作，已扎根节点vpn/web被隔离，需侦察新入口。office_pc未被侦察且蓝方曾修补，但可能仍有未发现漏洞，侦察可获取新情报，避免连续无收益。",
+        "referee_result": "已完成对 office_pc 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权",
+        "effect": "intel",
+        "score_awarded": 2
+      },
+      "blue_action": {
+        "action_type": "PatchNode",
+        "target": "db",
+        "vuln_id": "CVE-2019-9193_PostgreSQL_Copy_Program_RCE",
+        "thought": "goal=core_objective; risk=low; reason=核心资产db已确认CVE-2019-9193 RCE漏洞，当前风险等级ELEVATED，红方可能利用此漏洞直接攻陷核心。立即修补可消除该高危入口，且db已监控加固，修补风险低。",
+        "referee_result": "db 已成功完成 vuln_id=CVE-2019-9193_PostgreSQL_Copy_Program_RCE 的修补",
+        "effect": "hardening",
+        "score_awarded": 1
+      },
+      "adjudication": {
+        "summary": "Red: 已完成对 office_pc 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权; Blue: db 已成功完成 vuln_id=CVE-2019-9193_PostgreSQL_Copy_Program_RCE 的修补",
+        "interaction": {
+          "type": "independent",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "none"
+        }
+      },
+      "score_delta": {
+        "red_delta": 2,
+        "blue_delta": 1,
+        "red_score": 135,
+        "blue_score": 96,
+        "red_breakdown": {
+          "delta": 2,
+          "delta_action_only": 2,
+          "delta_terminal_bonus": 0,
+          "base": 2,
+          "base_raw": 2,
+          "reason": "state_change_score",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 1,
+          "delta_action_only": 1,
+          "delta_terminal_bonus": 0,
+          "base": 4,
+          "base_raw": 14,
+          "reason": "state_change_score",
+          "multiplier": 0.3,
+          "multiplier_reason": "default_multiplier+low_threat_remediation_penalty",
+          "repeat_streak": 4,
+          "decay_factor": 0.25,
+          "budget_cap": 60,
+          "budget_overridden": false
+        }
+      },
+      "delta": {
+        "node_status_changes": [],
+        "vulnerability_changes": [
+          {
+            "node": "db",
+            "removed": [
+              "CVE-2019-9193_PostgreSQL_Copy_Program_RCE"
+            ],
+            "added": []
+          }
+        ]
+      },
+      "state": {
+        "system_health": 70,
+        "exposure_level": 100,
+        "red_score": 135,
+        "blue_score": 96,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 17,
+      "red_action": {
+        "action_type": "Recon",
+        "target": "fw",
+        "vuln_id": null,
+        "thought": "goal=intel_gain; risk=medium; reason=当前已扎根vpn和web但均被隔离/硬化，无法直接推进；fw是通往内部的关键边界节点，侦察其服务与漏洞可开辟新路径，避免在已知节点上重复低效侦察。",
+        "referee_result": "已完成对 fw 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权",
+        "effect": "intel",
+        "score_awarded": 2
+      },
+      "blue_action": {
+        "action_type": "VulnerabilityScan",
+        "target": "db",
+        "vuln_id": null,
+        "thought": "goal=core_objective; risk=medium; reason=核心资产db风险等级ELEVATED，且已监控但无已确认漏洞。当前暴露度100，红方可能已掌握db漏洞。扫描db可确认漏洞，为精准修补做准备，防止红方利用未知漏洞攻陷核心资产。",
+        "referee_result": "db 漏洞扫描完成；发现结果已进入待确认与修补队列",
+        "effect": "assessment",
+        "score_awarded": 5
+      },
+      "adjudication": {
+        "summary": "Red: 已完成对 fw 的侦察；已获得服务与候选漏洞信息，但未改变节点控制权; Blue: db 漏洞扫描完成；发现结果已进入待确认与修补队列",
+        "interaction": {
+          "type": "independent",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "none"
+        }
+      },
+      "score_delta": {
+        "red_delta": 2,
+        "blue_delta": 5,
+        "red_score": 137,
+        "blue_score": 101,
+        "red_breakdown": {
+          "delta": 2,
+          "delta_action_only": 2,
+          "delta_terminal_bonus": 0,
+          "base": 2,
+          "base_raw": 2,
+          "reason": "state_change_score",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 5,
+          "delta_action_only": 5,
+          "delta_terminal_bonus": 0,
+          "base": 5,
+          "base_raw": 5,
+          "reason": "state_change_score",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        }
+      },
+      "delta": {
+        "node_status_changes": [],
+        "vulnerability_changes": []
+      },
+      "state": {
+        "system_health": 70,
+        "exposure_level": 100,
+        "red_score": 137,
+        "blue_score": 101,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 18,
+      "red_action": {
+        "action_type": "ExploitService",
+        "target": "fw",
+        "vuln_id": "CVE-2022-1388_F5_BIGIP_iControl_RCE",
+        "thought": "goal=core_objective; risk=high; reason=当前已扎根vpn/web但无控制节点，核心资产db需经fw等内部节点。fw有CVE-2022-1388且未被蓝方修补，ExploitService可突破隔离进入内部网络，推进攻击链。风险高但战略收益大。",
+        "referee_result": "动作因概率门控失败：0.39 未命中。",
+        "effect": "probability_failed",
+        "score_awarded": 0
+      },
+      "blue_action": {
+        "action_type": "PatchNode",
+        "target": "db",
+        "vuln_id": "CVE-2012-2122_MySQL_Auth_Bypass",
+        "thought": "goal=core_objective; risk=low; reason=核心资产db存在已确认高危漏洞CVE-2012-2122，且风险等级ELEVATED，当前无活跃攻击但必须提前封堵，防止红方利用该漏洞直接攻陷核心。PatchNode精准修补，收益高且风险低。",
+        "referee_result": "db 已成功完成 vuln_id=CVE-2012-2122_MySQL_Auth_Bypass 的修补",
+        "effect": "hardening",
+        "score_awarded": 4
+      },
+      "adjudication": {
+        "summary": "Red: 动作因概率门控失败：0.39 未命中。; Blue: db 已成功完成 vuln_id=CVE-2012-2122_MySQL_Auth_Bypass 的修补",
+        "interaction": {
+          "type": "independent",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "none"
+        }
+      },
+      "score_delta": {
+        "red_delta": 0,
+        "blue_delta": 4,
+        "red_score": 137,
+        "blue_score": 105,
+        "red_breakdown": {
+          "delta": 0,
+          "delta_action_only": 0,
+          "delta_terminal_bonus": 0,
+          "base": 0,
+          "base_raw": 0,
+          "reason": "failed_or_rejected",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 4,
+          "delta_action_only": 4,
+          "delta_terminal_bonus": 0,
+          "base": 4,
+          "base_raw": 14,
+          "reason": "state_change_score",
+          "multiplier": 0.3,
+          "multiplier_reason": "default_multiplier+low_threat_remediation_penalty",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        }
+      },
+      "delta": {
+        "node_status_changes": [],
+        "vulnerability_changes": [
+          {
+            "node": "db",
+            "removed": [
+              "CVE-2012-2122_MySQL_Auth_Bypass"
+            ],
+            "added": []
+          }
+        ]
+      },
+      "state": {
+        "system_health": 70,
+        "exposure_level": 100,
+        "red_score": 137,
+        "blue_score": 105,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 19,
+      "red_action": {
+        "action_type": "ExploitService",
+        "target": "fw",
+        "vuln_id": "CVE-2022-1388_F5_BIGIP_iControl_RCE",
+        "thought": "goal=core_objective; risk=medium; reason=fw是通往内部的关键跳板，已有已知漏洞CVE-2022-1388，利用成功可建立新foothold，推进攻击链向db核心资产前进。",
+        "referee_result": "动作因概率门控失败：0.39 未命中。",
+        "effect": "probability_failed",
+        "score_awarded": 0
+      },
+      "blue_action": {
+        "action_type": "VulnerabilityScan",
+        "target": "app",
+        "vuln_id": null,
+        "thought": "goal=intel_gain; risk=low; reason=当前P1阶段，app节点有侦察告警且为攻击路径关键跳板，但无已确认漏洞。扫描app可获取具体CVE，为后续精准修补提供依据，同时避免对核心资产db造成影响。风险低，收益高。",
+        "referee_result": "app 漏洞扫描完成；发现结果已进入待确认与修补队列",
+        "effect": "assessment",
+        "score_awarded": 5
+      },
+      "adjudication": {
+        "summary": "Red: 动作因概率门控失败：0.39 未命中。; Blue: app 漏洞扫描完成；发现结果已进入待确认与修补队列",
+        "interaction": {
+          "type": "independent",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "none"
+        }
+      },
+      "score_delta": {
+        "red_delta": 0,
+        "blue_delta": 5,
+        "red_score": 137,
+        "blue_score": 110,
+        "red_breakdown": {
+          "delta": 0,
+          "delta_action_only": 0,
+          "delta_terminal_bonus": 0,
+          "base": 0,
+          "base_raw": 0,
+          "reason": "failed_or_rejected",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 2,
+          "decay_factor": 0.7,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 5,
+          "delta_action_only": 5,
+          "delta_terminal_bonus": 0,
+          "base": 5,
+          "base_raw": 5,
+          "reason": "state_change_score",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        }
+      },
+      "delta": {
+        "node_status_changes": [],
+        "vulnerability_changes": []
+      },
+      "state": {
+        "system_health": 70,
+        "exposure_level": 100,
+        "red_score": 137,
+        "blue_score": 110,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    },
+    {
+      "turn": 20,
+      "red_action": {
+        "action_type": "ExploitService",
+        "target": "fw",
+        "vuln_id": "CVE-2022-1388_F5_BIGIP_iControl_RCE",
+        "thought": "goal=core_objective; risk=medium; reason=fw 是通往内网的关键跳板，已有已知漏洞 CVE-2022-1388，且蓝方已对其加固，但 ExploitService 仍可尝试突破。当前无活跃控制节点，必须尽快建立新入口以推进至 db。",
+        "referee_result": "动作因概率门控失败：0.39 未命中。",
+        "effect": "probability_failed",
+        "score_awarded": 0
+      },
+      "blue_action": {
+        "action_type": "PatchNode",
+        "target": "app",
+        "vuln_id": "CVE-2021-44228_Log4Shell_RCE",
+        "thought": "goal=core_objective; risk=medium; reason=app 存在两个已确认高危RCE漏洞（Log4Shell/Spring4Shell），且近期被侦察，红方可能利用其横向移动至核心资产db。优先修补CVE-2021-44228以消除最活跃威胁，降低攻击面。",
+        "referee_result": "app 已成功完成 vuln_id=CVE-2021-44228_Log4Shell_RCE 的修补",
+        "effect": "hardening",
+        "score_awarded": 4
+      },
+      "adjudication": {
+        "summary": "Red: 动作因概率门控失败：0.39 未命中。; Blue: app 已成功完成 vuln_id=CVE-2021-44228_Log4Shell_RCE 的修补",
+        "interaction": {
+          "type": "independent",
+          "perfect_intercept": false,
+          "proactive_patch": false,
+          "hard_interrupt": false,
+          "command_rule_duel": "none"
+        }
+      },
+      "score_delta": {
+        "red_delta": 0,
+        "blue_delta": 4,
+        "red_score": 137,
+        "blue_score": 114,
+        "red_breakdown": {
+          "delta": 0,
+          "delta_action_only": 0,
+          "delta_terminal_bonus": 0,
+          "base": 0,
+          "base_raw": 0,
+          "reason": "failed_or_rejected",
+          "multiplier": 1.0,
+          "multiplier_reason": "default_multiplier",
+          "repeat_streak": 3,
+          "decay_factor": 0.4,
+          "budget_cap": 60,
+          "budget_overridden": false
+        },
+        "blue_breakdown": {
+          "delta": 4,
+          "delta_action_only": 4,
+          "delta_terminal_bonus": 0,
+          "base": 4,
+          "base_raw": 14,
+          "reason": "state_change_score",
+          "multiplier": 0.3,
+          "multiplier_reason": "default_multiplier+low_threat_remediation_penalty",
+          "repeat_streak": 1,
+          "decay_factor": 1.0,
+          "budget_cap": 60,
+          "budget_overridden": false
+        }
+      },
+      "delta": {
+        "node_status_changes": [],
+        "vulnerability_changes": [
+          {
+            "node": "app",
+            "removed": [
+              "CVE-2021-44228_Log4Shell_RCE"
+            ],
+            "added": []
+          }
+        ]
+      },
+      "state": {
+        "system_health": 70,
+        "exposure_level": 100,
+        "red_score": 137,
+        "blue_score": 114,
+        "winner_locked": false,
+        "winner_side": null
+      }
+    }
+  ],
+  "final_summary": {
+    "turn": 20,
+    "system_health": 70,
+    "exposure_level": 100,
+    "red_score": 137,
+    "blue_score": 114,
+    "winner_locked": false,
+    "winner_side": null,
+    "winner_reason": "20轮结束：未达成明确胜利状态，判定平局。(red_residual=2, anchored=2)"
+  }
+}

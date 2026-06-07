@@ -11,6 +11,9 @@ function AnimatedEdge({
   onClick,
   title,
   endPadding = 0,
+  animated = true,
+  strokeWidth = 1.8,
+  interrupt = false,
 }) {
   const interactive = typeof onClick === "function";
   const dx = x2 - x1;
@@ -38,13 +41,19 @@ function AnimatedEdge({
         x2={tx2}
         y2={ty2}
         stroke={color}
-        strokeWidth="1.8"
+        strokeWidth={strokeWidth}
         strokeDasharray={dasharray}
         markerEnd={`url(#${markerId})`}
         opacity={opacity}
-        style={{ animation: `cyberFlow ${speed}s linear infinite` }}
+        style={{ animation: animated ? `cyberFlow ${speed}s linear infinite` : "none" }}
         pointerEvents={interactive ? "none" : "auto"}
       />
+      {interrupt ? (
+        <g transform={`translate(${(x1 + tx2) / 2},${(y1 + ty2) / 2})`} pointerEvents="none">
+          <circle r="7" fill="#111a2e" stroke={color} strokeWidth="1.2" />
+          <path d="M-3 -3 3 3M3 -3-3 3" stroke={color} strokeWidth="1.4" strokeLinecap="round" />
+        </g>
+      ) : null}
       {title ? <title>{title}</title> : null}
     </g>
   );
