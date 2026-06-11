@@ -96,6 +96,7 @@ def build_replay_lite(replay: dict[str, Any]) -> dict[str, Any]:
         }
 
     first_frame = frames[0]
+    initial_edges = first_frame.get("edges") or replay.get("edges") or []
     initial_topology = {
         node_name: {
             "status": node.get("status"),
@@ -151,6 +152,7 @@ def build_replay_lite(replay: dict[str, Any]) -> dict[str, Any]:
             "total_rounds": replay.get("total_rounds", len(frames) - 1),
         },
         "initial_topology": initial_topology,
+        "initial_edges": initial_edges,
         "rounds": rounds,
         "final_summary": {
             "turn": final_frame.get("turn"),

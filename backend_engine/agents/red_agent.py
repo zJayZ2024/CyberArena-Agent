@@ -76,6 +76,7 @@ class RedAgent(BaseLLMAgent):
         )
         candidates = self._anti_stagnation.apply(candidates, state=state, battle_state=battle_state)
         candidates = self._strategy_bias.apply(candidates)
+        candidates = self._reflection_engine.apply(candidates)
         if not candidates:
             raise LLMDecisionError("红方当前没有可执行候选动作。")
 
@@ -133,7 +134,10 @@ class RedAgent(BaseLLMAgent):
     def observe_outcome(self, state: WorldState) -> dict:
         self._reflection_engine.observe(state)
         self._agent_memory.observe(state)
-        return self._agent_memory.as_prompt_context()
+        context = self._agent_memory.as_prompt_context()
+        context["outcome_reflections"] = self._reflection_engine.recent(limit=3)
+        context["active_reflection_policy"] = self._reflection_engine.active_policy()
+        return context
 
     def _choose_with_llm(
         self,
@@ -148,7 +152,7 @@ class RedAgent(BaseLLMAgent):
     ) -> tuple[AgentDecision, str, str]:
         rejected_ids: set[str] = set()
         last_error: Exception | None = None
-        for _ in range(2):
+        for _ in range(min(4, len(candidates))):
             available = [row for row in candidates if row.candidate_id not in rejected_ids]
             if not available:
                 break
@@ -177,10 +181,21 @@ class RedAgent(BaseLLMAgent):
                 rejected_ids.add(chosen.candidate_id)
                 last_error = validation_error
                 continue
+            reflection_error = self._reflection_engine.validate_decision(decision)
+            if reflection_error is not None:
+                rejected_ids.add(chosen.candidate_id)
+                last_error = LLMDecisionError(reflection_error)
+                continue
 
             return decision, chosen.candidate_id, plan.thought
 
-        raise LLMDecisionError(f"红方候选决策在纠错阶段仍失败：{last_error}")
+        fallback = self._fallback_planner.choose(
+            candidates=self._reflection_engine.apply(candidates),
+            agent_type="Red",
+            opponent_model=opponent_model,
+            reflections=reflections,
+        )
+        return fallback.decision.model_copy(deep=True), fallback.candidate_id, f"Reflection 纠错后启用候选池兜底：{fallback.reason}"
 
     def _validate_selected_decision(self, state: WorldState, decision: AgentDecision) -> Exception | None:
         action = ACTION_REGISTRY.get(decision.action_type)
@@ -224,6 +239,7 @@ class RedAgent(BaseLLMAgent):
         )
         candidates = self._anti_stagnation.apply(candidates, state=state, battle_state=battle_state)
         candidates = self._strategy_bias.apply(candidates)
+        candidates = self._reflection_engine.apply(candidates)
         if not candidates:
             raise LLMDecisionError("红方 fallback 阶段没有可执行动作。")
         chosen = self._fallback_planner.choose(

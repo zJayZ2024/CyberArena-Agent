@@ -2,6 +2,14 @@
   "schema_version": "1.0",
   "replays": [
     {
+      "id": "level_5_hybrid_identity_crisis_reflection_20_switch_path",
+      "name": "等级 5 混合身份危机 20 回合回放",
+      "summary": "新拓扑 20 回合攻防演示回放，包含连续失败换入口、Attack Graph 推进、Reflection 策略约束与裁判流程。",
+      "path": "/level_5_hybrid_identity_crisis_reflection_20_switch_path.json",
+      "rounds": 20,
+      "tags": ["等级 5", "换入口", "20 回合"]
+    },
+    {
       "id": "visibility_fixed_10_rounds_final",
       "name": "可见性修复 10 回合最终回放",
       "summary": "企业分支场景最终回放，包含真实 Attack Graph 推进、红蓝复合节点状态与裁判流程。",

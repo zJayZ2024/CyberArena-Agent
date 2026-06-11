@@ -150,6 +150,78 @@ const LEGACY_FALLBACK_EDGES = [
   ["app", "db"],
 ];
 
+const SCENARIO_EDGE_FALLBACKS = {
+  level_5_hybrid_identity_crisis: [
+    ["internet", "fw"],
+    ["fw", "web"],
+    ["fw", "vpn"],
+    ["fw", "soc"],
+    ["web", "app"],
+    ["web", "api"],
+    ["web", "ci"],
+    ["vpn", "office_pc"],
+    ["office_pc", "dev"],
+    ["office_pc", "identity"],
+    ["office_pc", "finance_pc"],
+    ["identity", "finance_pc"],
+    ["identity", "dev"],
+    ["identity", "soc"],
+    ["finance_pc", "storage"],
+    ["dev", "ci"],
+    ["dev", "app"],
+    ["dev", "storage"],
+    ["ci", "app"],
+    ["api", "app"],
+    ["api", "storage"],
+    ["app", "storage"],
+    ["app", "db"],
+    ["storage", "backup"],
+    ["storage", "db"],
+    ["backup", "db"],
+    ["soc", "db"],
+  ],
+};
+
+function cloneData(value) {
+  if (value === undefined || value === null) {
+    return value;
+  }
+  return JSON.parse(JSON.stringify(value));
+}
+
+function normalizeVulnerabilities(vulnerabilities = {}) {
+  if (Array.isArray(vulnerabilities)) {
+    return vulnerabilities.reduce((mapped, vuln) => {
+      const vulnId = String(vuln || "").trim();
+      if (vulnId) {
+        mapped[vulnId] = { vuln_id: vulnId };
+      }
+      return mapped;
+    }, {});
+  }
+  if (vulnerabilities && typeof vulnerabilities === "object") {
+    return vulnerabilities;
+  }
+  return {};
+}
+
+function normalizeNetworkNodeMap(networkNodes = {}) {
+  if (!networkNodes || typeof networkNodes !== "object" || Array.isArray(networkNodes)) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(networkNodes).map(([id, node]) => [
+      id,
+      {
+        ...(node || {}),
+        status: node?.status ?? "Normal",
+        exposed_ports: Array.isArray(node?.exposed_ports) ? node.exposed_ports : [],
+        vulnerabilities: normalizeVulnerabilities(node?.vulnerabilities),
+      },
+    ]),
+  );
+}
+
 function normalizeNodes(nodes = [], networkNodes = {}) {
   const normalized = new Map();
 
@@ -186,7 +258,7 @@ function normalizeNodes(nodes = [], networkNodes = {}) {
 
 function buildNetworkNodeMap(nodes = [], networkNodes = {}) {
   if (networkNodes && Object.keys(networkNodes).length) {
-    return networkNodes;
+    return normalizeNetworkNodeMap(networkNodes);
   }
   const mapped = {};
   nodes.forEach((node) => {
@@ -196,10 +268,14 @@ function buildNetworkNodeMap(nodes = [], networkNodes = {}) {
     mapped[node.id] = {
       status: node.status ?? "Normal",
       exposed_ports: node.exposed_ports ?? [],
-      vulnerabilities: node.vulnerabilities ?? {},
+      vulnerabilities: normalizeVulnerabilities(node.vulnerabilities),
     };
   });
   return mapped;
+}
+
+function nodeRowsFromMap(nodes = {}) {
+  return Object.entries(nodes || {}).map(([id, node]) => ({ id, ...(node || {}) }));
 }
 
 function normalizeEdges(edges = [], nodeIds = []) {
@@ -255,6 +331,117 @@ function normalizeEdges(edges = [], nodeIds = []) {
   }
 
   return normalized;
+}
+
+function resolveInitialEdges(payload, nodeIds = []) {
+  const scenario = payload?.meta?.scenario ?? payload?.scenario ?? "";
+  const directEdges = payload?.edges
+    ?? payload?.initial_edges
+    ?? payload?.initial_topology_edges
+    ?? payload?.topology?.edges
+    ?? [];
+  const fallbackEdges = SCENARIO_EDGE_FALLBACKS[scenario] ?? [];
+  return normalizeEdges(Array.isArray(directEdges) && directEdges.length ? directEdges : fallbackEdges, nodeIds);
+}
+
+function applyLiteDelta(networkNodes, delta = {}) {
+  const next = cloneData(networkNodes) ?? {};
+  const ensureNode = (nodeId) => {
+    if (!nodeId) {
+      return null;
+    }
+    if (!next[nodeId]) {
+      next[nodeId] = { status: "Normal", exposed_ports: [], vulnerabilities: {} };
+    }
+    if (!next[nodeId].vulnerabilities || Array.isArray(next[nodeId].vulnerabilities)) {
+      next[nodeId].vulnerabilities = normalizeVulnerabilities(next[nodeId].vulnerabilities);
+    }
+    return next[nodeId];
+  };
+
+  (delta.node_status_changes ?? []).forEach((change) => {
+    const nodeId = String(change?.node ?? change?.target ?? "").trim();
+    const node = ensureNode(nodeId);
+    if (node) {
+      node.status = change?.to ?? node.status ?? "Normal";
+    }
+  });
+
+  (delta.vulnerability_changes ?? []).forEach((change) => {
+    const nodeId = String(change?.node ?? change?.target ?? "").trim();
+    const node = ensureNode(nodeId);
+    if (!node) {
+      return;
+    }
+    (change?.removed ?? []).forEach((vulnId) => {
+      delete node.vulnerabilities[vulnId];
+    });
+    (change?.added ?? []).forEach((vulnId) => {
+      if (vulnId) {
+        node.vulnerabilities[vulnId] = node.vulnerabilities[vulnId] ?? { vuln_id: vulnId };
+      }
+    });
+  });
+
+  return normalizeNetworkNodeMap(next);
+}
+
+function expandLitePayload(payload) {
+  const liteRounds = Array.isArray(payload?.rounds) ? payload.rounds : [];
+  const initialTopology = normalizeNetworkNodeMap(payload?.initial_topology);
+  if (!liteRounds.length || !Object.keys(initialTopology).length) {
+    return null;
+  }
+
+  const nodeIds = Object.keys(initialTopology);
+  const edges = resolveInitialEdges(payload, nodeIds);
+  let currentNodes = initialTopology;
+
+  return liteRounds.map((round, index) => {
+    currentNodes = applyLiteDelta(currentNodes, round?.delta ?? {});
+    const state = round?.state ?? {};
+    const redScore = state.red_score ?? round?.red_score ?? 0;
+    const blueScore = state.blue_score ?? round?.blue_score ?? 0;
+    const networkNodes = cloneData(currentNodes);
+    const nodes = nodeRowsFromMap(networkNodes);
+
+    return {
+      ...round,
+      round: round?.round ?? round?.turn ?? index + 1,
+      total_rounds: payload?.meta?.total_rounds ?? liteRounds.length,
+      red_action: {
+        ...(round?.red_action ?? {}),
+        target_node: round?.red_action?.target_node ?? round?.red_action?.target,
+        technique: round?.red_action?.technique ?? round?.red_action?.action_type,
+      },
+      blue_action: {
+        ...(round?.blue_action ?? {}),
+        type: round?.blue_action?.type ?? round?.blue_action?.action_type,
+      },
+      judge_result: {
+        ...(round?.judge_result ?? {}),
+        success: round?.red_action?.effect ? !["blocked", "failed", "rejected"].includes(String(round.red_action.effect).toLowerCase()) : null,
+        narrative: round?.adjudication?.summary ?? round?.judge_result?.narrative ?? "",
+        score_summary: round?.score_delta ?? round?.judge_result?.score_summary ?? {},
+      },
+      network_nodes: networkNodes,
+      nodes,
+      edges,
+      world_state: {
+        ...(round?.world_state ?? {}),
+        ...(state ?? {}),
+        network_nodes: networkNodes,
+        nodes,
+        edges,
+        score: { red: redScore, blue: blueScore },
+        red_score: redScore,
+        blue_score: blueScore,
+        system_health: state.system_health,
+        exposure_level: state.exposure_level,
+        availability: typeof state.system_health === "number" ? Math.max(0, Math.min(1, state.system_health / 100)) : 1,
+      },
+    };
+  });
 }
 
 function inferRedPhase(redAction, actionLogs) {
@@ -403,9 +590,10 @@ function normalizeRound(round, fallbackIndex, totalRounds) {
 }
 
 export function normalizeRoundsPayload(payload) {
+  const expandedLiteRounds = expandLitePayload(payload);
   const maybeRounds = Array.isArray(payload)
     ? payload
-    : payload?.frames ?? payload?.rounds ?? (payload ? [payload] : []);
+    : expandedLiteRounds ?? payload?.frames ?? payload?.rounds ?? (payload ? [payload] : []);
   if (!maybeRounds.length) {
     return DEFAULT_ROUNDS;
   }

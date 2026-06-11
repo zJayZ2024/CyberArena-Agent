@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import LiveScoreChart from "./components/LiveScoreChart";
 import ReasoningPanel from "./components/ReasoningPanel";
 import ReplayPicker, { type ReplayCatalogItem } from "./components/ReplayPicker";
+import ReportPanel from "./components/ReportPanel";
 import ScenarioSelection, { type ScenarioCatalogItem } from "./components/ScenarioSelection";
 import TerminalLogs from "./components/TerminalLogs";
 import { CyberArenaLogo } from "./components/TopBar";
@@ -12,13 +13,12 @@ import { translateAction, translateScenarioName, translateStatus } from "./utils
 
 const FALLBACK_ROUNDS = normalizeRoundsPayload(DEFAULT_ROUNDS);
 
-type AppTabKey = "demo" | "scenarios" | "analysis" | "settings";
+type AppTabKey = "demo" | "scenarios" | "analysis";
 
 const NAV_ITEMS: Array<{ key: AppTabKey; label: string; subtitle: string }> = [
   { key: "demo", label: "攻防演示", subtitle: "主工作台" },
   { key: "scenarios", label: "场景库", subtitle: "拓扑选择" },
   { key: "analysis", label: "结果分析", subtitle: "复盘指标" },
-  { key: "settings", label: "设置", subtitle: "系统控制" },
 ];
 
 function getWorldState(round: any) {
@@ -571,7 +571,7 @@ function BattleWorkbench({
   );
 }
 
-function AnalysisPage({ rounds, currentRound, roundIndex, totalRounds }: { rounds: any[]; currentRound: any; roundIndex: number; totalRounds: number }) {
+function AnalysisPage({ rounds, currentRound, roundIndex, totalRounds, selectedReplay }: { rounds: any[]; currentRound: any; roundIndex: number; totalRounds: number; selectedReplay?: ReplayCatalogItem | null }) {
   const summary = useMemo(() => {
     let redActions = 0;
     let blocked = 0;
@@ -644,18 +644,7 @@ function AnalysisPage({ rounds, currentRound, roundIndex, totalRounds }: { round
           这场回放红方得分领先，但最终节点状态和胜负字段需要结合裁判规则复核。建议演示时强调关键路径和裁判裁定，评测时关注非法动作率、胜负锁定字段和核心资产最终状态。
         </p>
       </section>
-    </div>
-  );
-}
-
-function PlaceholderPage({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="flex h-full items-center justify-center p-8">
-      <div className="w-full max-w-2xl rounded-2xl border border-white/[0.14] bg-[#111a2e] p-8 text-center shadow-[0_20px_45px_rgba(2,8,22,0.4)]">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-slate-400">{title}</p>
-        <h2 className="mt-3 text-2xl font-semibold text-slate-100">模块建设中</h2>
-        <p className="mt-3 text-sm leading-7 text-slate-400">{description}</p>
-      </div>
+      <ReportPanel rounds={rounds} selectedReplay={selectedReplay} />
     </div>
   );
 }
@@ -667,6 +656,7 @@ function App() {
   const [playing, setPlaying] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState<ScenarioCatalogItem | null>(null);
   const [selectedReplay, setSelectedReplay] = useState<ReplayCatalogItem | null>(null);
+  const [activeSimulationJobId, setActiveSimulationJobId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -793,14 +783,61 @@ function App() {
     setActiveTab("demo");
   };
 
-  const handleStartScenario = (scenario: ScenarioCatalogItem) => {
-    const normalized = normalizeRoundsPayload([scenario.initial_frame]);
-    setSelectedScenario(scenario);
-    setSelectedReplay(null);
-    setRounds(normalized.length ? normalized : FALLBACK_ROUNDS);
-    setActiveTab("demo");
-    setRoundIndex(0);
-    setPlaying(false);
+  const handleStartScenario = async (scenario: ScenarioCatalogItem, simulationRounds: number) => {
+    const response = await fetch("/api/simulations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        scenario_path: scenario.scenario_path,
+        rounds: simulationRounds,
+        use_probability: true,
+      }),
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload?.detail || `仿真启动失败：${response.status}`);
+    }
+
+    const job = await response.json();
+    setActiveSimulationJobId(job.id);
+    try {
+      while (true) {
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+        const statusResponse = await fetch(`/api/simulations/${job.id}`);
+        if (!statusResponse.ok) {
+          throw new Error(`仿真状态查询失败：${statusResponse.status}`);
+        }
+        const status = await statusResponse.json();
+        if (status.status === "failed") {
+          throw new Error(status.error || "仿真运行失败");
+        }
+        if (["completed", "stopped"].includes(status.status)) {
+          const replay: ReplayCatalogItem = {
+            id: status.id,
+            name: `${translateScenarioName(scenario.name)} · ${status.rounds} 回合${status.status === "stopped" ? "部分" : ""}仿真`,
+            summary: `${status.status === "stopped" ? "强制结束后保留的部分" : "前端启动的完整"}仿真回放。比分：红方 ${status.red_score ?? 0}，蓝方 ${status.blue_score ?? 0}。`,
+            path: status.replay_path,
+            rounds: status.rounds,
+            tags: [status.status === "stopped" ? "强制结束" : "动态仿真", scenario.id, `${status.rounds} 回合`],
+          };
+          await handleLoadReplay(replay);
+          return;
+        }
+      }
+    } finally {
+      setActiveSimulationJobId(null);
+    }
+  };
+
+  const handleStopSimulation = async () => {
+    if (!activeSimulationJobId) {
+      throw new Error("当前没有正在运行的仿真任务。");
+    }
+    const response = await fetch(`/api/simulations/${activeSimulationJobId}/stop`, { method: "POST" });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload?.detail || `停止仿真失败：${response.status}`);
+    }
   };
 
   return (
@@ -873,6 +910,7 @@ function App() {
               selectedScenario={selectedScenario}
               onSelectScenario={setSelectedScenario}
               onStartScenario={handleStartScenario}
+              onStopSimulation={handleStopSimulation}
             />
           ) : null}
 
@@ -882,15 +920,10 @@ function App() {
               currentRound={currentRound}
               roundIndex={safeIndex}
               totalRounds={totalRounds}
+              selectedReplay={selectedReplay}
             />
           ) : null}
 
-          {activeTab === "settings" ? (
-            <PlaceholderPage
-              title="设置"
-              description="后续可承载模型密钥、推理参数、日志级别、概率门控和导出策略。"
-            />
-          ) : null}
         </section>
       </div>
     </div>

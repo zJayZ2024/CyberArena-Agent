@@ -27,7 +27,8 @@ export type ScenarioCatalogItem = {
 type ScenarioSelectionProps = {
   selectedScenario?: ScenarioCatalogItem | null;
   onSelectScenario?: (scenario: ScenarioCatalogItem) => void;
-  onStartScenario?: (scenario: ScenarioCatalogItem) => void;
+  onStartScenario?: (scenario: ScenarioCatalogItem, rounds: number) => Promise<void> | void;
+  onStopSimulation?: () => Promise<void> | void;
 };
 
 const FALLBACK_SCENARIOS: ScenarioCatalogItem[] = [
@@ -86,10 +87,16 @@ function ScenarioSelection({
   selectedScenario,
   onSelectScenario,
   onStartScenario,
+  onStopSimulation,
 }: ScenarioSelectionProps) {
   const [catalog, setCatalog] = useState<ScenarioCatalogItem[]>(FALLBACK_SCENARIOS);
   const [localSelectedId, setLocalSelectedId] = useState<string>(selectedScenario?.id ?? FALLBACK_SCENARIOS[0].id);
   const [catalogSource, setCatalogSource] = useState<"catalog" | "fallback">("fallback");
+  const [showLaunchDialog, setShowLaunchDialog] = useState(false);
+  const [simulationRounds, setSimulationRounds] = useState(20);
+  const [launching, setLaunching] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const [launchError, setLaunchError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -152,6 +159,44 @@ function ScenarioSelection({
     onSelectScenario?.(scenario);
   };
 
+  const openLaunchDialog = () => {
+    setLaunchError("");
+    setShowLaunchDialog(true);
+  };
+
+  const launchSimulation = async () => {
+    if (!onStartScenario || launching) {
+      return;
+    }
+    const rounds = Math.min(100, Math.max(1, Math.round(Number(simulationRounds) || 20)));
+    setSimulationRounds(rounds);
+    setLaunching(true);
+    setLaunchError("");
+    try {
+      await onStartScenario(activeScenario, rounds);
+      setShowLaunchDialog(false);
+    } catch (error) {
+      setLaunchError(error instanceof Error ? error.message : "仿真启动失败，请检查后端服务和模型配置。");
+    } finally {
+      setLaunching(false);
+      setStopping(false);
+    }
+  };
+
+  const stopSimulation = async () => {
+    if (!onStopSimulation || stopping) {
+      return;
+    }
+    setStopping(true);
+    setLaunchError("");
+    try {
+      await onStopSimulation();
+    } catch (error) {
+      setStopping(false);
+      setLaunchError(error instanceof Error ? error.message : "停止仿真失败，请重试。");
+    }
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto px-5 py-4">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 pb-4">
@@ -166,7 +211,7 @@ function ScenarioSelection({
           <span className="rounded-md border border-slate-600/60 px-2 py-1 text-slate-400">{catalog.length} 张拓扑</span>
           <button
             type="button"
-            onClick={() => onStartScenario?.(activeScenario)}
+            onClick={openLaunchDialog}
             className="rounded-md border border-blue-300/45 bg-gradient-to-r from-[#5b9fff] to-[#7c8fff] px-3 py-1 text-white transition hover:brightness-110"
           >
             开始
@@ -235,7 +280,7 @@ function ScenarioSelection({
 
             <button
               type="button"
-              onClick={() => onStartScenario?.(activeScenario)}
+              onClick={openLaunchDialog}
               className="rounded-md border border-blue-300/45 bg-gradient-to-r from-[#5b9fff] to-[#7c8fff] px-4 py-2 font-mono text-xs uppercase tracking-[0.14em] text-white transition hover:brightness-110"
             >
               启动仿真
@@ -277,6 +322,78 @@ function ScenarioSelection({
           </div>
         </section>
       </div>
+      {showLaunchDialog ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#060b16]/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-blue-400/35 bg-[#111a2e] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-blue-300">启动仿真</p>
+                <h2 className="mt-2 text-lg font-medium text-[#f0f4ff]">{translateScenarioName(activeScenario.name)}</h2>
+                <p className="mt-1 font-mono text-[10px] text-slate-400">{activeScenario.id}</p>
+              </div>
+              <button
+                type="button"
+                disabled={launching}
+                onClick={() => setShowLaunchDialog(false)}
+                className="rounded-md border border-white/[0.12] px-2 py-1 text-xs text-slate-400 transition hover:text-slate-100 disabled:opacity-40"
+              >
+                关闭
+              </button>
+            </div>
+
+            <label className="mt-5 block">
+              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">仿真轮数</span>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={simulationRounds}
+                disabled={launching}
+                onChange={(event) => setSimulationRounds(Number(event.target.value))}
+                className="mt-2 w-full rounded-xl border border-[#304060] bg-[#162340] px-4 py-3 font-mono text-lg text-[#f0f4ff] outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 disabled:opacity-50"
+              />
+            </label>
+
+            <div className="mt-4 grid grid-cols-3 gap-2 text-center font-mono text-[10px]">
+              <div className="rounded-lg border border-white/[0.1] bg-[#162340] p-2 text-slate-400">节点<br /><span className="text-slate-100">{activeScenario.stats.nodes}</span></div>
+              <div className="rounded-lg border border-white/[0.1] bg-[#162340] p-2 text-slate-400">连线<br /><span className="text-slate-100">{activeScenario.stats.edges}</span></div>
+              <div className="rounded-lg border border-white/[0.1] bg-[#162340] p-2 text-slate-400">漏洞<br /><span className="text-slate-100">{activeScenario.stats.vulnerabilities}</span></div>
+            </div>
+
+            {launching ? (
+              <div className="mt-4 rounded-xl border border-blue-400/25 bg-blue-500/[0.08] p-3">
+                <div className="h-1.5 overflow-hidden rounded-full bg-[#0c1220]">
+                  <div className="h-full w-1/2 animate-pulse rounded-full bg-gradient-to-r from-[#5b9fff] to-[#a78bfa]" />
+                </div>
+                <p className="mt-2 text-xs leading-5 text-blue-100">
+                  {stopping ? "正在强制结束，等待当前 LLM 请求返回后保存已完成回合..." : "仿真正在后台运行，完成后将自动载入并加入回放结果。"}
+                </p>
+              </div>
+            ) : null}
+
+            {launchError ? <p className="mt-3 text-xs leading-5 text-red-300">{launchError}</p> : null}
+
+            {launching ? (
+              <button
+                type="button"
+                disabled={stopping}
+                onClick={stopSimulation}
+                className="mt-5 w-full rounded-xl border border-red-400/55 bg-red-500/15 px-4 py-3 font-mono text-xs uppercase tracking-[0.14em] text-red-100 transition hover:bg-red-500/25 disabled:cursor-wait disabled:opacity-60"
+              >
+                {stopping ? "正在强制结束..." : "强制结束仿真"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={launchSimulation}
+                className="mt-5 w-full rounded-xl border border-blue-300/45 bg-gradient-to-r from-[#5b9fff] to-[#7c8fff] px-4 py-3 font-mono text-xs uppercase tracking-[0.14em] text-white transition hover:brightness-110"
+              >
+                确认启动 {simulationRounds} 轮仿真
+              </button>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

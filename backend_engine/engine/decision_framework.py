@@ -10,7 +10,7 @@ from typing import Any, Iterable, Literal
 from backend_engine.agents.llm_agent import LLMDecisionError
 from backend_engine.core.models import AgentDecision, SecurityAlert, WorldState
 from backend_engine.engine.protocol_library import build_blue_defense_rule, build_red_raw_command
-from backend_engine.engine.actions import ACTION_REGISTRY, ActionContext
+from backend_engine.engine.actions import ACTION_REGISTRY, STRICT_RED_INITIAL_ENTRY_TARGETS, ActionContext
 
 AgentType = Literal["Red", "Blue"]
 
@@ -26,6 +26,11 @@ CORE_DEFAULT = ("db",)
 PREVENTIVE_PATCH_INTERVAL = 2
 TIER0_PROACTIVE_LOCK_ROUNDS = 2
 RECENT_SELF_ISOLATE_RESTORE_WINDOW = 3
+BLUE_ACTIVE_THREAT_ACTIONS = {"RestoreNode", "DeepRestore", "Isolate"}
+BLUE_DEFER_WHILE_ACTIVE_THREAT = {"PatchNode", "PreventivePatch", "VulnerabilityScan"}
+RED_ENTRY_TARGETS = set(STRICT_RED_INITIAL_ENTRY_TARGETS)
+RED_FAILED_ENTRY_COOLDOWN_TURNS = 3
+RED_TARGET_FAILURE_SWITCH_THRESHOLD = 2
 
 ASSET_STRATEGIC_VALUE = {
     "db": 100,
@@ -743,6 +748,31 @@ class ActionSpaceBuilder:
                 "Recon": 18,
             }.get(action_type, 26)
 
+            usable_sources = {
+                node_name
+                for node_name, node in state.network_nodes.items()
+                if node.status not in {"Isolated", "Down"}
+                and (
+                    node.status == "Compromised"
+                    or node.red_state.session_active
+                    or node.red_state.foothold
+                )
+            }
+            needs_reentry = not usable_sources
+            if needs_reentry:
+                if action_type == "Recon":
+                    if target in RED_ENTRY_TARGETS and target not in state.red_recon_nodes:
+                        objective_progress += 24
+                    elif target not in RED_ENTRY_TARGETS:
+                        objective_progress -= 18
+                elif action_type == "ExploitService":
+                    if target in RED_ENTRY_TARGETS:
+                        objective_progress += 24
+                    elif target not in state.red_visible_nodes:
+                        objective_progress -= 14
+                elif action_type in {"LateralMove", "ExfiltrateDatabase"}:
+                    objective_progress -= 20
+
             if action_type == "Recon" and target in state.red_recon_nodes:
                 objective_progress -= 26
             if action_type == "ExploitService" and target and target in state.red_known_vulnerabilities:
@@ -779,6 +809,12 @@ class ActionSpaceBuilder:
             heuristic = expected_impact + progress_value * 0.20 - expected_risk
         else:
             blue_priority_stage = str(battle_state.get("blue_priority_stage", "P2"))
+            active_threat_targets = {
+                node_name
+                for node_name, node in state.network_nodes.items()
+                if _has_red_activity(node)
+            }
+            core_assets = set(_core_assets(state))
             base_impact = {
                 "DeepRestore": 72,
                 "RestoreNode": 68,
@@ -806,6 +842,19 @@ class ActionSpaceBuilder:
                 "Monitor": 12,
                 "VulnerabilityScan": 26,
             }.get(action_type, 10)
+
+            if active_threat_targets:
+                if target in active_threat_targets and action_type in BLUE_ACTIVE_THREAT_ACTIONS:
+                    base_impact += 30
+                    progress_value += 24
+                    base_risk = max(4, base_risk - 6)
+                elif action_type in BLUE_DEFER_WHILE_ACTIVE_THREAT and target not in active_threat_targets:
+                    if target in core_assets:
+                        base_impact -= 34
+                        progress_value -= 28
+                    else:
+                        base_impact -= 18
+                        progress_value -= 12
 
             if action_type == "DeepRestore":
                 has_anchor = bool(target and target in state.red_anchored_nodes)
@@ -956,7 +1005,13 @@ class LLMPlanner:
         if not candidates:
             raise LLMDecisionError("当前不存在可执行候选动作。")
 
-        limited_candidates = sorted(candidates, key=lambda row: row.heuristic_score, reverse=True)[: self.max_candidate_rows]
+        ranked_candidates = sorted(candidates, key=lambda row: row.heuristic_score, reverse=True)
+        ranked_candidates, decision_constraints = self._apply_prompt_guardrails(
+            agent_type=agent_type,
+            battle_state=battle_state,
+            ranked_candidates=ranked_candidates,
+        )
+        limited_candidates = ranked_candidates[: self.max_candidate_rows]
         candidate_rows = [row.as_prompt_row() for row in limited_candidates]
         candidate_ids = {row["candidate_id"] for row in candidate_rows}
         role_goal = (
@@ -970,7 +1025,8 @@ class LLMPlanner:
             "protocol_requirement": "必须选择自带 raw_command/defense_rule 的候选，不允许生成候选外命令。",
             "battle_state": battle_state,
             "opponent_model": opponent_model,
-            "recent_reflections": reflections[-2:],
+            "decision_constraints": decision_constraints,
+            "recent_reflections": reflections[-4:],
             "intel_package": intel_package or {},
             "context_markdown": context_markdown[: self.max_context_chars],
             "candidates": candidate_rows,
@@ -990,6 +1046,7 @@ class LLMPlanner:
             "候选中的 raw_command / defense_rule 来自真实攻防命令模板库，禁止改写或二次创造。\n"
             "输出必须是严格 JSON，且仅包含 output_schema 允许字段。\n"
             "思考保持中等长度，覆盖目标、风险、依据，避免空泛与过短。\n"
+            "decision_constraints 是硬约束；若存在 guardrail_mode，必须优先选择满足该约束的候选。\n"
             f"角色规则：\n{background_prompt}"
         )
         messages = [
@@ -1059,6 +1116,77 @@ class LLMPlanner:
                 time.sleep(0.3)
 
         raise LLMDecisionError(f"{agent_type} 候选决策失败：{last_error}")
+
+    def _apply_prompt_guardrails(
+        self,
+        *,
+        agent_type: AgentType,
+        battle_state: dict[str, Any],
+        ranked_candidates: list[CandidateAction],
+    ) -> tuple[list[CandidateAction], dict[str, Any]]:
+        if agent_type == "Blue":
+            active_targets = {
+                str(target)
+                for target in battle_state.get("controlled_nodes", [])
+                if isinstance(target, str) and target
+            }
+            priority_ids = {
+                row.candidate_id
+                for row in ranked_candidates
+                if row.decision.target in active_targets
+                and row.decision.action_type in BLUE_ACTIVE_THREAT_ACTIONS
+            }
+            if priority_ids:
+                filtered = [
+                    row
+                    for row in ranked_candidates
+                    if row.candidate_id in priority_ids
+                    or not (
+                        row.decision.action_type in BLUE_DEFER_WHILE_ACTIVE_THREAT
+                        and row.decision.target not in active_targets
+                    )
+                ]
+                if filtered:
+                    ranked_candidates = filtered
+                return ranked_candidates, {
+                    "guardrail_mode": "active_threat_cleanup",
+                    "must_prefer_targets": sorted(active_targets),
+                    "preferred_actions": sorted(BLUE_ACTIVE_THREAT_ACTIONS),
+                    "defer_actions": sorted(BLUE_DEFER_WHILE_ACTIVE_THREAT),
+                }
+
+        if agent_type == "Red":
+            usable_sources = {
+                str(target)
+                for target in battle_state.get("usable_controlled_nodes", [])
+                if isinstance(target, str) and target
+            }
+            entry_ids = {
+                row.candidate_id
+                for row in ranked_candidates
+                if row.decision.target in RED_ENTRY_TARGETS
+                and row.decision.action_type in {"Recon", "ExploitService"}
+            }
+            if not usable_sources and entry_ids:
+                filtered = [
+                    row
+                    for row in ranked_candidates
+                    if row.candidate_id in entry_ids
+                    or not (
+                        row.decision.action_type == "Recon"
+                        and row.decision.target not in RED_ENTRY_TARGETS
+                    )
+                ]
+                if filtered:
+                    ranked_candidates = filtered
+                return ranked_candidates, {
+                    "guardrail_mode": "reestablish_entry",
+                    "must_prefer_targets": sorted(RED_ENTRY_TARGETS),
+                    "preferred_actions": ["ExploitService", "Recon"],
+                    "rule": "No usable pivot exists; rebuild entry before internal probing.",
+                }
+
+        return ranked_candidates, {}
 
     def _recover_candidate_id(self, parsed: dict[str, Any], candidates: list[CandidateAction]) -> str:
         for field_name in ("top_candidates", "top3_candidates"):
@@ -1206,19 +1334,30 @@ class ReflectionEngine:
         else:
             adjustment = "策略有效，继续保持并防止重复。"
 
+        target = metadata.get("target")
+        target = target.strip() if isinstance(target, str) and target.strip() else None
+        decision_policy = self._build_decision_policy(
+            action_type=own_log.action_type,
+            target=target,
+            vuln_id=metadata.get("vuln_id"),
+            success=success,
+            score_awarded=score_awarded,
+        )
         self._records.append(
             {
                 "turn": state.turn,
+                "reflection_type": "outcome",
                 "expected": self._last_expected or {},
                 "actual": {
                     "action_type": own_log.action_type,
-                    "target": metadata.get("target"),
+                    "target": target,
                     "vuln_id": metadata.get("vuln_id"),
                     "score_awarded": score_awarded,
                     "effect": effect,
                     "success": success,
                 },
                 "adjustment": adjustment,
+                "decision_policy": decision_policy,
             }
         )
         self._records = self._records[-self.max_items :]
@@ -1226,6 +1365,106 @@ class ReflectionEngine:
 
     def recent(self, limit: int = 3) -> list[dict[str, Any]]:
         return self._records[-max(1, limit) :]
+
+    def active_policy(self) -> dict[str, Any]:
+        if not self._records:
+            return {}
+        policy = self._records[-1].get("decision_policy", {})
+        return policy if isinstance(policy, dict) else {}
+
+    def apply(self, candidates: list[CandidateAction]) -> list[CandidateAction]:
+        if not candidates:
+            return []
+        policy = self.active_policy()
+        if not policy:
+            return candidates
+
+        avoid_exact = {
+            (
+                row.get("action_type"),
+                row.get("target"),
+                row.get("vuln_id"),
+            )
+            for row in policy.get("avoid_exact", [])
+            if isinstance(row, dict)
+        }
+        avoid_action_types = set(policy.get("avoid_action_types", []))
+        prefer_action_types = set(policy.get("prefer_action_types", []))
+        prefer_targets = set(policy.get("prefer_targets", []))
+        require_change = bool(policy.get("require_change", False))
+        last_action_type = str(policy.get("last_action_type", "") or "")
+        last_target = policy.get("last_target")
+
+        filtered_candidates = []
+        for row in candidates:
+            decision = row.decision
+            exact_key = (decision.action_type, decision.target, decision.vuln_id)
+            repeats_without_variant = (
+                require_change
+                and decision.action_type == last_action_type
+                and decision.target == last_target
+                and not decision.vuln_id
+            )
+            if exact_key in avoid_exact or repeats_without_variant:
+                continue
+            filtered_candidates.append(row)
+        if filtered_candidates:
+            candidates = filtered_candidates
+
+        for row in candidates:
+            decision = row.decision
+            delta = 0.0
+            exact_key = (decision.action_type, decision.target, decision.vuln_id)
+            if exact_key in avoid_exact:
+                delta -= 50.0
+            if decision.action_type in avoid_action_types:
+                delta -= 28.0
+            if decision.action_type in prefer_action_types:
+                delta += 24.0
+            if decision.target in prefer_targets:
+                delta += 14.0
+            if require_change:
+                repeats_without_variant = (
+                    decision.action_type == last_action_type
+                    and decision.target == last_target
+                    and not decision.vuln_id
+                )
+                if repeats_without_variant:
+                    delta -= 26.0
+                elif decision.action_type != last_action_type or decision.target != last_target or decision.vuln_id:
+                    delta += 8.0
+            if abs(delta) >= 0.01:
+                row.heuristic_score += delta
+                row.reason = f"{row.reason}; outcome_reflection {delta:+.1f}"
+                if "outcome_reflection" not in row.tags:
+                    row.tags = (*row.tags, "outcome_reflection")
+
+        return sorted(candidates, key=lambda row: (row.heuristic_score, row.candidate_id), reverse=True)
+
+    def validate_decision(self, decision: AgentDecision) -> str | None:
+        policy = self.active_policy()
+        if not policy:
+            return None
+        avoid_exact = {
+            (
+                row.get("action_type"),
+                row.get("target"),
+                row.get("vuln_id"),
+            )
+            for row in policy.get("avoid_exact", [])
+            if isinstance(row, dict)
+        }
+        exact_key = (decision.action_type, decision.target, decision.vuln_id)
+        if exact_key in avoid_exact:
+            return "Reflection 要求避免重复上一轮无效动作。"
+        if (
+            policy.get("require_change")
+            and decision.action_type == policy.get("last_action_type")
+            and decision.target == policy.get("last_target")
+            and not decision.vuln_id
+        ):
+            return "Reflection 要求切换动作级别或目标。"
+        return None
 
     def failure_streak(self, *, limit: int = 4) -> int:
         streak = 0
@@ -1235,6 +1474,52 @@ class ReflectionEngine:
                 break
             streak += 1
         return streak
+
+    def _build_decision_policy(
+        self,
+        *,
+        action_type: str,
+        target: str | None,
+        vuln_id: Any,
+        success: bool,
+        score_awarded: int,
+    ) -> dict[str, Any]:
+        policy: dict[str, Any] = {
+            "last_action_type": action_type,
+            "last_target": target,
+            "avoid_exact": [],
+            "avoid_action_types": [],
+            "prefer_action_types": [],
+            "prefer_targets": [],
+            "require_change": False,
+        }
+        if not success or score_awarded <= 0:
+            policy["require_change"] = True
+            policy["avoid_exact"] = [
+                {
+                    "action_type": action_type,
+                    "target": target,
+                    "vuln_id": vuln_id if isinstance(vuln_id, str) else None,
+                }
+            ]
+
+        if action_type in {"Recon", "Monitor"} and score_awarded <= 0:
+            policy["avoid_action_types"] = [action_type]
+            policy["prefer_action_types"] = (
+                sorted(RED_OBJECTIVE_ACTIONS)
+                if self.self_agent_type == "Red"
+                else sorted(BLUE_RESPONSE_ACTIONS)
+            )
+        elif not success:
+            policy["prefer_action_types"] = (
+                ["Recon", "ExploitService", "LateralMove"]
+                if self.self_agent_type == "Red"
+                else ["RestoreNode", "DeepRestore", "Isolate", "PatchNode"]
+            )
+        elif target:
+            policy["prefer_targets"] = [target]
+
+        return policy
 
 
 class AntiStagnationController:
@@ -1263,6 +1548,8 @@ class AntiStagnationController:
         self._zero_score_streak = 0
         self._red_attacked_targets: set[str] = set()
         self._red_used_vuln_ids: set[str] = set()
+        self._red_target_failure_streaks: dict[str, int] = {}
+        self._red_entry_target_cooldowns: dict[str, int] = {}
         self._last_recon_target: str | None = None
         self._recon_same_target_streak = 0
         self._last_monitor_target: str | None = None
@@ -1323,6 +1610,20 @@ class AntiStagnationController:
                     vuln_id = metadata.get("vuln_id")
                     if isinstance(vuln_id, str) and vuln_id:
                         self._red_used_vuln_ids.add(vuln_id)
+                    success = score_awarded > 0 and str(metadata.get("referee_effect", "") or "").lower() not in {
+                        "blocked",
+                        "failed",
+                        "probability_failed",
+                        "rejected",
+                    }
+                    if success:
+                        self._red_target_failure_streaks.pop(target, None)
+                        self._red_entry_target_cooldowns.pop(target, None)
+                    else:
+                        streak = self._red_target_failure_streaks.get(target, 0) + 1
+                        self._red_target_failure_streaks[target] = streak
+                        if target in RED_ENTRY_TARGETS and streak >= RED_TARGET_FAILURE_SWITCH_THRESHOLD:
+                            self._red_entry_target_cooldowns[target] = int(state.turn) + RED_FAILED_ENTRY_COOLDOWN_TURNS
 
             if self.self_agent_type == "Blue":
                 if own_log.action_type == "Monitor":
@@ -1401,6 +1702,21 @@ class AntiStagnationController:
                 filtered = non_anchor
 
         if self.self_agent_type == "Red":
+            current_turn = int(state.turn)
+            cooling_entry_targets = {
+                target
+                for target, available_turn in self._red_entry_target_cooldowns.items()
+                if current_turn <= int(available_turn)
+            }
+            if cooling_entry_targets:
+                switched_path = [
+                    row
+                    for row in filtered
+                    if row.decision.target not in cooling_entry_targets
+                ]
+                if switched_path:
+                    filtered = switched_path
+
             has_active_control = any(
                 node.status == "Compromised"
                 or node.red_state.session_active
@@ -1413,6 +1729,16 @@ class AntiStagnationController:
                 if initial_access_rows:
                     # Once reconnaissance confirms a legal entry exploit, advance the kill chain.
                     filtered = initial_access_rows
+                elif cooling_entry_targets:
+                    alternate_entry_recon = [
+                        row
+                        for row in filtered
+                        if row.decision.action_type == "Recon"
+                        and row.decision.target in RED_ENTRY_TARGETS
+                        and row.decision.target not in cooling_entry_targets
+                    ]
+                    if alternate_entry_recon:
+                        filtered = alternate_entry_recon
 
             lateral_rows = [
                 row
@@ -1488,6 +1814,26 @@ class AntiStagnationController:
                 best_score = max(score for _, score in unused_vuln_rows)
                 filtered = [row for row, score in unused_vuln_rows if score == best_score]
 
+        if self.self_agent_type == "Red":
+            current_turn = int(state.turn)
+            cooling_entry_targets = {
+                target
+                for target, available_turn in self._red_entry_target_cooldowns.items()
+                if current_turn <= int(available_turn)
+            }
+            for row in filtered:
+                target = row.decision.target
+                delta = 0.0
+                if target in cooling_entry_targets:
+                    delta -= 60.0
+                elif cooling_entry_targets and target in RED_ENTRY_TARGETS:
+                    delta += 18.0
+                if delta:
+                    row.heuristic_score += delta
+                    row.reason = f"{row.reason}; failure_path_switch {delta:+.1f}"
+                    if "failure_path_switch" not in row.tags:
+                        row.tags = (*row.tags, "failure_path_switch")
+
         if self.self_agent_type == "Blue" and battle_state.get("blue_priority_stage") == "P0":
             prioritized = [row for row in filtered if row.decision.action_type in BLUE_RESPONSE_ACTIONS]
             if prioritized:
@@ -1542,8 +1888,11 @@ class FallbackPlanner:
 
         pressure_target = opponent_model.get("pressure_target")
         last_adjustment = ""
-        if reflections:
-            last_adjustment = str(reflections[-1].get("adjustment", ""))
+        for reflection in reversed(reflections):
+            adjustment = str(reflection.get("adjustment", "") or "")
+            if adjustment:
+                last_adjustment = adjustment
+                break
 
         def score(row: CandidateAction) -> tuple[float, str]:
             base = float(row.heuristic_score)
@@ -1578,6 +1927,16 @@ def build_battle_state(
         or node.red_state.session_active
         or node.red_state.foothold
         or node.red_state.persistence
+    )
+    usable_controlled_nodes = sorted(
+        node_name
+        for node_name, node in state.network_nodes.items()
+        if node.status not in {"Isolated", "Down"}
+        and (
+            node.status == "Compromised"
+            or node.red_state.session_active
+            or node.red_state.foothold
+        )
     )
     compromised_nodes = sorted(node_name for node_name, node in state.network_nodes.items() if node.status == "Compromised")
     down_nodes = sorted(node_name for node_name, node in state.network_nodes.items() if node.status == "Down")
@@ -1636,6 +1995,7 @@ def build_battle_state(
         "blue_score": state.blue_score,
         "compromised_nodes": compromised_nodes,
         "controlled_nodes": controlled_nodes,
+        "usable_controlled_nodes": usable_controlled_nodes,
         "compromised_perimeter_nodes": compromised_perimeter,
         "compromised_internal_nodes": compromised_internal,
         "down_nodes": down_nodes,

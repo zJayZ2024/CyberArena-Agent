@@ -248,9 +248,10 @@ function SvgGraph({ round, rounds, idx, hoveredNode, onHoverNode, toast }) {
   const [flowDetail, setFlowDetail] = useState(null);
   const graph = extractRoundGraph(round);
   const ws = graph.ws;
-  const turnNumber = Number.isFinite(Number(idx))
-    ? Number(idx)
-    : Number(round?.round ?? round?.turn ?? ws?.round ?? 0);
+  const roundTurn = Number(round?.round ?? round?.turn ?? ws?.round);
+  const turnNumber = Number.isFinite(roundTurn)
+    ? roundTurn
+    : Number(idx ?? 0);
   const allowTurnActions = Number.isFinite(turnNumber) ? turnNumber > 0 : true;
   const score = ws.score ?? { red: 0, blue: 0 };
   const totalRounds = (() => {

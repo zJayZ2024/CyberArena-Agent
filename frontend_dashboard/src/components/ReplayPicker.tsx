@@ -77,6 +77,20 @@ function normalizeReplayCatalog(payload: any): ReplayCatalogItem[] {
   return deduped.size ? Array.from(deduped.values()) : FALLBACK_REPLAYS;
 }
 
+function simulationReplayItems(payload: any): ReplayCatalogItem[] {
+  const rows = Array.isArray(payload?.simulations) ? payload.simulations : [];
+  return rows
+    .filter((item: any) => ["completed", "stopped"].includes(item?.status) && item?.replay_path)
+    .map((item: any) => ({
+      id: item.id,
+      name: item.name || `${item.scenario} · ${item.rounds} 回合仿真`,
+      summary: `${item.status === "stopped" ? "强制结束后保留的部分" : "前端启动的完整"}仿真回放。比分：红方 ${item.red_score ?? 0}，蓝方 ${item.blue_score ?? 0}。`,
+      path: item.replay_path,
+      rounds: item.rounds,
+      tags: ["动态仿真", item.scenario, `${item.rounds} 回合`],
+    }));
+}
+
 function ReplayPicker({ selectedReplayId, compact = false, onLoadReplay }: ReplayPickerProps) {
   const [catalog, setCatalog] = useState<ReplayCatalogItem[]>(FALLBACK_REPLAYS);
   const [localSelectedId, setLocalSelectedId] = useState(selectedReplayId ?? "visibility_fixed_10_rounds_final");
@@ -117,6 +131,29 @@ function ReplayPicker({ selectedReplayId, compact = false, onLoadReplay }: Repla
         setCatalog(FALLBACK_REPLAYS);
       });
 
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedReplayId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/simulations")
+      .then((response) => response.ok ? response.json() : { simulations: [] })
+      .then((payload) => {
+        if (cancelled) return;
+        const generated = simulationReplayItems(payload);
+        if (!generated.length) return;
+        setCatalog((current) => {
+          const merged = new Map<string, ReplayCatalogItem>();
+          [...generated, ...current].forEach((item) => merged.set(item.id, item));
+          return Array.from(merged.values());
+        });
+        if (selectedReplayId && generated.some((item) => item.id === selectedReplayId)) {
+          setLocalSelectedId(selectedReplayId);
+        }
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };

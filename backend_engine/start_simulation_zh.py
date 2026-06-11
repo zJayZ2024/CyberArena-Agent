@@ -8,6 +8,7 @@ import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Callable
 
 if __package__ is None or __package__ == "":
     sys.path.append(str(Path(__file__).resolve().parent.parent))
@@ -149,6 +150,7 @@ def run_simulation(
     output_lite_path: Path | None = None,
     continue_after_winner_locked: bool = True,
     heartbeat_seconds: float = 15.0,
+    should_stop: Callable[[], bool] | None = None,
 ) -> dict:
     simulation_started = time.monotonic()
     state = load_scenario(scenario_path)
@@ -167,7 +169,16 @@ def run_simulation(
     _progress(f"初始态势：{_state_summary(state)}")
     _progress("=" * 72)
 
+    stopped_early = False
+
+    def stop_requested() -> bool:
+        return bool(should_stop and should_stop())
+
     for round_index in range(1, rounds + 1):
+        if stop_requested():
+            stopped_early = True
+            _progress(f"\n收到停止请求，在第 {round_index} 回合开始前结束模拟。")
+            break
         round_started = time.monotonic()
         _progress(f"\n[回合 {round_index}/{rounds}] 开始")
         state = referee.prepare_state(state)
@@ -186,6 +197,10 @@ def run_simulation(
             _progress(f"[Simulation-ZH] RedAgent 决策异常，回退规则策略：{exc}")
             red_action = red_agent._fallback_decide(state)
         _progress(f"        红方完成 ({time.monotonic() - red_started:.1f}s)：{_decision_summary(red_action)}")
+        if stop_requested():
+            stopped_early = True
+            _progress("  收到停止请求，跳过蓝方决策与本回合结算。")
+            break
 
         blue_context = build_blue_context(blue_perceived_state, recent_logs)
         blue_started = time.monotonic()
@@ -203,6 +218,10 @@ def run_simulation(
             _progress(f"[Simulation-ZH] BlueAgent 决策异常，回退规则策略：{exc}")
             blue_action = blue_agent._fallback_decide(blue_perceived_state, recent_logs=recent_logs)
         _progress(f"        蓝方完成 ({time.monotonic() - blue_started:.1f}s)：{_decision_summary(blue_action)}")
+        if stop_requested():
+            stopped_early = True
+            _progress("  收到停止请求，跳过本回合裁判结算。")
+            break
 
         referee_started = time.monotonic()
         _progress("  [3/3] 正在进行裁判结算...")
@@ -224,7 +243,12 @@ def run_simulation(
         if state.winner_locked and not continue_after_winner_locked:
             break
 
-    if not state.winner_locked:
+    if stopped_early:
+        state.winner_locked = False
+        state.winner_side = None
+        state.winner_reason = f"用户强制结束仿真，已保留 {len(frames) - 1} 个完整回合。"
+        frames[-1] = state.model_dump(mode="json")
+    elif not state.winner_locked:
         executed_rounds = len(frames) - 1
         _resolve_timeout_outcome(state, executed_rounds=executed_rounds)
         frames[-1] = state.model_dump(mode="json")
@@ -233,6 +257,7 @@ def run_simulation(
         "scenario": scenario_path.stem,
         "total_rounds": len(frames) - 1,
         "frames": frames,
+        "stopped_early": stopped_early,
     }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

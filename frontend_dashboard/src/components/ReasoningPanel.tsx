@@ -77,6 +77,30 @@ function latestReflection(reflections: any) {
   return Array.isArray(reflections) && reflections.length ? reflections[reflections.length - 1] : null;
 }
 
+function policyRelation(policy: any, nextActionName: string, nextTarget: string, nextVulnId: string, hasNextRound: boolean) {
+  if (!hasNextRound) return "暂无下一回合动作";
+  if (!policy || Object.keys(policy).length === 0) return "本回合没有执行约束";
+  const avoided = Array.isArray(policy?.avoid_exact) ? policy.avoid_exact : [];
+  const repeatsAvoided = avoided.some((item: any) =>
+    item?.action_type === nextActionName
+    && item?.target === nextTarget
+    && (!item?.vuln_id || item?.vuln_id === nextVulnId)
+  );
+  const repeatsLast = policy?.require_change
+    && policy?.last_action_type === nextActionName
+    && policy?.last_target === nextTarget;
+  if (repeatsAvoided || repeatsLast) return `未遵循：重复 ${nextActionName || "动作"} → ${nextTarget || "无目标"}`;
+
+  const preferredActions = listOf(policy?.prefer_action_types);
+  const preferredTargets = listOf(policy?.prefer_targets);
+  const matchedAction = preferredActions.includes(nextActionName);
+  const matchedTarget = preferredTargets.includes(nextTarget);
+  if (matchedAction || matchedTarget || policy?.require_change) {
+    return `已遵循：${nextActionName || "动作"} → ${nextTarget || "无目标"}`;
+  }
+  return `无冲突：${nextActionName || "动作"} → ${nextTarget || "无目标"}`;
+}
+
 function Tags({ values, tone = "slate" }: { values: unknown; tone?: "slate" | "red" | "blue" | "violet" | "amber" | "emerald" }) {
   const items = listOf(values);
   const styles = {
@@ -266,18 +290,26 @@ function EmptyState({ text, compact = false }: { text: string; compact?: boolean
   return <div className={`rounded-xl border border-dashed border-white/[0.12] bg-[#162340]/60 text-center text-xs text-slate-500 ${compact ? "p-3" : "px-4 py-8"}`}>{text}</div>;
 }
 
-function ReflectionCard({ role, reflection, nextRound }: { role: "red" | "blue"; reflection: any; nextRound?: any }) {
+function ReflectionCard({ role, reflection, outcomeReflection, policy, nextRound }: { role: "red" | "blue"; reflection: any; outcomeReflection?: any; policy?: any; nextRound?: any }) {
   const isRed = role === "red";
-  const nextLog = findLog(nextRound, "red");
-  const nextAction = nextRound?.red_action ?? {};
+  const nextLog = findLog(nextRound, role);
+  const nextAction = isRed ? nextRound?.red_action ?? {} : nextRound?.blue_action ?? {};
   const nextTarget = targetOf(nextLog, nextAction);
   const nextActionName = actionOf(nextLog, nextAction);
+  const nextVulnId = nextLog?.metadata?.vuln_id || nextAction?.vuln_id || "";
   const targets = [...listOf(reflection?.prioritized_targets), ...listOf(reflection?.maintain), ...listOf(reflection?.next_goal)];
   const relation = !nextRound
     ? "暂无下一回合动作"
     : targets.some((item) => nextTarget && item.includes(nextTarget))
       ? `吻合：${nextActionName || "红方动作"} → ${nextTarget}`
       : `未直接命中：${nextActionName || "红方动作"} → ${nextTarget || "无目标"}`;
+  const executionRelation = policyRelation(policy, nextActionName, nextTarget, nextVulnId, Boolean(nextRound));
+  const policyTags = [
+    ...listOf(policy?.prefer_action_types).map((item) => `优先 ${item}`),
+    ...listOf(policy?.prefer_targets).map((item) => `目标 ${item}`),
+    ...listOf(policy?.avoid_action_types).map((item) => `避开 ${item}`),
+    ...(policy?.require_change ? ["必须切换动作或目标"] : []),
+  ];
   const border = isRed ? "border-red-400/30" : "border-blue-400/30";
   const accent = isRed ? "text-red-300" : "text-blue-300";
 
@@ -298,6 +330,9 @@ function ReflectionCard({ role, reflection, nextRound }: { role: "red" | "blue";
       </div>
       <div className="mt-3">
         <Field label="观察">{cleanText(reflection?.summary, 320)}</Field>
+        <Field label="行动复盘">{cleanText(outcomeReflection?.adjustment)}</Field>
+        <Field label="执行约束"><Tags values={policyTags} tone="violet" /></Field>
+        <Field label="下轮执行"><span className={executionRelation.startsWith("已遵循") ? "text-emerald-300" : executionRelation.startsWith("未遵循") ? "text-red-300" : "text-slate-300"}>{executionRelation}</span></Field>
         {isRed ? (
           <>
             <Field label="保留能力"><Tags values={reflection?.maintain} tone="red" /></Field>
@@ -337,6 +372,8 @@ function ReasoningPanel({ round, nextRound }: ReasoningPanelProps) {
   const agentMemory = refereeLog?.metadata?.agent_memory ?? {};
   const redReflection = latestReflection(agentMemory?.red?.recent_reflections);
   const blueReflection = latestReflection(agentMemory?.blue?.recent_reflections);
+  const redOutcomeReflection = latestReflection(agentMemory?.red?.outcome_reflections);
+  const blueOutcomeReflection = latestReflection(agentMemory?.blue?.outcome_reflections);
 
   useEffect(() => {
     setActiveStep(round?.__frame_phase === "start" ? "start" : "changes");
@@ -404,8 +441,8 @@ function ReasoningPanel({ round, nextRound }: ReasoningPanelProps) {
               <span className="font-mono text-[9px] text-slate-500">仅展示结构化反思</span>
             </div>
             <div className="space-y-3">
-              <ReflectionCard role="red" reflection={redReflection} nextRound={nextRound} />
-              <ReflectionCard role="blue" reflection={blueReflection} nextRound={nextRound} />
+              <ReflectionCard role="red" reflection={redReflection} outcomeReflection={redOutcomeReflection} policy={agentMemory?.red?.active_reflection_policy} nextRound={nextRound} />
+              <ReflectionCard role="blue" reflection={blueReflection} outcomeReflection={blueOutcomeReflection} policy={agentMemory?.blue?.active_reflection_policy} nextRound={nextRound} />
             </div>
           </div>
         </div>

@@ -9,6 +9,9 @@ AgentType = Literal["Red", "Blue"]
 
 RED_ATTACK_ACTIONS = {"ExploitService", "LateralMove", "ExfiltrateDatabase", "ReactivateFoothold"}
 BLUE_RESPONSE_ACTIONS = {"PatchNode", "RestoreNode", "DeepRestore", "Isolate"}
+BLUE_CLEANUP_ACTIONS = {"RestoreNode", "DeepRestore", "Isolate"}
+BLUE_DEFER_ACTIONS = {"PatchNode", "PreventivePatch", "VulnerabilityScan"}
+RED_ENTRY_TARGETS = {"fw", "web", "vpn"}
 
 
 def _metadata(log: Any) -> dict[str, Any]:
@@ -284,9 +287,12 @@ class AgentMemoryStore:
         red_log = next((log for log in state.action_logs if log.agent_type == "Red"), None)
         if red_log is not None:
             metadata = _metadata(red_log)
+            effect = _effect_from_log(red_log)
             if metadata.get("intercepted_by") or metadata.get("restore_interrupt") or _effect_from_log(red_log) in {"blocked", "exfiltration"}:
                 return True
             target = _target_from_log(red_log)
+            if effect in {"session", "compromise", "persistence"}:
+                return True
             if target in state.core_assets or red_log.action_type in {"ExfiltrateDatabase", "AnchorFoothold"}:
                 return True
         return False
@@ -298,27 +304,49 @@ class AgentMemoryStore:
             if isinstance(source, str) and source:
                 avoid_targets.append({"target": source, "reason": f"recently blocked by {row.get('blocked_by')}"})
 
-        footholds = sorted(self.red.footholds or self.red.active_sessions)
+        known_footholds = sorted(self.red.footholds or self.red.active_sessions)
+        usable_footholds = sorted(
+            node_name
+            for node_name in known_footholds
+            if node_name in state.network_nodes
+            and state.network_nodes[node_name].status not in {"Isolated", "Down"}
+            and (
+                state.network_nodes[node_name].status == "Compromised"
+                or state.network_nodes[node_name].red_state.session_active
+                or state.network_nodes[node_name].red_state.foothold
+            )
+        )
+        residual_footholds = [node_name for node_name in known_footholds if node_name not in usable_footholds]
+        known_entry_targets = sorted((set(self.red.discovered_nodes) | set(self.red.known_vulnerabilities)) & RED_ENTRY_TARGETS)
         high_value = sorted(self.red.high_value_clues, key=_asset_value, reverse=True)
         prioritized = []
-        for node_name in [*high_value, *footholds]:
+        priority_seed = [*high_value, *usable_footholds]
+        if not usable_footholds:
+            priority_seed = [*known_entry_targets, *high_value]
+        for node_name in priority_seed:
             if node_name not in prioritized:
                 prioritized.append(node_name)
 
         next_goal = "继续侦察并寻找首个可用入口"
-        if footholds and high_value:
-            next_goal = f"维护 {footholds[0]} 跳板，并向 {high_value[0]} 路径推进"
-        elif footholds:
-            next_goal = f"利用 {footholds[0]} 继续横向移动，优先寻找 app/db 路径"
+        if usable_footholds and high_value:
+            next_goal = f"维护 {usable_footholds[0]} 跳板，并向 {high_value[0]} 路径推进"
+        elif usable_footholds:
+            next_goal = f"利用 {usable_footholds[0]} 继续横向移动，优先寻找 app/db 路径"
+        elif known_entry_targets:
+            next_goal = f"当前跳板不可用，优先从 {known_entry_targets[0]} 重建入口"
+        strategy_shift = "避开近期被阻断路径，优先从稳定 foothold 推进。"
+        if not usable_footholds:
+            strategy_shift = "当前无可用跳板，先重建边界入口，再恢复多跳推进。"
 
         return {
             "turn": state.turn,
+            "reflection_type": "strategy",
             "agent_type": "Red",
-            "summary": f"已发现 {len(self.red.discovered_nodes)} 个节点，当前可用 foothold={footholds[:3]}。",
-            "strategy_shift": "避开近期被阻断路径，优先从稳定 foothold 推进。",
+            "summary": f"已发现 {len(self.red.discovered_nodes)} 个节点，当前可用 foothold={usable_footholds[:3]}，残留能力={residual_footholds[:3]}。",
+            "strategy_shift": strategy_shift,
             "prioritized_targets": prioritized[:5],
             "avoid": avoid_targets[-4:],
-            "maintain": footholds[:4],
+            "maintain": [*usable_footholds[:3], *residual_footholds[:2]],
             "next_goal": next_goal,
         }
 
@@ -327,6 +355,7 @@ class AgentMemoryStore:
         likely_path = [node for node, score in suspicious if score >= 0.3][:5]
         goals = sorted(self.blue.attacker_likely_goals, key=_asset_value, reverse=True)
         priority_defense = []
+        active_cleanup_targets: set[str] = set()
         for node, score in suspicious[:3]:
             if score < 0.35:
                 continue
@@ -341,6 +370,7 @@ class AgentMemoryStore:
                 )
             )
             if has_red_activity:
+                active_cleanup_targets.add(node)
                 priority_defense.append(
                     {"action": "RestoreNode", "target": node, "reason": "active red session/foothold requires cleanup"}
                 )
@@ -356,9 +386,37 @@ class AgentMemoryStore:
         recently_restored = {row.get("node") for row in self.blue.restored_nodes[-3:] if isinstance(row, dict)}
         for node in sorted(node for node in recently_restored if isinstance(node, str) and node):
             avoid.append({"action": "RestoreNode", "target": node, "reason": "recently restored; avoid low-value repetition"})
+        if active_cleanup_targets:
+            for core in state.core_assets:
+                core_state = state.network_nodes.get(core)
+                core_has_red_activity = bool(
+                    core_state
+                    and (
+                        core_state.status == "Compromised"
+                        or core_state.red_state.session_active
+                        or core_state.red_state.foothold
+                        or core_state.red_state.persistence
+                    )
+                )
+                if not core_has_red_activity:
+                    avoid.append(
+                        {
+                            "action": "PatchNode",
+                            "target": core,
+                            "reason": "defer core hardening until active vpn/web cleanup is resolved",
+                        }
+                    )
+                    avoid.append(
+                        {
+                            "action": "VulnerabilityScan",
+                            "target": core,
+                            "reason": "scan later; active attacker capability requires response first",
+                        }
+                    )
 
         return {
             "turn": state.turn,
+            "reflection_type": "strategy",
             "agent_type": "Blue",
             "summary": f"近期高风险节点：{[node for node, _ in suspicious[:4]]}。",
             "likely_attack_path": likely_path,
@@ -397,6 +455,7 @@ class StrategyBias:
             if isinstance(row, dict)
         }
         has_active_control = bool(self.memory.red.footholds or self.memory.red.active_sessions)
+        known_entry_targets = set(self.memory.red.known_vulnerabilities) & RED_ENTRY_TARGETS
 
         failed_pairs = {
             (row.get("target"), row.get("vuln_id"))
@@ -421,6 +480,11 @@ class StrategyBias:
                 delta -= 22.0
             if decision.action_type == "ExploitService" and decision.target in self.memory.red.known_vulnerabilities:
                 delta += 18.0
+            if known_entry_targets:
+                if decision.action_type == "ExploitService" and decision.target in known_entry_targets:
+                    delta += 24.0
+                elif decision.action_type == "Recon" and decision.target not in RED_ENTRY_TARGETS:
+                    delta -= 14.0
             if decision.action_type == "Recon" and has_active_control:
                 delta -= 10.0
             if decision.action_type in {"LateralMove", "ExfiltrateDatabase"} and self.memory.red.footholds:
@@ -432,15 +496,39 @@ class StrategyBias:
 
     def _apply_blue(self, candidates: list[Any]) -> list[Any]:
         latest = self.memory.recent_reflections(limit=1)
-        priority_targets = {
-            row.get("target")
+        priority_rows = [
+            row
             for row in (latest[-1].get("priority_defense", []) if latest else [])
             if isinstance(row, dict)
+        ]
+        priority_actions = {
+            (row.get("action"), row.get("target"))
+            for row in priority_rows
+            if row.get("action") and row.get("target")
+        }
+        priority_targets = {
+            row.get("target")
+            for row in priority_rows
+        }
+        cleanup_targets = {
+            target
+            for action, target in priority_actions
+            if action in BLUE_CLEANUP_ACTIONS and isinstance(target, str)
+        }
+        avoid_rows = [
+            row
+            for row in (latest[-1].get("avoid", []) if latest else [])
+            if isinstance(row, dict)
+        ]
+        avoid_actions = {
+            (row.get("action"), row.get("target"))
+            for row in avoid_rows
+            if row.get("action") and row.get("target")
         }
         avoid_restore = {
             row.get("target")
-            for row in (latest[-1].get("avoid", []) if latest else [])
-            if isinstance(row, dict) and row.get("action") == "RestoreNode"
+            for row in avoid_rows
+            if row.get("action") == "RestoreNode"
         }
 
         for row in candidates:
@@ -449,14 +537,20 @@ class StrategyBias:
             suspicious_score = self.memory.blue.suspicious_nodes.get(decision.target or "", 0.0)
             if suspicious_score:
                 delta += suspicious_score * 14.0
-            if decision.target in priority_targets and decision.action_type in BLUE_RESPONSE_ACTIONS | {"Monitor"}:
-                delta += 8.0
+            if (decision.action_type, decision.target) in priority_actions:
+                delta += 34.0
+            elif decision.target in priority_targets and decision.action_type in BLUE_RESPONSE_ACTIONS | {"Monitor"}:
+                delta += 14.0
+            if cleanup_targets and decision.action_type in BLUE_DEFER_ACTIONS and decision.target not in cleanup_targets:
+                delta -= 30.0
             if decision.action_type == "Isolate":
                 if suspicious_score < 0.65 and decision.target not in self.memory.blue.attacker_likely_goals:
                     delta -= 24.0
                 else:
                     delta += 8.0
             if decision.action_type == "RestoreNode" and decision.target in avoid_restore:
+                delta -= 24.0
+            if (decision.action_type, decision.target) in avoid_actions:
                 delta -= 24.0
             if decision.action_type == "Monitor" and decision.target in self.memory.blue.attacker_likely_goals:
                 delta += 4.0
