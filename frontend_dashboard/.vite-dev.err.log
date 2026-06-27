@@ -1,0 +1,30 @@
+[2m19:12:37[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/simulations[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:12:37[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/simulations[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:12:37[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/simulations[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:12:55[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/simulations[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:12:55[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/simulations[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:12:55[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/simulations[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:12:57[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/simulations[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:12:57[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/simulations[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:12:57[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/simulations[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:14:03[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/simulations[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
